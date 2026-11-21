@@ -195,7 +195,7 @@ Exact prefill levers (`overlay/inkling_prefill/`, all bit-identical to stock in 
 - A suspected stock failure of SGLang's `route_metadata` above ~2,370 routed ids (shared-memory limit) shows up in a
   standalone call but not in serving: cold prompts of 328-774 tokens all answer on the stock server.
 - Not adopted: chunk 16K (+2-3 % at 32K-128K, more activation memory), NVFP4 tile retune for prefill (<= 2 % of a
-  GEMM, all configs bit-identical), prefill CUDA graphs off / 4K and 32K chunks (screens queued; see results/screen).
+  GEMM, all configs bit-identical), prefill CUDA graphs off and 4K / 32K chunks were not screened (out of time).
 
 ## Final confirmation (both boxes)
 
