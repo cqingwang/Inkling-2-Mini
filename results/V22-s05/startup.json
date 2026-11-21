@@ -1,0 +1,2 @@
+{"label":"V22F-s05","ready_utc":"2026-11-21T22:36:45Z","startup_s":222,"memavail_ready_gib":18.5,"kv":"[2026-11-21 22:36:39 PID106] max_total_num_tokens=1213568, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=18.77 GB"}
+{"memavail_end_gib":17.4}

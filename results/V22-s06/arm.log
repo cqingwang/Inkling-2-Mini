@@ -1,0 +1,62 @@
+2026-11-21T22:46:49Z V22F-s06 mode warm
+V22F-s06-warm: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 57.09, "geomean_tok_s": 60.99, "aggregate_tok_s": 59.06, "median_ttft_ms": 164.5, "truncated_frac": 0.967, "reasoning_token_frac": 0.783, "reasoning_char_frac": 0.827, "median_step_ms": 38.43, "median_tokens_per_step": 2.224, "steps_source": "response", "median_accept_rate": 0.1748, "median_draft_per_step": 7.0}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": 0.179, "drift_pct_all": 0.179}}
+wrote /home/knapcio/inkling/r2/results/V22F-s06/warm-sbquick.json (1.6 min)
+2026-11-21T22:48:26Z V22F-s06 mode full
+== 2026-11-21T23:48:26+01:00 speedbench full
+V22F-s06: {"failed": 0, "valid_decode": 73, "ALL": {"n": 73, "median_tok_s": 59.93, "geomean_tok_s": 61.81, "aggregate_tok_s": 59.29, "median_ttft_ms": 161.7, "truncated_frac": 0.918, "reasoning_token_frac": 0.651, "reasoning_char_frac": 0.717, "median_step_ms": 38.8, "median_tokens_per_step": 2.383, "steps_source": "response", "median_accept_rate": 0.1976, "median_draft_per_step": 7.0}, "sentinel": {"n": 4, "identical_text": 4, "drift_pct_identical": 0.23, "drift_pct_all": 0.23}}
+wrote /home/knapcio/inkling/r2/results/V22F-s06/V22F-s06-speedbench.json (5.7 min)
+== 2026-11-21T23:54:06+01:00 decode table
+prose      c1  aggregate    50.2 tok/s  per-stream   51.0  ttft 0.165 s  failed 0
+prose      c2  aggregate    69.7 tok/s  per-stream   35.9  ttft 0.231 s  failed 0
+prose      c4  aggregate   107.0 tok/s  per-stream   27.9  ttft 0.301 s  failed 0
+prose      c8  aggregate   153.1 tok/s  per-stream   20.2  ttft 0.398 s  failed 0
+prose      c16 aggregate   230.0 tok/s  per-stream   15.4  ttft 0.544 s  failed 0
+code       c1  aggregate    62.8 tok/s  per-stream   60.1  ttft 0.195 s  failed 0
+code       c2  aggregate    83.5 tok/s  per-stream   43.4  ttft 0.245 s  failed 0
+code       c4  aggregate   120.7 tok/s  per-stream   35.0  ttft 0.321 s  failed 0
+code       c8  aggregate   171.1 tok/s  per-stream   23.6  ttft 0.344 s  failed 0
+code       c16 aggregate   257.1 tok/s  per-stream   18.3  ttft 0.488 s  failed 0
+structured c1  aggregate    66.5 tok/s  per-stream   67.5  ttft 0.192 s  failed 0
+structured c2  aggregate    90.2 tok/s  per-stream   47.2  ttft 0.253 s  failed 0
+structured c4  aggregate   120.5 tok/s  per-stream   33.5  ttft 0.305 s  failed 0
+structured c8  aggregate   170.9 tok/s  per-stream   23.6  ttft 0.455 s  failed 0
+structured c16 aggregate   256.8 tok/s  per-stream   17.5  ttft 0.58 s  failed 0
+json       c1  aggregate    60.1 tok/s  per-stream   59.9  ttft 0.169 s  failed 0
+json       c2  aggregate    84.8 tok/s  per-stream   45.8  ttft 0.239 s  failed 0
+json       c4  aggregate   123.4 tok/s  per-stream   32.1  ttft 0.259 s  failed 0
+json       c8  aggregate   177.8 tok/s  per-stream   24.3  ttft 0.48 s  failed 0
+json       c16 aggregate   267.9 tok/s  per-stream   18.7  ttft 0.422 s  failed 0
+wrote /home/knapcio/inkling/r2/results/V22F-s06/V22F-s06-decode.json
+| prompt type | c1 | c2 | c4 | c8 | c16 |
+|---|---:|---:|---:|---:|---:|
+| prose | 51.0 | 69.7 (35.9) | 107.0 (27.9) | 153.1 (20.2) | 230.0 (15.4) |
+| code | 60.1 | 83.5 (43.4) | 120.7 (35.0) | 171.1 (23.6) | 257.1 (18.3) |
+| structured | 67.5 | 90.2 (47.2) | 120.5 (33.5) | 170.9 (23.6) | 256.8 (17.5) |
+| json | 59.9 | 84.8 (45.8) | 123.4 (32.1) | 177.8 (24.3) | 267.9 (18.7) |
+== 2026-11-22T00:01:21+01:00 thinking load
+{"label": "V22F-s06-c1", "started": "2026-11-22T00:01:21+01:00", "concurrency": 1, "requests": 3, "failed": 0, "max_tokens": 2048, "temperature": 0.8, "effort": "high", "wall_s": 81.17, "completion_tokens": 5365, "aggregate_tok_s": 66.1, "per_request_decode_tok_s_median": 69.1, "ttft_median_s": 0.23, "length_finishes": 2}
+{"label": "V22F-s06-c8", "started": "2026-11-22T00:02:43+01:00", "concurrency": 8, "requests": 16, "failed": 0, "max_tokens": 4096, "temperature": 0.8, "effort": "high", "wall_s": 260.75, "completion_tokens": 58033, "aggregate_tok_s": 222.6, "per_request_decode_tok_s_median": 31.7, "ttft_median_s": 0.44, "length_finishes": 12}
+{"label": "V22F-s06-c24", "started": "2026-11-22T00:07:03+01:00", "concurrency": 24, "requests": 48, "failed": 0, "max_tokens": 4096, "temperature": 0.8, "effort": "high", "wall_s": 413.23, "completion_tokens": 170306, "aggregate_tok_s": 412.1, "per_request_decode_tok_s_median": 20.2, "ttft_median_s": 0.69, "length_finishes": 38}
+== 2026-11-22T00:13:57+01:00 longctx
+128K     130925.0 34.511     3793.7      17.388       None      42.3 [32.2, 55.6]        -         -
+wrote /home/knapcio/inkling/r2/results/V22F-s06/V22F-s06-longctx.json (3.3 min)
+== 2026-11-22T00:17:18+01:00 quality guard
+V22F-s06-guard: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 56.45, "geomean_tok_s": 60.02, "aggregate_tok_s": 58.24, "median_ttft_ms": 165.6, "truncated_frac": 0.967, "reasoning_token_frac": 0.782, "reasoning_char_frac": 0.826, "median_step_ms": 37.82, "median_tokens_per_step": 2.187, "steps_source": "stream"}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": -0.969, "drift_pct_all": -0.969}}
+V22F-s06-guard: quality guard 30/30 passed
+wrote /home/knapcio/inkling/r2/results/V22F-s06/V22F-s06-guard.json (2.2 min)
+== 2026-11-22T00:19:27+01:00 sanity
+chat: 17*23                  PASS  {"answer": "391", "completion_tokens": 44}
+chat: capital + river        PASS  {"answer": "The capital of Poland is Warsaw, which is crossed by the Vistula River."}
+effort none                  PASS  {"completion_tokens": 280, "reasoning_chars": 593, "prompt_tokens": 46, "answer": "count: (142 − 12) + (90 − 12) = 130 + 78 = 208.\n\nAnswer: 208"}
+effort low                   PASS  {"completion_tokens": 280, "reasoning_chars": 552, "prompt_tokens": 48, "answer": "y both but by one: (142−12)+(90−12)=130+78=208.\n\nAnswer: 208"}
+effort medium                PASS  {"completion_tokens": 275, "reasoning_chars": 514, "prompt_tokens": 48, "answer": "visible by exactly one: 142 + 90 − 2·12 = 208  \n\nAnswer: 208"}
+effort high                  PASS  {"completion_tokens": 292, "reasoning_chars": 573, "prompt_tokens": 48, "answer": "/77⌋ = 12  \n\nXOR count: 142 + 90 − 2·12 = 208  \n\nAnswer: 208"}
+effort: none <= high         PASS  {"lengths": {"none": 280, "low": 280, "medium": 275, "high": 292}}
+tool call                    PASS  {"finish": "tool_calls", "calls": [{"name": "get_weather", "arguments": "{\"city\": \"Krakow\", \"unit\": \"c\"}"}]}
+tool result -> answer        PASS  {"answer": "Right now in Krakow: 7°C with light rain."}
+json_schema output           PASS  {"parsed": {"city": "Gdańsk", "population_millions": 0.47, "landmarks": ["Main Market Square", "Long Market", "Westerplatte", "Gdańsk Maritime Museum"]}}
+needle 120K                  PASS  {"prompt_tokens": 120097, "seconds": 33.7, "expected": "MEADOW-FALCON-0347", "answer": "MEADOW-FALCON-0347"}
+11 / 11 passed
+needle 240K                  PASS  {"prompt_tokens": 240104, "seconds": 95.0, "expected": "WILLOW-FALCON-3624", "answer": "WILLOW-FALCON-3624"}
+1 / 1 passed
+== 2026-11-22T00:22:01+01:00 done

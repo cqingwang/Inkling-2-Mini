@@ -1,0 +1,614 @@
+KBRUN start 2026-11-21T20:42:51Z memavail=118GiB
+device NVIDIA GB10 sm_121 SMs=48 torch 2.14.1+cu130 flashinfer 0.7.4
+
+=== routed NVFP4 quantize: stock vs quant_once (warm, median us)
+  bs  4 (32 tokens): stock   13.4 us  quant_once   49.8 us -> x0.27  bit-identical (values, amax, w13 out): True
+  bs  8 (64 tokens): stock   19.6 us  quant_once   57.1 us -> x0.34  bit-identical (values, amax, w13 out): True
+  bs 16 (128 tokens): stock   33.2 us  quant_once   64.2 us -> x0.52  bit-identical (values, amax, w13 out): True
+  bs 24 (192 tokens): stock   45.4 us  quant_once   64.4 us -> x0.71  bit-identical (values, amax, w13 out): True
+
+=== nvfp4: weights ready in 5s (real=True)
+  nvfp4 bs 4 full: 6 steps done (17s)
+  nvfp4 bs 4 fullc: 6 steps done (23s)
+  nvfp4 bs 4 capc: 6 steps done (28s)
+  nvfp4 bs 8 full: 6 steps done (36s)
+  nvfp4 bs 8 fullc: 6 steps done (44s)
+  nvfp4 bs 8 capc: 6 steps done (50s)
+  nvfp4 bs 16 full: 6 steps done (59s)
+  nvfp4 bs 16 fullc: 6 steps done (68s)
+  nvfp4 bs 16 capc: 6 steps done (76s)
+  nvfp4 bs 24 full: 6 steps done (86s)
+  nvfp4 bs 24 fullc: 6 steps done (94s)
+  nvfp4 bs 24 capc: 6 steps done (103s)
+
+nvfp4 w13 bs 4 (32 tokens) capc: 6 steps, mean union 52.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4184.7    697.5  223.0   1.048  yes
+  swap_ab=1,tile_n=64,tile_k=256        4189.8    698.3  223.0   1.047  yes
+  swap_ab=0,tile_n=128,tile_k=256       4198.5    699.8  222.5   1.045  yes
+  swap_ab=1,tile_n=128,tile_k=256       4203.2    700.5  222.2   1.043  yes
+  swap_ab=0,tile_n=64,tile_k=256        4385.6    730.9  213.5   1.000  yes *ref
+  swap_ab=1,tile_n=32,tile_k=128        4516.1    752.7  206.6   0.971  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        4522.2    753.7  206.6   0.970  yes
+  swap_ab=0,tile_n=128,tile_k=128       4524.8    754.1  206.4   0.969  yes
+  swap_ab=1,tile_n=128,tile_k=128       4536.4    756.1  205.9   0.967  yes
+  swap_ab=0,tile_n=64,tile_k=128        4861.6    810.3  193.0   0.902  yes
+  swap_ab=0,tile_n=32,tile_k=128        6472.4   1078.7  144.2   0.678  yes
+  swap_ab=0,tile_n=32,tile_k=256        6628.3   1104.7  140.9   0.662  yes
+
+nvfp4 w2 bs 4 (32 tokens) capc: 6 steps, mean union 52.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        2113.0    352.2  221.1   1.000  yes *ref
+  swap_ab=1,tile_n=64,tile_k=256        2119.4    353.2  220.5   0.997  yes
+  swap_ab=1,tile_n=128,tile_k=256       2150.4    358.4  217.4   0.983  yes
+  swap_ab=0,tile_n=128,tile_k=256       2156.4    359.4  216.8   0.980  yes
+  swap_ab=1,tile_n=32,tile_k=128        2174.8    362.5  214.9   0.972  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        2191.2    365.2  213.3   0.964  yes
+  swap_ab=1,tile_n=128,tile_k=128       2202.9    367.2  212.1   0.959  yes
+  swap_ab=0,tile_n=128,tile_k=128       2215.8    369.3  210.9   0.954  yes
+  swap_ab=0,tile_n=64,tile_k=256        2375.0    395.8  197.3   0.890  yes
+  swap_ab=0,tile_n=64,tile_k=128        2428.7    404.8  193.1   0.870  yes
+  swap_ab=0,tile_n=32,tile_k=128        3454.4    575.7  135.1   0.612  yes
+  swap_ab=0,tile_n=32,tile_k=256        3985.0    664.2  117.0   0.530  yes
+
+nvfp4 w13 bs 4 (32 tokens) full: 6 steps, mean union 75.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        5995.9    999.3  226.0   1.037  yes
+  swap_ab=1,tile_n=64,tile_k=256        5997.8    999.6  226.0   1.036  yes
+  swap_ab=0,tile_n=128,tile_k=256       6031.2   1005.2  224.7   1.030  yes
+  swap_ab=1,tile_n=128,tile_k=256       6032.1   1005.4  224.7   1.030  yes
+  swap_ab=0,tile_n=64,tile_k=256        6215.1   1035.8  218.0   1.000  yes *ref
+  swap_ab=1,tile_n=32,tile_k=128        6452.3   1075.4  210.1   0.963  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        6472.6   1078.8  209.4   0.960  yes
+  swap_ab=0,tile_n=128,tile_k=128       6492.9   1082.2  208.8   0.957  yes
+  swap_ab=1,tile_n=128,tile_k=128       6495.2   1082.5  208.7   0.957  yes
+  swap_ab=0,tile_n=64,tile_k=128        6860.7   1143.5  197.5   0.906  yes
+  swap_ab=0,tile_n=32,tile_k=128        8662.2   1443.7  156.5   0.717  yes
+  swap_ab=0,tile_n=32,tile_k=256        8746.8   1457.8  155.0   0.711  yes
+
+nvfp4 w2 bs 4 (32 tokens) full: 6 steps, mean union 75.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        3023.9    504.0  224.1   1.000  yes *ref
+  swap_ab=1,tile_n=64,tile_k=256        3028.4    504.7  223.7   0.999  yes
+  swap_ab=0,tile_n=128,tile_k=256       3053.0    508.8  222.0   0.990  yes
+  swap_ab=1,tile_n=128,tile_k=256       3053.4    508.9  221.9   0.990  yes
+  swap_ab=1,tile_n=32,tile_k=128        3108.8    518.1  217.9   0.973  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        3125.7    520.9  216.8   0.967  yes
+  swap_ab=1,tile_n=128,tile_k=128       3149.6    524.9  215.1   0.960  yes
+  swap_ab=0,tile_n=128,tile_k=128       3156.3    526.0  214.7   0.958  yes
+  swap_ab=0,tile_n=64,tile_k=256        3348.6    558.1  202.2   0.903  yes
+  swap_ab=0,tile_n=64,tile_k=128        3420.9    570.2  198.0   0.884  yes
+  swap_ab=0,tile_n=32,tile_k=128        4807.0    801.2  141.5   0.629  yes
+  swap_ab=0,tile_n=32,tile_k=256        5705.6    950.9  118.9   0.530  yes
+
+nvfp4 w13 bs 4 (32 tokens) fullc: 6 steps, mean union 57.8, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4595.6    765.9  224.9   1.050  yes
+  swap_ab=1,tile_n=64,tile_k=256        4608.2    768.0  224.3   1.048  yes
+  swap_ab=0,tile_n=128,tile_k=256       4629.9    771.6  223.2   1.043  yes
+  swap_ab=1,tile_n=128,tile_k=256       4631.6    771.9  223.0   1.042  yes
+  swap_ab=0,tile_n=64,tile_k=256        4827.1    804.5  213.3   1.000  yes *ref
+  swap_ab=1,tile_n=32,tile_k=128        4972.8    828.8  207.9   0.971  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        4988.5    831.4  207.3   0.968  yes
+  swap_ab=0,tile_n=128,tile_k=128       5004.0    834.0  206.5   0.965  yes
+  swap_ab=1,tile_n=128,tile_k=128       5004.9    834.1  206.4   0.964  yes
+  swap_ab=0,tile_n=64,tile_k=128        5301.9    883.7  194.8   0.910  yes
+  swap_ab=0,tile_n=32,tile_k=128        7053.8   1175.6  145.0   0.684  yes
+  swap_ab=0,tile_n=32,tile_k=256        7131.5   1188.6  143.1   0.677  yes
+
+nvfp4 w2 bs 4 (32 tokens) fullc: 6 steps, mean union 57.8, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        2328.4    388.1  221.7   1.000  yes *ref
+  swap_ab=1,tile_n=64,tile_k=256        2335.2    389.2  221.0   0.997  yes
+  swap_ab=1,tile_n=128,tile_k=256       2360.1    393.4  218.5   0.987  yes
+  swap_ab=0,tile_n=128,tile_k=256       2371.6    395.3  217.3   0.982  yes
+  swap_ab=1,tile_n=32,tile_k=128        2391.2    398.5  215.7   0.974  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        2404.4    400.7  214.7   0.968  yes
+  swap_ab=1,tile_n=128,tile_k=128       2426.7    404.4  212.5   0.959  yes
+  swap_ab=0,tile_n=128,tile_k=128       2432.7    405.5  211.8   0.957  yes
+  swap_ab=0,tile_n=64,tile_k=256        2641.1    440.2  193.8   0.882  yes
+  swap_ab=0,tile_n=64,tile_k=128        2735.7    455.9  188.4   0.851  yes
+  swap_ab=0,tile_n=32,tile_k=128        3883.3    647.2  131.3   0.600  yes
+  swap_ab=0,tile_n=32,tile_k=256        4543.6    757.3  112.5   0.512  yes
+
+nvfp4 w13 bs 8 (64 tokens) capc: 6 steps, mean union 73.8, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        5869.5    978.3  225.3   1.060  yes
+  swap_ab=1,tile_n=64,tile_k=256        5892.9    982.2  224.4   1.056  yes
+  swap_ab=0,tile_n=128,tile_k=256       5915.0    985.8  223.5   1.052  yes
+  swap_ab=1,tile_n=128,tile_k=256       5920.1    986.7  223.4   1.051  yes
+  swap_ab=0,tile_n=64,tile_k=256        6220.7   1036.8  212.5   1.000  yes *ref
+  swap_ab=1,tile_n=32,tile_k=128        6366.0   1061.0  207.7   0.977  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        6401.0   1066.8  206.5   0.972  yes
+  swap_ab=1,tile_n=128,tile_k=128       6421.9   1070.3  205.8   0.969  yes
+  swap_ab=0,tile_n=128,tile_k=128       6439.6   1073.3  205.2   0.966  yes
+  swap_ab=0,tile_n=64,tile_k=128        6901.7   1150.3  191.4   0.901  yes
+  swap_ab=0,tile_n=32,tile_k=128        8510.2   1418.4  155.4   0.731  yes
+  swap_ab=0,tile_n=32,tile_k=256        8594.2   1432.4  153.8   0.724  yes
+
+nvfp4 w2 bs 8 (64 tokens) capc: 6 steps, mean union 73.8, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        2973.6    495.6  222.3   1.000  yes *ref
+  swap_ab=1,tile_n=64,tile_k=256        2982.3    497.0  221.7   0.997  yes
+  swap_ab=0,tile_n=128,tile_k=256       3006.3    501.0  219.8   0.989  yes
+  swap_ab=1,tile_n=128,tile_k=256       3008.7    501.4  219.7   0.988  yes
+  swap_ab=1,tile_n=32,tile_k=128        3078.4    513.1  214.7   0.966  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        3108.8    518.1  212.6   0.957  yes
+  swap_ab=1,tile_n=128,tile_k=128       3125.7    520.9  211.4   0.951  yes
+  swap_ab=0,tile_n=128,tile_k=128       3128.0    521.3  211.3   0.951  yes
+  swap_ab=0,tile_n=64,tile_k=256        3186.9    531.2  207.5   0.933  yes
+  swap_ab=0,tile_n=64,tile_k=128        3413.4    568.9  194.0   0.871  yes
+  swap_ab=0,tile_n=32,tile_k=128        4512.2    752.0  146.4   0.659  yes
+  swap_ab=0,tile_n=32,tile_k=256        5271.5    878.6  125.4   0.564  yes
+
+nvfp4 w13 bs 8 (64 tokens) full: 6 steps, mean union 99.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        7888.0   1314.7  226.3   1.035  yes
+  swap_ab=1,tile_n=64,tile_k=256        7904.8   1317.5  225.8   1.033  yes
+  swap_ab=0,tile_n=128,tile_k=256       7940.8   1323.5  224.8   1.028  yes
+  swap_ab=1,tile_n=128,tile_k=256       7970.7   1328.5  224.0   1.024  yes
+  swap_ab=0,tile_n=64,tile_k=256        8162.2   1360.4  218.6   1.000  yes *ref
+  swap_ab=1,tile_n=32,tile_k=128        8557.6   1426.3  208.6   0.954  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        8578.7   1429.8  208.1   0.951  yes
+  swap_ab=1,tile_n=128,tile_k=128       8603.3   1433.9  207.5   0.949  yes
+  swap_ab=0,tile_n=128,tile_k=128       8614.9   1435.8  207.2   0.947  yes
+  swap_ab=0,tile_n=64,tile_k=128        9149.5   1524.9  195.0   0.892  yes
+  swap_ab=0,tile_n=32,tile_k=256       10812.2   1802.0  164.8   0.755  yes
+  swap_ab=0,tile_n=32,tile_k=128       10823.7   1803.9  164.6   0.754  yes
+
+nvfp4 w2 bs 8 (64 tokens) full: 6 steps, mean union 99.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4003.2    667.2  222.9   1.000  yes *ref
+  swap_ab=1,tile_n=64,tile_k=256        4003.3    667.2  222.9   1.000  yes
+  swap_ab=0,tile_n=128,tile_k=256       4025.3    670.9  221.7   0.995  yes
+  swap_ab=1,tile_n=128,tile_k=256       4032.8    672.1  221.2   0.993  yes
+  swap_ab=1,tile_n=32,tile_k=128        4120.3    686.7  216.6   0.972  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        4153.7    692.3  214.8   0.964  yes
+  swap_ab=0,tile_n=128,tile_k=128       4179.6    696.6  213.5   0.958  yes
+  swap_ab=1,tile_n=128,tile_k=128       4183.2    697.2  213.3   0.957  yes
+  swap_ab=0,tile_n=64,tile_k=256        4318.0    719.7  206.7   0.927  yes
+  swap_ab=0,tile_n=64,tile_k=128        4605.7    767.6  193.9   0.869  yes
+  swap_ab=0,tile_n=32,tile_k=128        5875.4    979.2  151.7   0.681  yes
+  swap_ab=0,tile_n=32,tile_k=256        6835.5   1139.2  130.5   0.586  yes
+
+nvfp4 w13 bs 8 (64 tokens) fullc: 6 steps, mean union 91.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        7225.5   1204.3  226.5   1.039  yes
+  swap_ab=1,tile_n=64,tile_k=256        7247.0   1207.8  225.8   1.036  yes
+  swap_ab=1,tile_n=128,tile_k=256       7295.3   1215.9  224.3   1.029  yes
+  swap_ab=0,tile_n=128,tile_k=256       7396.1   1232.7  221.5   1.015  yes
+  swap_ab=0,tile_n=64,tile_k=256        7507.8   1251.3  217.9   1.000  yes *ref
+  swap_ab=1,tile_n=32,tile_k=128        7852.9   1308.8  208.3   0.956  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        7862.5   1310.4  208.1   0.955  yes
+  swap_ab=0,tile_n=128,tile_k=128       7896.3   1316.0  207.2   0.951  yes
+  swap_ab=1,tile_n=128,tile_k=128       7904.0   1317.3  207.0   0.950  yes
+  swap_ab=0,tile_n=64,tile_k=128        8269.5   1378.3  197.8   0.908  yes
+  swap_ab=0,tile_n=32,tile_k=128       10247.4   1707.9  159.7   0.733  yes
+  swap_ab=0,tile_n=32,tile_k=256       10341.4   1723.6  158.1   0.726  yes
+
+nvfp4 w2 bs 8 (64 tokens) fullc: 6 steps, mean union 91.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=64,tile_k=256        3660.1    610.0  223.5   1.000  yes
+  swap_ab=1,tile_n=32,tile_k=256        3661.9    610.3  223.4   1.000  yes *ref
+  swap_ab=1,tile_n=128,tile_k=256       3684.7    614.1  222.0   0.994  yes
+  swap_ab=0,tile_n=128,tile_k=256       3685.6    614.3  221.9   0.994  yes
+  swap_ab=1,tile_n=32,tile_k=128        3796.6    632.8  215.5   0.965  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128        3806.4    634.4  214.9   0.962  yes
+  swap_ab=1,tile_n=128,tile_k=128       3833.2    638.9  213.4   0.955  yes
+  swap_ab=0,tile_n=128,tile_k=128       3835.8    639.3  213.2   0.955  yes
+  swap_ab=0,tile_n=64,tile_k=256        3973.8    662.3  206.0   0.922  yes
+  swap_ab=0,tile_n=64,tile_k=128        4171.0    695.2  196.1   0.878  yes
+  swap_ab=0,tile_n=32,tile_k=128        5424.0    904.0  150.9   0.675  yes
+  swap_ab=0,tile_n=32,tile_k=256        6268.8   1044.8  130.4   0.584  yes
+
+nvfp4 w13 bs 16 (128 tokens) capc: 6 steps, mean union 103.0, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        8236.1   1372.7  224.0   1.088  yes
+  swap_ab=1,tile_n=64,tile_k=256        8268.1   1378.0  223.1   1.084  yes
+  swap_ab=0,tile_n=128,tile_k=256       8332.2   1388.7  221.4   1.076  yes
+  swap_ab=1,tile_n=128,tile_k=256       8334.4   1389.1  221.3   1.075  yes
+  swap_ab=0,tile_n=64,tile_k=256        8578.6   1429.8  214.9   1.045  yes
+  swap_ab=1,tile_n=32,tile_k=128        8961.7   1493.6  205.8   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=128        8988.1   1498.0  205.2   0.997  yes
+  swap_ab=1,tile_n=128,tile_k=128       9022.3   1503.7  204.4   0.993  yes
+  swap_ab=0,tile_n=128,tile_k=128       9123.4   1520.6  202.0   0.982  yes
+  swap_ab=0,tile_n=64,tile_k=128        9489.0   1581.5  194.3   0.944  yes
+  swap_ab=0,tile_n=32,tile_k=256       11028.1   1838.0  167.0   0.813  yes
+  swap_ab=0,tile_n=32,tile_k=128       11209.2   1868.2  164.3   0.799  yes
+
+nvfp4 w2 bs 16 (128 tokens) capc: 6 steps, mean union 103.0, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4198.9    699.8  219.6   1.032  yes
+  swap_ab=1,tile_n=64,tile_k=256        4205.5    700.9  219.3   1.031  yes
+  swap_ab=0,tile_n=128,tile_k=256       4229.2    704.9  218.1   1.025  yes
+  swap_ab=1,tile_n=128,tile_k=256       4246.6    707.8  217.2   1.021  yes
+  swap_ab=1,tile_n=32,tile_k=128        4334.8    722.5  212.7   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=128        4367.1    727.9  211.1   0.993  yes
+  swap_ab=1,tile_n=128,tile_k=128       4396.0    732.7  209.8   0.986  yes
+  swap_ab=0,tile_n=128,tile_k=128       4400.2    733.4  209.6   0.985  yes
+  swap_ab=0,tile_n=64,tile_k=256        4442.7    740.5  207.4   0.976  yes
+  swap_ab=0,tile_n=64,tile_k=128        4722.2    787.0  195.1   0.918  yes
+  swap_ab=0,tile_n=32,tile_k=128        5822.7    970.5  158.2   0.744  yes
+  swap_ab=0,tile_n=32,tile_k=256        6665.8   1111.0  138.2   0.650  yes
+
+nvfp4 w13 bs 16 (128 tokens) full: 6 steps, mean union 114.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        9111.4   1518.6  224.5   1.092  yes
+  swap_ab=1,tile_n=64,tile_k=256        9140.1   1523.4  223.8   1.089  yes
+  swap_ab=1,tile_n=128,tile_k=256       9186.0   1531.0  222.6   1.083  yes
+  swap_ab=0,tile_n=128,tile_k=256       9191.5   1531.9  222.5   1.082  yes
+  swap_ab=0,tile_n=64,tile_k=256        9415.6   1569.3  217.2   1.057  yes
+  swap_ab=1,tile_n=64,tile_k=128        9923.6   1653.9  206.1   1.003  yes
+  swap_ab=1,tile_n=32,tile_k=128        9949.8   1658.3  205.6   1.000  yes *ref *stock
+  swap_ab=1,tile_n=128,tile_k=128       9966.7   1661.1  205.2   0.998  yes
+  swap_ab=0,tile_n=128,tile_k=128      10001.0   1666.8  204.5   0.995  yes
+  swap_ab=0,tile_n=64,tile_k=128       10341.1   1723.5  197.7   0.962  yes
+  swap_ab=0,tile_n=32,tile_k=256       12055.8   2009.3  169.6   0.825  yes
+  swap_ab=0,tile_n=32,tile_k=128       12306.8   2051.1  166.2   0.808  yes
+
+nvfp4 w2 bs 16 (128 tokens) full: 6 steps, mean union 114.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4638.0    773.0  220.5   1.033  yes
+  swap_ab=1,tile_n=64,tile_k=256        4639.1    773.2  220.4   1.033  yes
+  swap_ab=0,tile_n=128,tile_k=256       4662.8    777.1  219.3   1.028  yes
+  swap_ab=1,tile_n=128,tile_k=256       4666.4    777.7  219.1   1.027  yes
+  swap_ab=1,tile_n=32,tile_k=128        4792.8    798.8  213.4   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=128        4824.9    804.2  211.9   0.993  yes
+  swap_ab=0,tile_n=128,tile_k=128       4838.4    806.4  211.3   0.991  yes
+  swap_ab=1,tile_n=128,tile_k=128       4842.4    807.1  211.2   0.990  yes
+  swap_ab=0,tile_n=64,tile_k=256        4899.9    816.6  208.7   0.978  yes
+  swap_ab=0,tile_n=64,tile_k=128        5186.1    864.4  197.2   0.924  yes
+  swap_ab=0,tile_n=32,tile_k=128        6378.8   1063.1  160.4   0.751  yes
+  swap_ab=0,tile_n=32,tile_k=256        7202.6   1200.4  142.0   0.665  yes
+
+nvfp4 w13 bs 16 (128 tokens) fullc: 6 steps, mean union 111.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        8945.6   1490.9  223.6   1.085  yes
+  swap_ab=1,tile_n=64,tile_k=256        8946.6   1491.1  223.5   1.084  yes
+  swap_ab=1,tile_n=128,tile_k=256       8996.2   1499.4  222.3   1.078  yes
+  swap_ab=0,tile_n=128,tile_k=256       9001.0   1500.2  222.2   1.078  yes
+  swap_ab=0,tile_n=64,tile_k=256        9200.4   1533.4  217.3   1.055  yes
+  swap_ab=1,tile_n=32,tile_k=128        9701.8   1617.0  206.2   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=128        9725.0   1620.8  205.7   0.998  yes
+  swap_ab=1,tile_n=128,tile_k=128       9749.1   1624.9  205.2   0.995  yes
+  swap_ab=0,tile_n=128,tile_k=128       9763.7   1627.3  204.8   0.994  yes
+  swap_ab=0,tile_n=64,tile_k=128       10172.5   1695.4  196.5   0.954  yes
+  swap_ab=0,tile_n=32,tile_k=256       11758.0   1959.7  169.9   0.825  yes
+  swap_ab=0,tile_n=32,tile_k=128       11968.8   1994.8  167.2   0.811  yes
+
+nvfp4 w2 bs 16 (128 tokens) fullc: 6 steps, mean union 111.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4543.2    757.2  220.1   1.034  yes
+  swap_ab=1,tile_n=64,tile_k=256        4550.3    758.4  219.7   1.032  yes
+  swap_ab=1,tile_n=128,tile_k=256       4572.4    762.1  218.6   1.027  yes
+  swap_ab=0,tile_n=128,tile_k=256       4584.5    764.1  218.1   1.025  yes
+  swap_ab=1,tile_n=32,tile_k=128        4696.9    782.8  212.9   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=128        4728.8    788.1  211.4   0.993  yes
+  swap_ab=1,tile_n=128,tile_k=128       4752.7    792.1  210.4   0.988  yes
+  swap_ab=0,tile_n=128,tile_k=128       4765.8    794.3  209.8   0.986  yes
+  swap_ab=0,tile_n=64,tile_k=256        4783.6    797.3  209.0   0.982  yes
+  swap_ab=0,tile_n=64,tile_k=128        5104.5    850.7  195.9   0.920  yes
+  swap_ab=0,tile_n=32,tile_k=128        6265.9   1044.3  159.5   0.750  yes
+  swap_ab=0,tile_n=32,tile_k=256        7065.7   1177.6  141.5   0.665  yes
+
+nvfp4 w13 bs 24 (192 tokens) capc: 6 steps, mean union 104.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        8460.6   1410.1  221.6   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=256        8502.6   1417.1  220.5   0.995  yes
+  swap_ab=0,tile_n=128,tile_k=256       8542.2   1423.7  219.5   0.990  yes
+  swap_ab=1,tile_n=128,tile_k=256       8544.9   1424.1  219.4   0.990  yes
+  swap_ab=0,tile_n=64,tile_k=256        8754.2   1459.0  214.3   0.966  yes
+  swap_ab=1,tile_n=32,tile_k=128        9192.3   1532.1  204.0   0.920  yes
+  swap_ab=1,tile_n=64,tile_k=128        9230.3   1538.4  203.1   0.917  yes
+  swap_ab=1,tile_n=128,tile_k=128       9269.4   1544.9  202.3   0.913  yes
+  swap_ab=0,tile_n=128,tile_k=128       9274.1   1545.7  202.2   0.912  yes
+  swap_ab=0,tile_n=64,tile_k=128        9586.2   1597.7  195.7   0.883  yes
+  swap_ab=0,tile_n=32,tile_k=256       11159.2   1859.9  168.2   0.758  yes
+  swap_ab=0,tile_n=32,tile_k=128       11382.8   1897.1  164.9   0.743  yes
+
+nvfp4 w2 bs 24 (192 tokens) capc: 6 steps, mean union 104.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4348.1    724.7  215.6   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=256        4357.0    726.2  215.2   0.998  yes
+  swap_ab=0,tile_n=128,tile_k=256       4382.8    730.5  213.9   0.992  yes
+  swap_ab=1,tile_n=128,tile_k=256       4391.2    731.9  213.5   0.990  yes
+  swap_ab=1,tile_n=32,tile_k=128        4480.6    746.8  209.2   0.970  yes
+  swap_ab=1,tile_n=64,tile_k=128        4507.1    751.2  208.0   0.965  yes
+  swap_ab=1,tile_n=128,tile_k=128       4537.4    756.2  206.6   0.958  yes
+  swap_ab=0,tile_n=128,tile_k=128       4542.7    757.1  206.4   0.957  yes
+  swap_ab=0,tile_n=64,tile_k=256        4554.5    759.1  206.0   0.955  yes
+  swap_ab=0,tile_n=64,tile_k=128        4830.7    805.1  194.1   0.900  yes
+  swap_ab=0,tile_n=32,tile_k=128        5888.1    981.3  159.4   0.738  yes
+  swap_ab=0,tile_n=32,tile_k=256        6594.2   1099.0  142.4   0.659  yes
+
+nvfp4 w13 bs 24 (192 tokens) full: 6 steps, mean union 118.5, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        9563.0   1593.8  222.0   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=256        9595.7   1599.3  221.2   0.997  yes
+  swap_ab=1,tile_n=128,tile_k=256       9644.3   1607.4  220.1   0.992  yes
+  swap_ab=0,tile_n=128,tile_k=256       9645.8   1607.6  220.1   0.991  yes
+  swap_ab=0,tile_n=64,tile_k=256        9791.2   1631.9  216.8   0.977  yes
+  swap_ab=1,tile_n=32,tile_k=128       10400.1   1733.3  204.1   0.920  yes
+  swap_ab=1,tile_n=64,tile_k=128       10406.0   1734.3  204.0   0.919  yes
+  swap_ab=1,tile_n=128,tile_k=128      10441.6   1740.3  203.3   0.916  yes
+  swap_ab=0,tile_n=128,tile_k=128      10445.7   1740.9  203.2   0.915  yes
+  swap_ab=0,tile_n=64,tile_k=128       10707.1   1784.5  198.3   0.893  yes
+  swap_ab=0,tile_n=32,tile_k=256       12254.7   2042.4  173.3   0.780  yes
+  swap_ab=0,tile_n=32,tile_k=128       12869.5   2144.9  165.1   0.743  yes
+
+nvfp4 w2 bs 24 (192 tokens) full: 6 steps, mean union 118.5, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        4897.9    816.3  216.8   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=256        4912.9    818.8  216.1   0.997  yes
+  swap_ab=0,tile_n=128,tile_k=256       4934.0    822.3  215.1   0.993  yes
+  swap_ab=1,tile_n=128,tile_k=256       4936.0    822.7  215.0   0.992  yes
+  swap_ab=1,tile_n=32,tile_k=128        5039.1    839.8  210.6   0.972  yes
+  swap_ab=1,tile_n=64,tile_k=128        5087.3    847.9  208.7   0.963  yes
+  swap_ab=1,tile_n=128,tile_k=128       5101.8    850.3  208.1   0.960  yes
+  swap_ab=0,tile_n=128,tile_k=128       5105.7    851.0  207.9   0.959  yes
+  swap_ab=0,tile_n=64,tile_k=256        5119.0    853.2  207.4   0.957  yes
+  swap_ab=0,tile_n=64,tile_k=128        5408.7    901.5  196.3   0.906  yes
+  swap_ab=0,tile_n=32,tile_k=128        6682.1   1113.7  158.9   0.733  yes
+  swap_ab=0,tile_n=32,tile_k=256        7426.9   1237.8  143.1   0.659  yes
+
+nvfp4 w13 bs 24 (192 tokens) fullc: 6 steps, mean union 108.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=32,tile_k=256        8758.2   1459.7  221.6   1.000  yes *ref *stock
+  swap_ab=1,tile_n=64,tile_k=256        8807.9   1468.0  220.3   0.994  yes
+  swap_ab=1,tile_n=128,tile_k=256       8827.7   1471.3  219.9   0.992  yes
+  swap_ab=0,tile_n=128,tile_k=256       8836.7   1472.8  219.6   0.991  yes
+  swap_ab=0,tile_n=64,tile_k=256        9039.3   1506.5  214.7   0.969  yes
+  swap_ab=1,tile_n=32,tile_k=128        9526.2   1587.7  203.7   0.919  yes
+  swap_ab=1,tile_n=64,tile_k=128        9543.7   1590.6  203.4   0.918  yes
+  swap_ab=1,tile_n=128,tile_k=128       9586.0   1597.7  202.5   0.914  yes
+  swap_ab=0,tile_n=128,tile_k=128       9589.2   1598.2  202.4   0.913  yes
+  swap_ab=0,tile_n=64,tile_k=128        9911.1   1651.9  195.8   0.884  yes
+  swap_ab=0,tile_n=32,tile_k=256       11408.8   1901.5  170.2   0.768  yes
+  swap_ab=0,tile_n=32,tile_k=128       11858.7   1976.5  163.7   0.739  yes
+
+nvfp4 w2 bs 24 (192 tokens) fullc: 6 steps, mean union 108.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  swap_ab=1,tile_n=64,tile_k=256        4499.5    749.9  215.7   1.000  yes
+  swap_ab=1,tile_n=32,tile_k=256        4500.0    750.0  215.7   1.000  yes *ref *stock
+  swap_ab=1,tile_n=128,tile_k=256       4527.9    754.6  214.3   0.994  yes
+  swap_ab=0,tile_n=128,tile_k=256       4529.1    754.8  214.3   0.994  yes
+  swap_ab=1,tile_n=32,tile_k=128        4632.6    772.1  209.5   0.971  yes
+  swap_ab=1,tile_n=64,tile_k=128        4661.3    776.9  208.2   0.965  yes
+  swap_ab=1,tile_n=128,tile_k=128       4686.4    781.1  207.1   0.960  yes
+  swap_ab=0,tile_n=128,tile_k=128       4691.9    782.0  206.8   0.959  yes
+  swap_ab=0,tile_n=64,tile_k=256        4758.2    793.0  203.9   0.946  yes
+  swap_ab=0,tile_n=64,tile_k=128        5018.4    836.4  193.4   0.897  yes
+  swap_ab=0,tile_n=32,tile_k=128        6281.9   1047.0  154.5   0.716  yes
+  swap_ab=0,tile_n=32,tile_k=256        6861.5   1143.6  141.5   0.656  yes
+
+=== mxfp8: weights ready in 9s (real=True)
+  mxfp8 bs 4 full: 6 steps done (13s)
+  mxfp8 bs 4 fullc: 6 steps done (17s)
+  mxfp8 bs 4 capc: 6 steps done (21s)
+  mxfp8 bs 8 full: 6 steps done (27s)
+  mxfp8 bs 8 fullc: 6 steps done (32s)
+  mxfp8 bs 8 capc: 6 steps done (37s)
+  mxfp8 bs 16 full: 6 steps done (43s)
+  mxfp8 bs 16 fullc: 6 steps done (50s)
+  mxfp8 bs 16 capc: 6 steps done (56s)
+  mxfp8 bs 24 full: 6 steps done (63s)
+  mxfp8 bs 24 fullc: 6 steps done (70s)
+  mxfp8 bs 24 capc: 6 steps done (76s)
+
+mxfp8 w13 bs 4 (32 tokens) capc: 6 steps, mean union 53.5, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tactic=default                        7833.6   1305.6  224.2   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   7845.5   1307.6  223.9   0.998  yes
+  tile_m=32,tile_n=128                  7862.8   1310.5  223.4   0.996  yes
+  tile_m=64,tile_n=64                   8162.9   1360.5  215.2   0.960  yes
+  tile_m=64,tile_n=128                  8751.8   1458.6  200.8   0.895  yes
+  tile_m=128,tile_n=128                 8849.1   1474.9  198.6   0.885  yes
+
+mxfp8 w2 bs 4 (32 tokens) capc: 6 steps, mean union 53.5, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=64,tile_n=64                   3972.3    662.0  221.1   1.012  yes
+  tile_m=32,tile_n=128                  4003.3    667.2  219.3   1.004  yes
+  tactic=default                        4018.6    669.8  218.4   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   4028.0    671.3  217.9   0.998  yes
+  tile_m=64,tile_n=128                  4220.1    703.4  208.0   0.952  yes
+  tile_m=128,tile_n=128                 4269.6    711.6  205.6   0.941  yes
+
+mxfp8 w13 bs 4 (32 tokens) full: 6 steps, mean union 65.0, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tactic=default                        9508.1   1584.7  224.5   1.000  yes *ref *stock
+  tile_m=32,tile_n=128                  9523.9   1587.3  224.1   0.998  yes
+  tile_m=128,tile_n=8                   9566.9   1594.5  223.2   0.994  yes
+  tile_m=64,tile_n=64                   9899.1   1649.9  215.6   0.961  yes
+  tile_m=64,tile_n=128                 10606.5   1767.7  201.3   0.896  yes
+  tile_m=128,tile_n=128                10731.3   1788.5  198.9   0.886  yes
+
+mxfp8 w2 bs 4 (32 tokens) full: 6 steps, mean union 65.0, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=64,tile_n=64                   4826.9    804.5  221.1   1.005  yes
+  tile_m=32,tile_n=128                  4840.2    806.7  220.4   1.003  yes
+  tactic=default                        4852.7    808.8  219.7   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   4863.8    810.6  219.3   0.998  yes
+  tile_m=64,tile_n=128                  5108.7    851.4  208.9   0.950  yes
+  tile_m=128,tile_n=128                 5176.4    862.7  206.1   0.937  yes
+
+mxfp8 w13 bs 4 (32 tokens) fullc: 6 steps, mean union 65.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tactic=default                        9536.6   1589.4  225.0   1.000  yes *ref *stock
+  tile_m=32,tile_n=128                  9566.0   1594.3  224.3   0.997  yes
+  tile_m=128,tile_n=8                   9602.9   1600.5  223.5   0.993  yes
+  tile_m=64,tile_n=64                   9942.1   1657.0  215.8   0.959  yes
+  tile_m=64,tile_n=128                 10665.6   1777.6  201.1   0.894  yes
+  tile_m=128,tile_n=128                10752.7   1792.1  199.5   0.887  yes
+
+mxfp8 w2 bs 4 (32 tokens) fullc: 6 steps, mean union 65.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=64,tile_n=64                   4829.7    804.9  222.1   1.003  yes
+  tactic=default                        4845.4    807.6  221.5   1.000  yes *ref *stock
+  tile_m=32,tile_n=128                  4845.6    807.6  221.4   1.000  yes
+  tile_m=128,tile_n=8                   4868.5    811.4  220.4   0.995  yes
+  tile_m=64,tile_n=128                  5131.5    855.2  209.0   0.944  yes
+  tile_m=128,tile_n=128                 5199.6    866.6  206.3   0.932  yes
+
+mxfp8 w13 bs 8 (64 tokens) capc: 6 steps, mean union 68.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 10040.6   1673.4  222.9   1.006  yes
+  tactic=default                       10105.3   1684.2  221.5   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  10155.5   1692.6  220.4   0.995  yes
+  tile_m=64,tile_n=64                  10445.6   1740.9  214.3   0.967  yes
+  tile_m=64,tile_n=128                 11208.2   1868.0  199.7   0.902  yes
+  tile_m=128,tile_n=128                11336.3   1889.4  197.5   0.891  yes
+
+mxfp8 w2 bs 8 (64 tokens) capc: 6 steps, mean union 68.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=64,tile_n=64                   5090.5    848.4  219.8   1.062  yes
+  tile_m=32,tile_n=128                  5091.6    848.6  219.8   1.062  yes
+  tactic=default                        5408.5    901.4  206.8   1.000  yes *ref *stock
+  tile_m=64,tile_n=128                  5419.4    903.2  206.5   0.998  yes
+  tile_m=128,tile_n=8                   5434.7    905.8  205.9   0.995  yes
+  tile_m=128,tile_n=128                 5490.5    915.1  203.8   0.985  yes
+
+mxfp8 w13 bs 8 (64 tokens) full: 6 steps, mean union 95.0, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tactic=default                       13914.8   2319.1  224.2   1.000  yes *ref *stock
+  tile_m=32,tile_n=128                 13921.7   2320.3  224.1   1.000  yes
+  tile_m=128,tile_n=8                  14023.8   2337.3  222.6   0.992  yes
+  tile_m=64,tile_n=64                  14505.4   2417.6  215.1   0.959  yes
+  tile_m=64,tile_n=128                 15560.1   2593.4  200.5   0.894  yes
+  tile_m=128,tile_n=128                15690.8   2615.1  198.8   0.887  yes
+
+mxfp8 w2 bs 8 (64 tokens) full: 6 steps, mean union 95.0, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  7019.0   1169.8  222.3   1.019  yes
+  tile_m=64,tile_n=64                   7035.5   1172.6  221.8   1.016  yes
+  tactic=default                        7150.4   1191.7  218.2   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   7173.0   1195.5  217.5   0.997  yes
+  tile_m=64,tile_n=128                  7485.5   1247.6  208.4   0.955  yes
+  tile_m=128,tile_n=128                 7561.7   1260.3  206.3   0.946  yes
+
+mxfp8 w13 bs 8 (64 tokens) fullc: 6 steps, mean union 82.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 12150.0   2025.0  223.4   1.001  yes
+  tactic=default                       12159.9   2026.7  223.2   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  12186.9   2031.2  222.6   0.998  yes
+  tile_m=64,tile_n=64                  12619.8   2103.3  215.1   0.964  yes
+  tile_m=64,tile_n=128                 13553.4   2258.9  200.3   0.897  yes
+  tile_m=128,tile_n=128                13661.0   2276.8  198.7   0.890  yes
+
+mxfp8 w2 bs 8 (64 tokens) fullc: 6 steps, mean union 82.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  6146.2   1024.4  220.8   1.026  yes
+  tile_m=64,tile_n=64                   6162.5   1027.1  220.3   1.023  yes
+  tactic=default                        6305.2   1050.9  215.0   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   6323.6   1053.9  214.3   0.997  yes
+  tile_m=64,tile_n=128                  6550.4   1091.7  207.2   0.963  yes
+  tile_m=128,tile_n=128                 6622.2   1103.7  205.0   0.952  yes
+
+mxfp8 w13 bs 16 (128 tokens) capc: 6 steps, mean union 98.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 14550.0   2425.0  221.9   1.017  yes
+  tactic=default                       14798.9   2466.5  218.0   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  14835.0   2472.5  217.5   0.998  yes
+  tile_m=64,tile_n=64                  15134.1   2522.4  213.4   0.978  yes
+  tile_m=64,tile_n=128                 16235.8   2706.0  198.9   0.911  yes
+  tile_m=128,tile_n=128                16364.0   2727.3  197.3   0.904  yes
+
+mxfp8 w2 bs 16 (128 tokens) capc: 6 steps, mean union 98.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  7364.0   1227.3  219.2   1.116  yes
+  tile_m=64,tile_n=64                   7382.5   1230.4  218.7   1.114  yes
+  tile_m=64,tile_n=128                  7866.3   1311.1  205.3   1.045  yes
+  tile_m=128,tile_n=128                 7960.4   1326.7  202.8   1.033  yes
+  tactic=default                        8221.5   1370.3  196.0   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   8233.3   1372.2  195.8   0.999  yes
+
+mxfp8 w13 bs 16 (128 tokens) full: 6 steps, mean union 110.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 16373.6   2728.9  222.0   1.010  yes
+  tile_m=128,tile_n=8                  16492.4   2748.7  220.4   1.003  yes
+  tactic=default                       16537.4   2756.2  219.8   1.000  yes *ref *stock
+  tile_m=64,tile_n=64                  17056.7   2842.8  213.1   0.970  yes
+  tile_m=64,tile_n=128                 18249.2   3041.5  199.2   0.906  yes
+  tile_m=128,tile_n=128                18395.9   3066.0  197.6   0.899  yes
+
+mxfp8 w2 bs 16 (128 tokens) full: 6 steps, mean union 110.7, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  8257.9   1376.3  220.1   1.090  yes
+  tile_m=64,tile_n=64                   8270.4   1378.4  219.7   1.088  yes
+  tile_m=64,tile_n=128                  8832.9   1472.1  205.7   1.019  yes
+  tile_m=128,tile_n=128                 8928.5   1488.1  203.6   1.008  yes
+  tactic=default                        9001.5   1500.2  201.9   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   9045.6   1507.6  200.9   0.995  yes
+
+mxfp8 w13 bs 16 (128 tokens) fullc: 6 steps, mean union 103.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 15255.2   2542.5  222.1   1.016  yes
+  tactic=default                       15494.0   2582.3  218.3   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  15548.0   2591.3  217.6   0.997  yes
+  tile_m=64,tile_n=64                  15863.9   2644.0  213.6   0.977  yes
+  tile_m=64,tile_n=128                 17013.2   2835.5  199.1   0.911  yes
+  tile_m=128,tile_n=128                17171.8   2862.0  197.2   0.902  yes
+
+mxfp8 w2 bs 16 (128 tokens) fullc: 6 steps, mean union 103.2, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  7703.9   1284.0  219.8   1.115  yes
+  tile_m=64,tile_n=64                   7741.6   1290.3  218.8   1.110  yes
+  tile_m=64,tile_n=128                  8235.2   1372.5  205.6   1.043  yes
+  tile_m=128,tile_n=128                 8339.7   1389.9  203.0   1.030  yes
+  tactic=default                        8591.2   1431.9  196.5   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                   8618.7   1436.4  195.9   0.997  yes
+
+mxfp8 w13 bs 24 (192 tokens) capc: 6 steps, mean union 108.5, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 16267.4   2711.2  219.0   1.035  yes
+  tactic=default                       16837.2   2806.2  211.7   1.000  yes *ref *stock
+  tile_m=64,tile_n=64                  16838.2   2806.4  211.6   1.000  yes
+  tile_m=128,tile_n=8                  16915.8   2819.3  210.7   0.995  yes
+  tile_m=64,tile_n=128                 18054.5   3009.1  197.4   0.933  yes
+  tile_m=128,tile_n=128                18200.1   3033.3  195.8   0.925  yes
+
+mxfp8 w2 bs 24 (192 tokens) capc: 6 steps, mean union 108.5, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  8200.4   1366.7  217.3   1.225  yes
+  tile_m=64,tile_n=64                   8236.9   1372.8  216.3   1.219  yes
+  tile_m=64,tile_n=128                  8792.4   1465.4  202.6   1.142  yes
+  tile_m=128,tile_n=128                 8894.1   1482.4  200.3   1.129  yes
+  tactic=default                       10043.3   1673.9  177.4   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  10063.0   1677.2  177.1   0.998  yes
+
+mxfp8 w13 bs 24 (192 tokens) full: 6 steps, mean union 116.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 17307.6   2884.6  220.8   1.039  yes
+  tile_m=128,tile_n=8                  17941.3   2990.2  212.9   1.002  yes
+  tactic=default                       17986.0   2997.7  212.4   1.000  yes *ref *stock
+  tile_m=64,tile_n=64                  18018.6   3003.1  212.1   0.998  yes
+  tile_m=64,tile_n=128                 19316.7   3219.4  197.8   0.931  yes
+  tile_m=128,tile_n=128                19505.8   3251.0  195.9   0.922  yes
+
+mxfp8 w2 bs 24 (192 tokens) full: 6 steps, mean union 116.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  8748.5   1458.1  218.4   1.194  yes
+  tile_m=64,tile_n=64                   8808.3   1468.1  216.9   1.186  yes
+  tile_m=64,tile_n=128                  9382.7   1563.8  203.6   1.113  yes
+  tile_m=128,tile_n=128                 9510.4   1585.1  200.9   1.098  yes
+  tactic=default                       10443.6   1740.6  182.9   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  10473.8   1745.6  182.4   0.997  yes
+
+mxfp8 w13 bs 24 (192 tokens) fullc: 6 steps, mean union 109.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                 16288.2   2714.7  220.5   1.048  yes
+  tile_m=64,tile_n=64                  16966.7   2827.8  211.6   1.006  yes
+  tactic=default                       17062.0   2843.7  210.4   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  17095.2   2849.2  210.0   0.998  yes
+  tile_m=64,tile_n=128                 18190.7   3031.8  197.4   0.938  yes
+  tile_m=128,tile_n=128                18368.0   3061.3  195.5   0.929  yes
+
+mxfp8 w2 bs 24 (192 tokens) fullc: 6 steps, mean union 109.3, ref det True
+  config                                sum us  us/step   GB/s  vs ref  exact
+  tile_m=32,tile_n=128                  8269.6   1378.3  217.1   1.233  yes
+  tile_m=64,tile_n=64                   8301.1   1383.5  216.3   1.229  yes
+  tile_m=64,tile_n=128                  8832.8   1472.1  203.3   1.155  yes
+  tile_m=128,tile_n=128                 8945.2   1490.9  200.7   1.140  yes
+  tactic=default                       10198.2   1699.7  175.9   1.000  yes *ref *stock
+  tile_m=128,tile_n=8                  10216.4   1702.7  175.6   0.998  yes
+wrote results/run1.json
+KBRUN end 2026-11-21T20:46:07Z rc=0 memavail=118GiB

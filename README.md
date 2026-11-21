@@ -4,26 +4,26 @@ Serving [thinkingmachines/Inkling-2-Mini](https://huggingface.co/thinkingmachine
 (GB10, sm_121, 121.6 GiB unified memory) with the model's own NVFP4 / MXFP8 weights and its bundled DSpark draft,
 on SGLang, plus a set of import-time speed overlays that leave the model's outputs as they are.
 
-**Status (2026-11-21, v2.1):** one profile. SGLang `lmsysorg/sglang:inkling-2-mini` with the cookbook's DGX Spark DSpark
-settings, and ten overlay packages (`overlay/`) that cut the bytes read per decode step, the kernel time of the
+**Status (2026-11-22, v2.2):** one profile. SGLang `lmsysorg/sglang:inkling-2-mini` with the cookbook's DGX Spark DSpark
+settings, and eleven overlay packages (`overlay/`) that cut the bytes read per decode step, the kernel time of the
 concurrent verify batches and the work per prefill chunk. Against the same engine without the overlays: speedbench
-+52 % at c1, +16 to +37 % at 4 to 16 concurrent streams, thinking load +8 to +30 %, cold prefill +35 to +56 %, and a
++52 % at c1, +23 to +42 % at 4 to 16 concurrent streams, thinking load +12 to +28 %, cold prefill +29 to +61 %, and a
 43 % larger KV pool. No requantisation, no training, no change of the target distribution; `OVERLAY=0` runs the stock
 engine.
 
 | | stock SGLang cookbook cell (mem 0.62) | this recipe |
 |---|---:|---:|
-| speedbench full, all 73 prompts, c1 | 40.6 | **61.7** |
-| decode, prose, aggregate tok/s at c4 / c8 / c16 | 75.2 / 117.0 / 186.2 | **103.2 / 149.8 / 216.7** |
-| thinking load c1 / c8 / c24 (effort high, T=0.8) | 52.3 / 193.6 / 374.9 | **67.8 / 220.8 / 405.4** |
-| cold prefill, 8K / 128K tokens, tok/s | 3,399 / 2,422 | **5,293 / 3,726** |
-| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **1.20M / 18.6-19.0 GiB** |
+| speedbench full, all 73 prompts, c1 | 40.6 | **61.8** |
+| decode, prose, aggregate tok/s at c4 / c8 / c16 | 75.2 / 117.0 / 186.2 | **107.0 / 154.1 / 228.8** |
+| thinking load c1 / c8 / c24 (effort high, T=0.8) | 52.3 / 193.6 / 374.9 | **67.1 / 219.6 / 419.6** |
+| cold prefill, 8K / 128K tokens, tok/s | 3,399 / 2,422 | **5,464 / 3,786** |
+| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **1.20-1.21M / 18.5-18.9 GiB** |
 
 ## Speed
 
-Measured 2026-11-21 on one Spark per run, GPU clock capped at 2200 MHz by the host's own timer, fresh start of the
+Measured 2026-11-21/22 on one Spark per run, GPU clock capped at 2200 MHz by the host's own timer, fresh start of the
 container, MemAvailable logged every 5 s. The released configuration (`scripts/launch.sh` defaults) ran the full
-benchmark once on each box (`results/V21-s05/`, `results/V21-s06/`); the tables show the median of the two boxes. The
+benchmark once on each box (`results/V22-s05/`, `results/V22-s06/`); the tables show the median of the two boxes. The
 stock engine was measured the same way on both boxes (`results/F1-sglang-base-s05/`, `results/F2-sglang-base-s06/`).
 
 ### speedbench
@@ -34,11 +34,11 @@ decode tokens). Decode tok/s, geometric mean per category:
 
 | prose | code | structured | agentic | multilingual | long context | all 73 prompts |
 |---:|---:|---:|---:|---:|---:|---:|
-| **51.7** | 69.7 | 65.7 | 74.2 | 42.3 | 73.0 | **61.7** |
+| **51.9** | 69.9 | 65.8 | 74.4 | 42.2 | 72.9 | **61.8** |
 
 Stock engine on the same boxes: prose 32.6, code 48.0, structured 44.3, agentic 49.3, multilingual 25.3, long
-context 51.0, all 40.6. Per box: 61.8 / 61.6 (stock 40.2 / 41.1). 73 of 73 prompts valid in every run; median time
-to first token 166 ms (stock 184 ms); 2.38 accepted tokens per verify step (stock 2.45) at a 39.2 ms step (stock
+context 51.0, all 40.6. Per box: 61.8 / 61.8 (stock 40.2 / 41.1). 73 of 73 prompts valid in every run; median time
+to first token 161 ms (stock 184 ms); 2.38 accepted tokens per verify step (stock 2.45) at a 38.9 ms step (stock
 60.9 ms).
 
 ### Decode by prompt type and concurrency
@@ -49,16 +49,16 @@ of three requests); above c1 the aggregate over the level's wall time, per-strea
 
 | prompt type | c1 | c2 | c4 | c8 | c16 |
 |---|---:|---:|---:|---:|---:|
-| prose | **51.0** | 68.0 (35.0) | 103.2 (27.1) | 149.8 (20.0) | 216.7 (14.3) |
-| code | 60.2 | 81.2 (42.2) | 115.8 (32.0) | 165.0 (22.9) | 240.3 (16.9) |
-| structured | 67.6 | 87.6 (45.8) | 121.0 (32.3) | 163.3 (22.9) | 247.6 (16.8) |
-| json | 60.0 | 82.4 (44.4) | 124.5 (33.8) | 173.6 (23.5) | 265.6 (18.1) |
+| prose | **51.0** | 69.6 (35.8) | 107.0 (27.9) | 154.1 (20.2) | 228.8 (15.1) |
+| code | 60.0 | 83.4 (43.3) | 122.2 (35.5) | 171.4 (23.8) | 250.5 (17.9) |
+| structured | 67.5 | 90.1 (47.2) | 121.6 (33.1) | 168.9 (23.2) | 256.1 (17.6) |
+| json | 59.8 | 84.8 (45.8) | 125.6 (33.4) | 177.9 (24.4) | 268.0 (18.3) |
 
 Stock engine, same protocol: prose 33.2 / 51.0 / 75.2 / 117.0 / 186.2, code 43.6 / 66.8 / 87.2 / 134.8 / 221.3,
 structured 49.7 / 66.4 / 89.9 / 141.8 / 225.1, json 46.5 / 58.8 / 89.3 / 141.9 / 232.2. At one or two streams the
 gain comes from verifying fewer draft rows and reading fewer bytes per row (the draft proposes from a 64K-token vocabulary); from four streams up it comes from the
 batch-aware verify policy (the expert union of 8 to 16 concurrent requests is not saturated), the verify attention
-kernel at every batch size, and the packed GEMM for the 17-256-row projections.
+kernel at every batch size, the packed GEMM for the 17-256-row projections and GB10-tuned expert GEMM tiles.
 
 ### Thinking workloads
 
@@ -68,7 +68,7 @@ workload: long reasoning, many requests at once.
 
 | c1 | c8 | c24 |
 |---:|---:|---:|
-| **67.8** (68.8) | 220.8 (32.2) | 405.4 (20.1) |
+| **67.1** (69.2) | 219.6 (32.1) | 419.6 (20.2) |
 
 Stock engine: c1 52.3, c8 193.6, c24 374.9. One run per box per cell (sampled); c8 and c24 vary ~5 % from run to run.
 
@@ -79,11 +79,11 @@ then the same document with another question (served from the prefix cache); dec
 
 | | 1K | 8K | 32K | 128K |
 |---|---:|---:|---:|---:|
-| prompt tokens | 1,014 | 8,159 | 32,702 | 130,920 |
-| TTFT cold | 0.35 s | 1.54 s | 6.55 s | 35.1 s |
-| **prefill, cold, tok/s** | **2,914** | **5,293** | **4,995** | **3,726** |
-| TTFT, document cached | 0.24 s | 0.24 s | 0.22 s | 17.6 s |
-| decode tok/s at that context | - | - | 66.1 | 42.9 |
+| prompt tokens | 1,008 | 8,151 | 32,703 | 130,925 |
+| TTFT cold | 0.36 s | 1.49 s | 6.39 s | 34.6 s |
+| **prefill, cold, tok/s** | **2,792** | **5,464** | **5,114** | **3,786** |
+| TTFT, document cached | 0.25 s | 0.23 s | 0.22 s | 17.4 s |
+| decode tok/s at that context | - | - | 70.2 | 43.6 |
 
 Stock engine: 2,163 / 3,399 / 3,232 / 2,422 tok/s cold (TTFT 0.47 / 2.40 / 10.1 / 54.0 s), decode 55.1 at 32K and
 37.1 at 128K. The 128K cached TTFT is the median of one cache hit (~0.3 s) and one miss (the second 128K document
@@ -95,8 +95,8 @@ samples also vary with the accepted tokens per step of each generated text (2.2 
 
 | | |
 |---|---|
-| MemAvailable after start / lowest during the whole run | 18.6-19.0 GiB / 17.5-17.8 GiB |
-| KV pool | 1,200,640-1,203,712 tokens (global layers) + ~120,000 (sliding window) + ~1,080 conv-state slots |
+| MemAvailable after start / lowest during the whole run | 18.5-18.9 GiB / 17.4 GiB (Spark_05; see the note below the memory budget for Spark_06) |
+| KV pool | 1,204,096-1,213,568 tokens (global layers) + ~120,000 (sliding window) + ~1,080 conv-state slots |
 | start-up to the first answer | 227-378 s with warm caches; ~7-8 min the first time (JIT, CUDA-graph capture, extension builds) |
 
 Details in "Memory budget" below.
@@ -151,6 +151,7 @@ tables above. Raw files: `results/screen/`; details and rejected levers: [docs/e
 | pico's exactly coded 12-bit BF16 GEMV (`bf16x`) for qkvr / wo and the target LM head at <= 16 rows | `PICO12=dense,lmhead` | qkvr 130 vs 174 us, wo 52 vs 66 us, LM head 2.90 vs 3.96 ms per call (M=8, cold); with the stack, step 45.8 -> 43.1 ms, speedbench quick 51.9 -> 55.0 | weights decode to the same BF16 bits; FP32 summation order differs from SGLang's GEMV | **Andy Shu (@blaesus)**, [dsgb10](https://github.com/blaesus/dsgb10) / [pico](https://github.com/Picom-code/pico-dgx-ds4) (MIT), vendored unmodified; integration ours |
 | Prefill: stacked qkvr projection computed per source column block (no wasted 3x rows) | `PREFILL=qkvr_split` | that projection -63 % at 8K chunks | bit-identical at >= 128 rows | ours (found by our prefill roofline) |
 | Hot-vocabulary draft: the draft proposes only from the 65,536 most frequent target tokens (ranked on 1.95M tokens of the model's own outputs for 46K prompts from open datasets, unseen ids filled by prompt-text counts), so its LM head and Markov fold read 1/3 of the rows; FP8 draft-head GEMM reads its weight once for > 64 rows (`wide8`) | `DRAFT_BYTES=...,hotvocab:65536,wide8`, `HOTVOCAB_FILE` | held-out coverage 98.8 % (speedbench 99.6 %); c1 step 39.8 -> 37.5 ms with tokens per step unchanged; speedbench quick +6 %, thinking c1 / c8 / c24 +2-9 / +4 / +5 % | draft proposals only; greedy texts byte-identical in the A/B | FR-Spec (Zhao et al., 2025) and SGLang's EAGLE token map for the idea; list, corpus and kernels ours |
+| Routed-expert GEMM tile tables measured with real routing: NVFP4 `swap_ab=1, tile_n=32, tile_k=256` at 9-128 tokens per call, MXFP8 CuTe tactic 32x128 at 512-1536 routed rows | `MOE2=tiles` | MoE time per step c4 / c8 / c16 -3 / -4 / -6 % (microbench); greedy decode c2-c16 +2 to +6 %, thinking c8 / c24 +1 / +2 % | bit-identical (every config's outputs equal the shipped choice on real weights and routing) | ours; FlashInfer / CUTLASS kernels and tactics |
 | Certified greedy LM head: a 6-bit copy of the head and a rigorous per-logit error bound select the 16-row vocabulary tiles that can hold the argmax; pico's exact GEMV computes only those; everything else is -inf before the stock softcap and argmax | `CERT_HEAD=1` | head 2.90 -> 1.67 ms per 8-row step; speedbench quick 55.0 -> 56.7 (+3 %), decode c1 +3.5 %; only greedy steps of <= 16 rows without logprobs / grammar (sampled steps run the full head) | identical argmax by construction (serving check: 45,584 rows, 0 mismatches) | ours (ported from our GLM-5.3-Flash certified head; exact pass = pico's kernel) |
 | Packed 12-bit GEMM for 17-256-row verify batches: reads pico's coded weights once per call, mma.sync over all rows (qkvr <= 96 rows per source, wo_ud <= 32, LM head <= 256; verify/decode forwards only) | `WIDE=dense,lmhead` | qkvr 1.24-1.34x and LM head 1.34-1.67x faster than cuBLAS at 17-64 rows; thinking c8 +8 %, greedy decode c4 / c8 / c16 +4 / +5 / +3 % | weights decode to the same BF16 bits; FP32 summation order differs from cuBLAS (error vs FP64 equal or lower) | ours; pico's `bf16x` reader (Andy Shu, MIT) |
 | Verify attention on the split-KV relative-bias kernel at every batch size (cap 32 -> 384 rows) and the bias computed in-kernel above 32 rows, instead of padded FA4 with a sheared [t, 32, 1280] bias | `VATTN=1` | verify-attention visit 1.4-1.7x faster at 8-48 requests; thinking c24 +7 %, greedy decode c8 / c16 +5 / +6 % | same math; bias bit-identical, output within 1 BF16 ulp of the stock compact path | ours; SGLang's Inkling2 verify kernel |
@@ -252,7 +253,7 @@ docker run -d --name inkling-2-mini --gpus all --ipc=host --network host --shm-s
   -e INKLING_PICO12=dense,lmhead \
   -e INKLING_PREFILL=qkvr_split,bias_layout,quant_once,partial_bf16 -e INKLING_PREFILL_QKVR_OUT=strided \
   -e INKLING_CERT_HEAD=1 -e INKLING_WIDE=dense,lmhead -e INKLING_WIDE_SCOPE=verify -e INKLING_VATTN=1 \
-  -e INKLING_ATTN=prefill_swa,prefill_global -e INKLING_PFUSE=all \
+  -e INKLING_ATTN=prefill_swa,prefill_global -e INKLING_PFUSE=all -e INKLING_MOE2=tiles \
   -e MAX_JOBS=4 \
   -e SGLANG_OPT_INKLING2_VERIFY_REL_BIAS_KERNEL=1 -e SGLANG_OPT_DSV41_DSPARK_MID_FOLD=1 \
   -e SGLANG_OPT_DSV41_DSPARK_PREPARE_INPUTS_ONCE=1 -e SGLANG_OPT_DSV41_DSPARK_SKIP_PREFILLED_INPUTS=1 \
@@ -303,6 +304,7 @@ Overlay switches (`OVERLAY=0` turns all of them off; each is described in `overl
 | `WIDE` (`INKLING_WIDE`), `WIDE_SCOPE` | `dense,lmhead`, `verify` | packed 12-bit GEMM for 17-256-row calls (verify batches of 3-32 requests) on decode / verify forwards; per-kind row caps `INKLING_WIDE_MAX_M_KIND` (default `qkvr=96,wo=32,head=256`) |
 | `VATTN` (`INKLING_VATTN`) | `1` | verify attention on the split-KV relative-bias kernel for up to 48 requests, bias in-kernel above 32 rows (`cap` = only the row cap) |
 | `ATTN` (`INKLING_ATTN`) | `prefill_swa,prefill_global` | fused relative-bias attention for prefill / extend (CUDA extension, builds in ~30 s on the first start) |
+| `MOE2` (`INKLING_MOE2`) | `tiles` | tile tables for the routed-expert GEMMs at verify batch sizes (over `moe_tiles`); `INKLING_MOE2_NVFP4` / `INKLING_MOE2_MXFP8` override the tables |
 | `PFUSE` (`INKLING_PFUSE`) | `all` | prefill glue fusion (`loopmix,resnorm,sconvres`), extend batches of >= 512 rows only |
 
 Left at SGLang's defaults (measured, see docs/experiments.md): chunked prefill 8,192 tokens (16,384: +2-3 % at
@@ -318,25 +320,27 @@ the rest to the host (numbers from the final run's server log):
 | | |
 |---|---|
 | weights (target + draft) | 20.7 GB + 1.4 GB (stock 18.2 + 1.3): the overlays add pico12's packed copies (1.9 GB; the BF16 originals stay for prefill), the certified head's 6-bit screen (0.36 GB) and FP8 / MXFP8 draft copies |
-| KV cache, global layers (and the draft's global layer) | 1,203,712 tokens on Spark_05 / 1,200,640 on Spark_06, BF16 (36.7 GB + 4.6 GB) |
+| KV cache, global layers (and the draft's global layer) | 1,213,568 tokens on Spark_05 / 1,204,096 on Spark_06, BF16 (37.0 GB + 4.6 GB) |
 | KV cache, sliding-window layers | 120,576 tokens (18.4 GB + 0.9 GB): each running or cached request needs one 1,024-token window per layer |
 | convolution state (SGLang calls it the Mamba cache) | 1,081 slots (2.5 GB + 0.9 GB) |
 | CUDA graphs | ~7 GB: prefill graphs up to 8,192 tokens and decode / verify graphs for 1-48 requests |
-| MemAvailable after start / lowest during the full benchmark run | 18.6-19.0 GiB / 17.5-17.8 GiB |
+| MemAvailable after start / lowest during the full benchmark run | 18.5-18.9 GiB / 17.4 GiB (Spark_05) |
 
 Search for this setting (thinking load c24 together with a cold 240,104-token prompt, the needle; both pass): 0.72 gave
 985K tokens and 26.9 GiB lowest MemAvailable, 0.80 1.13M and 18.5 GiB, 0.86 1.26M and 12.1 GiB; 0.84 sits in the
 middle of a 12-16 GiB worst-case band. 1.2M tokens of global KV hold four requests at the full 262,144-token context,
 or 36 agents with 32K each. Each 0.01 of `MEM_FRACTION` is ~1.06 GiB and ~19K global-KV tokens; keep MemAvailable above
 ~6 GiB under load (an out-of-memory on GB10 can hang the box until a power cycle). `MEM_FRACTION=0.62` (round 1)
-leaves ~40 GiB for other work on the box.
+leaves ~40 GiB for other work on the box. In the v2.2 run on Spark_06 an unrelated compile job started on the host
+for 8 minutes and took MemAvailable down to 4.05 GiB (the server kept running, all checks passed): the pool leaves
+room for the model's own peaks, not for other large jobs; run builds elsewhere or lower `MEM_FRACTION`.
 
 ### What differs from the published recipes, and why
 
 | | SGLang cookbook (DGX Spark, DSpark) | vLLM recipe (DGX Spark) | here |
 |---|---|---|---|
 | engine | SGLang | vLLM | **SGLang**: the stock engines decode at the same speed on one Spark (c1 within 3 %, c16 / c24 within run noise); SGLang prefills 1.3-3.4x faster, keeps long prompts in its prefix cache more reliably and leaves twice the host memory ([docs/experiments.md](docs/experiments.md)) |
-| memory | `--mem-fraction-static 0.45` (518K KV tokens) | `--gpu-memory-utilization` unset (vLLM's own suggestion would leave the host 0-2 GiB) | `0.84`: 1.2M KV tokens, 18.6-19 GiB MemAvailable after start, >= 12 GiB in the worst case measured |
+| memory | `--mem-fraction-static 0.45` (518K KV tokens) | `--gpu-memory-utilization` unset (vLLM's own suggestion would leave the host 0-2 GiB) | `0.84`: 1.2M KV tokens, 18.5-19 GiB MemAvailable after start, >= 12 GiB in the worst case measured |
 | context | not set (model default) | 262,144 | 262,144 (the model supports 1M; see "Longer context") |
 | multimodal | `--enable-multimodal` | on | off (text only; add `--enable-multimodal` for images) |
 | images, weights | pulled by tag, weights from the Hub at start | same | pinned image digest, weights at a pinned revision, sha256-checked, offline at start |

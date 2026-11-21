@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.2 (2026-11-22)
+
+GB10 tile tables for the routed-expert GEMMs (`overlay/inkling_moe2`, default `MOE2=tiles`; bit-identical outputs).
+Median of both boxes, `bench/full.sh` (`results/V22-s05/`, `results/V22-s06/`), against v2.1: decode prose c2 / c4 /
+c8 / c16 69.6 / 107.0 / 154.1 / 228.8 (68.0 / 103.2 / 149.8 / 216.7), code c4 / c16 122.2 / 250.5 (115.8 / 240.3);
+thinking c8 / c24 219.6 / 419.6 (220.8 / 405.4); c1 unchanged (speedbench 61.8, the c1 path does not use these tiles);
+quality guard 30/30, sanity 11/11, needles PASS on both boxes. Same-day A/B on Spark_05 (control / moe2 / control):
+decode +2 to +6 % at c2-c16. Prefill numbers move within run noise.
+
 ## v2.1 (2026-11-21)
 
 Hot-vocabulary draft. Median of both boxes, `bench/full.sh` (`results/V21-s05/`, `results/V21-s06/`), against v2:

@@ -1,0 +1,37 @@
+2026-11-21T22:00:44Z R3Cb-s05 mode warm
+R3Cb-s05-warm: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 57.25, "geomean_tok_s": 61.22, "aggregate_tok_s": 59.3, "median_ttft_ms": 166.1, "truncated_frac": 0.967, "reasoning_token_frac": 0.783, "reasoning_char_frac": 0.827, "median_step_ms": 38.31, "median_tokens_per_step": 2.224, "steps_source": "response", "median_accept_rate": 0.1748, "median_draft_per_step": 7.0}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": 0.387, "drift_pct_all": 0.387}}
+wrote /home/knapcio/inkling/r2/results/R3Cb-s05/warm-sbquick.json (1.6 min)
+2026-11-21T22:02:22Z R3Cb-s05 mode sbq
+R3Cb-s05: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 57.2, "geomean_tok_s": 61.17, "aggregate_tok_s": 59.24, "median_ttft_ms": 166.6, "truncated_frac": 0.967, "reasoning_token_frac": 0.782, "reasoning_char_frac": 0.826, "median_step_ms": 37.98, "median_tokens_per_step": 2.194, "steps_source": "response", "median_accept_rate": 0.1744, "median_draft_per_step": 7.0}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": -0.17, "drift_pct_all": -0.17}}
+wrote /home/knapcio/inkling/r2/results/R3Cb-s05/sbquick.json (1.6 min)
+2026-11-21T22:03:56Z R3Cb-s05 mode think4
+2026-11-21T22:05:37Z R3Cb-s05 mode think8
+2026-11-21T22:08:00Z R3Cb-s05 mode think24
+2026-11-21T22:11:42Z R3Cb-s05 mode dt
+prose      c1  aggregate    50.2 tok/s  per-stream   50.9  ttft 0.168 s  failed 0
+prose      c2  aggregate    68.0 tok/s  per-stream   35.0  ttft 0.228 s  failed 0
+prose      c4  aggregate   100.5 tok/s  per-stream   27.3  ttft 0.366 s  failed 0
+prose      c8  aggregate   150.1 tok/s  per-stream   20.1  ttft 0.444 s  failed 0
+prose      c16 aggregate   217.4 tok/s  per-stream   14.3  ttft 0.427 s  failed 0
+code       c1  aggregate    61.8 tok/s  per-stream   59.0  ttft 0.2 s  failed 0
+code       c2  aggregate    80.3 tok/s  per-stream   41.7  ttft 0.252 s  failed 0
+code       c4  aggregate   113.9 tok/s  per-stream   30.0  ttft 0.336 s  failed 0
+code       c8  aggregate   168.6 tok/s  per-stream   23.4  ttft 0.355 s  failed 0
+code       c16 aggregate   244.3 tok/s  per-stream   16.5  ttft 0.437 s  failed 0
+structured c1  aggregate    66.6 tok/s  per-stream   67.9  ttft 0.195 s  failed 0
+structured c2  aggregate    87.6 tok/s  per-stream   45.8  ttft 0.258 s  failed 0
+structured c4  aggregate   120.4 tok/s  per-stream   32.6  ttft 0.337 s  failed 0
+structured c8  aggregate   166.6 tok/s  per-stream   23.9  ttft 0.46 s  failed 0
+structured c16 aggregate   252.3 tok/s  per-stream   16.8  ttft 0.562 s  failed 0
+json       c1  aggregate    60.1 tok/s  per-stream   60.1  ttft 0.172 s  failed 0
+json       c2  aggregate    82.5 tok/s  per-stream   44.5  ttft 0.246 s  failed 0
+json       c4  aggregate   120.7 tok/s  per-stream   31.4  ttft 0.262 s  failed 0
+json       c8  aggregate   175.2 tok/s  per-stream   23.7  ttft 0.469 s  failed 0
+json       c16 aggregate   259.5 tok/s  per-stream   17.4  ttft 0.508 s  failed 0
+wrote /home/knapcio/inkling/r2/results/R3Cb-s05/decode.json
+| prompt type | c1 | c2 | c4 | c8 | c16 |
+|---|---:|---:|---:|---:|---:|
+| prose | 50.9 | 68.0 (35.0) | 100.5 (27.3) | 150.1 (20.1) | 217.4 (14.3) |
+| code | 59.0 | 80.3 (41.7) | 113.9 (30.0) | 168.6 (23.4) | 244.3 (16.5) |
+| structured | 67.9 | 87.6 (45.8) | 120.4 (32.6) | 166.6 (23.9) | 252.3 (16.8) |
+| json | 60.1 | 82.5 (44.5) | 120.7 (31.4) | 175.2 (23.7) | 259.5 (17.4) |

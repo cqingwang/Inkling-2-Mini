@@ -1,0 +1,12 @@
+KBRUN start 2026-11-21T20:45:40Z memavail=118GiB
+device NVIDIA GB10 sm_121 SMs=48 torch 2.14.1+cu130 flashinfer 0.7.4
+=== NVFP4 swiglu quantize: stock vs multi-row (warm, median us; caps 4/25 as config.json)
+  built R=2 in 3s
+  built R=4 in 3s
+  built R=8 in 4s
+  edge cases: ALL BIT-IDENTICAL
+  bs  4 (256 rows): stock 11.4  R2/ctas192 12.0  R2/ctas384 12.4  R4/ctas192 13.5  R4/ctas384 13.5  R8/ctas192 15.6  R8/ctas384 15.5
+  bs  8 (512 rows): stock 13.2  R2/ctas192 13.5  R2/ctas384 13.5  R4/ctas192 17.6  R4/ctas384 17.6  R8/ctas192 27.8  R8/ctas384 27.8
+  bs 16 (1024 rows): stock 21.7  R2/ctas192 21.7  R2/ctas384 21.7  R4/ctas192 27.8  R4/ctas384 27.8  R8/ctas192 40.1  R8/ctas384 40.1
+  bs 24 (1536 rows): stock 32.6  R2/ctas192 29.9  R2/ctas384 29.7  R4/ctas192 36.0  R4/ctas384 35.9  R8/ctas192 52.1  R8/ctas384 52.3
+KBRUN end 2026-11-21T20:46:08Z rc=0 memavail=117GiB

@@ -368,3 +368,29 @@ kernel. Confirmed with `bench/full.sh` on both boxes (CHANGELOG v2.1).
 KV page size 16 (thefullctx measured +19 % decode at 15.6K context on their stack), on v2, Spark_06: speedbench quick
 57.05 vs 57.20, thinking c8 211.6, decode at 32K / 128K 66.0 / 42.5 (no gain), cold prefill 8K 4,210 vs ~5,300 (the
 fused prefill attention covers page 128 only and falls back). Not adopted.
+
+## v2.2: routed-expert GEMM tiles at verify batch sizes
+
+Round 1 tuned the NVFP4 tiles for decode on evenly spread synthetic routing. Replayed with real top-8 routing (16
+greedy speedbench texts through a CPU reference of the model, verify blocks of B requests x 8 positions, the verify
+cap's dead-row remap applied; unions 52 / 74 / 103 at 4 / 8 / 16 requests, close to the served 57 / 69 / 91), cold L2,
+real layer-0 NVFP4 and layer-20 MXFP8 weights: all 12 NVFP4 tile configurations and all 6 MXFP8 tactics give outputs
+bit-identical to the shipped choice. The fastest ones: NVFP4 `swap_ab=1, tile_n=32, tile_k=256` at 9-128 tokens per
+call (w13 +3.4 to +8 %), MXFP8 CuTe tactic `tile_m=32, tile_n=128` at 512-1536 routed rows (w2 +2 to +19 %). MoE time
+per verify step: c4 55.6 -> 54.1, c8 77.8 -> 75.0, c16 112.9 -> 105.8, c24 125.0 -> 123.4 ms
+(`results/kbench/round2/moe/`). A multi-row SwiGLU-quantize kernel (bit-identical) saved only 0.13 ms at c24 and was
+slower below; not adopted.
+
+Same-day A/B on Spark_05 (`results/screen-r2/R3C-s05`, `R3M-s05`, `R3Cb-s05`; v2.1 control / + moe2 / control):
+
+| | control (mean of 2) | moe2 |
+|---|---|---|
+| decode prose c2 / c4 / c8 / c16 | 68.1 / 101.2 / 150.1 / 219.0 | 69.8 / 107.1 / 153.1 / 231.7 |
+| decode code c2 / c4 / c8 / c16 | 80.9 / 114.7 / 167.7 / 242.3 | 83.7 / 119.2 / 168.0 / 255.4 |
+| decode json c4 / c8 / c16 | 121.9 / 175.0 / 260.7 | 128.0 / 181.3 / 272.2 |
+| thinking c4 / c8 / c24 | 141.4 / 213.6 / 411.8 | 141.1 / 216.3 / 418.7 |
+| speedbench quick c1 | 61.07 | 60.93 |
+
+Confirmed with full runs on both boxes (CHANGELOG v2.2). During the Spark_06 full run an unrelated CPU compile job
+ran on the host for 8 minutes (thinking c24 and long-context cells; MemAvailable down to 4.05 GiB); those cells agree
+with Spark_05 within run noise and every check passed, but they are the less clean of the two.

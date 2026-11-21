@@ -43,6 +43,7 @@ WIDE=${WIDE:-dense,lmhead}                                  # packed 12-bit GEMM
 WIDE_SCOPE=${WIDE_SCOPE:-verify}                            # wide only on decode/verify forwards
 VATTN=${VATTN:-1}                                           # verify attention on the split-KV relative-bias kernel at all batch sizes
 ATTN=${ATTN:-prefill_swa,prefill_global}                    # fused relative-bias prefill attention (empty = stock FA4 path)
+MOE2=${MOE2:-tiles}                                          # GB10 tile tables for the routed-expert GEMMs (9-128 tokens NVFP4, MXFP8 tactic)
 PFUSE=${PFUSE:-all}                                         # prefill glue fusion (empty = stock)
 MOE_TILES=${MOE_TILES:-1@2304:swap_ab=1,tile_n=32,tile_k=256;1@1152:swap_ab=1,tile_n=32,tile_k=256;8@2304:swap_ab=1,tile_n=32,tile_k=256;8@1152:swap_ab=1,tile_n=32,tile_k=256;64@2304:swap_ab=0,tile_n=64,tile_k=256;64@1152:swap_ab=1,tile_n=32,tile_k=256}
 SPEC=${SPEC:-dspark}                   # dspark | none
@@ -99,7 +100,7 @@ if [[ $ENGINE == sglang ]]; then
         -e INKLING_DRAFT_BYTES="$DRAFT_BYTES" -e INKLING_DRAFT_HOTVOCAB_FILE="$HOTVOCAB_FILE" -e INKLING_KERNELS="$KERNELS" -e INKLING_MOE_TILES="$MOE_TILES"
         -e INKLING_PICO12="$PICO12" -e INKLING_PREFILL="$PREFILL" -e INKLING_PREFILL_QKVR_OUT=strided
         -e INKLING_CERT_HEAD="$CERT_HEAD" -e INKLING_WIDE="$WIDE" -e INKLING_WIDE_SCOPE="$WIDE_SCOPE"
-        -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE")
+        -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE" -e INKLING_MOE2="$MOE2")
   fi
   run=("${common[@]}" ${ov[@]+"${ov[@]}"}
        -e MAX_JOBS=4

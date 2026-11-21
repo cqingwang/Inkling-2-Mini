@@ -19,6 +19,9 @@ try:
     if _on("INKLING_KERNELS"):
         import inkling_kernels
         inkling_kernels.install()
+    if _on("INKLING_MOE2"):  # after inkling_kernels: per-token tile tables over moe_tiles' _tiles wrapper
+        import inkling_moe2
+        inkling_moe2.install()
     if _on("INKLING_PICO12"):  # after inkling_kernels: its _project_sources wrapper goes outside qkvr_gemv's
         import inkling_pico12
         inkling_pico12.install()

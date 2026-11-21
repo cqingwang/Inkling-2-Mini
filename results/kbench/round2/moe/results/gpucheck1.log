@@ -1,0 +1,12 @@
+KBRUN start 2026-11-21T20:49:53Z memavail=118GiB
+[inkling_kernels pid=1] enabled moe_tiles(<=1@2304:swap_ab=1,tile_n=32,tile_k=256;<=1@1152:swap_ab=1,tile_n=32,tile_k=256;<=8@2304:swap_ab=1,tile_n=32,tile_k=256;<=8@1152:swap_ab=1,tile_n=32,tile_k=256;<=64@2304:swap_ab=0,tile_n=64,tile_k=256;<=64@1152:swap_ab=1,tile_n=32,tile_k=256)
+[inkling_moe2 pid=1] enabled tiles(9-64@2304:1/32/256;65-128:1/32/256;mx512-1536@2304x1152:32x128;mx1024-1536@2304x2304:32x128)
+[inkling_kernels pid=1] applied moe_tiles to sglang.kernels.ops.gemm.inkling2_grouped_sm120
+[inkling_moe2 pid=1] applied nvfp4 over moe_tiles, mxfp8 to sglang.kernels.ops.gemm.inkling2_grouped_sm120
+applied: ['nvfp4 over moe_tiles', 'mxfp8'] kernels: ['moe_tiles']
+bs 4 (32 tokens): tiles w13 (True, 32, 256) w2 (True, 32, 256) (stock (True, 32, 128) / (True, 32, 128)); all bit-identical (eager + graph)
+bs 8 (64 tokens): tiles w13 (True, 32, 256) w2 (True, 32, 256) (stock (True, 32, 128) / (True, 32, 128)); all bit-identical (eager + graph)
+bs 16 (128 tokens): tiles w13 (True, 32, 256) w2 (True, 32, 256) (stock (True, 32, 128) / (True, 32, 128)); all bit-identical (eager + graph)
+bs 24 (192 tokens): tiles w13 (True, 32, 256) w2 (True, 32, 256) (stock (True, 32, 256) / (True, 32, 256)); all bit-identical (eager + graph)
+ALL CHECKS PASSED
+KBRUN end 2026-11-21T20:50:00Z rc=0 memavail=118GiB
