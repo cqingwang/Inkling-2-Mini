@@ -1,0 +1,183 @@
+KBRUN start 2026-11-21T14:26:21Z memavail=117GiB
+torch 2.14.1+cu130 triton 3.8.0
+device NVIDIA GB10 sms=48 proj=real
+== gpu_check_patch.py
+PASS install ('cap', 'bias')
+[inkling_vattn pid=77] enabled cap,bias max_tokens=384
+PASS cap 384
+PASS prologue wrapped 
+PASS partials wrapped 
+PASS prologue q/k/v/windows bs1 
+PASS rel shape bs1 (8, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs1 maxdiff 0 pad 0.0
+PASS pending bs1 
+PASS pending consumed bs1 
+  bitwise inkernel==stock: True  cap==stock: True
+PASS attn bs1 ctx300 swa inkernel-vs-stock 0 cap-vs-stock 0 (BF16 outputs, |out|max 0.21)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs1 
+PASS rel shape bs1 (8, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs1 maxdiff 0 pad 0.0
+PASS pending bs1 
+PASS pending consumed bs1 
+  bitwise inkernel==stock: True  cap==stock: True
+PASS attn bs1 ctx300 global inkernel-vs-stock 0 cap-vs-stock 0 (BF16 outputs, |out|max 0.21)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs4 
+PASS rel shape bs4 (32, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs4 maxdiff 0 pad 0.0
+PASS pending bs4 
+PASS pending consumed bs4 
+  bitwise inkernel==stock: True  cap==stock: True
+PASS attn bs4 ctx1500 swa inkernel-vs-stock 0 cap-vs-stock 0 (BF16 outputs, |out|max 0.13)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs4 
+PASS rel shape bs4 (32, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs4 maxdiff 0 pad 0.0
+PASS pending bs4 
+PASS pending consumed bs4 
+  bitwise inkernel==stock: False  cap==stock: True
+PASS attn bs4 ctx1500 global inkernel-vs-stock 3.81e-06 cap-vs-stock 0 (BF16 outputs, |out|max 0.10)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs8 
+PASS rel shape bs8 (64, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs8 maxdiff 0 pad 0.0
+PASS pending bs8 
+PASS pending consumed bs8 
+  bitwise inkernel==stock: False  cap==stock: True
+PASS attn bs8 ctx1024 swa inkernel-vs-stock 6.1e-05 cap-vs-stock 0 (BF16 outputs, |out|max 0.16)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs8 
+PASS rel shape bs8 (64, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs8 maxdiff 0 pad 0.0
+PASS pending bs8 
+PASS pending consumed bs8 
+  bitwise inkernel==stock: False  cap==stock: True
+PASS attn bs8 ctx1024 global inkernel-vs-stock 6.1e-05 cap-vs-stock 0 (BF16 outputs, |out|max 0.16)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs24 
+PASS rel shape bs24 (192, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs24 maxdiff 0 pad 0.0
+PASS pending bs24 
+PASS pending consumed bs24 
+  bitwise inkernel==stock: False  cap==stock: True
+PASS attn bs24 ctx700 swa inkernel-vs-stock 0.000244 cap-vs-stock 0 (BF16 outputs, |out|max 0.20)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs24 
+PASS rel shape bs24 (192, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs24 maxdiff 0 pad 0.0
+PASS pending bs24 
+PASS pending consumed bs24 
+  bitwise inkernel==stock: False  cap==stock: True
+PASS attn bs24 ctx700 global inkernel-vs-stock 0.000244 cap-vs-stock 0 (BF16 outputs, |out|max 0.20)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs48 
+PASS rel shape bs48 (384, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs48 maxdiff 0 pad 0.0
+PASS pending bs48 
+PASS pending consumed bs48 
+  bitwise inkernel==stock: False  cap==stock: True
+PASS attn bs48 ctx2000 swa inkernel-vs-stock 0.000122 cap-vs-stock 0 (BF16 outputs, |out|max 0.17)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs48 
+PASS rel shape bs48 (384, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs48 maxdiff 0 pad 0.0
+PASS pending bs48 
+PASS pending consumed bs48 
+  bitwise inkernel==stock: False  cap==stock: True
+PASS attn bs48 ctx2000 global inkernel-vs-stock 6.1e-05 cap-vs-stock 0 (BF16 outputs, |out|max 0.10)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs2 
+PASS rel shape bs2 (16, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs2 maxdiff 0 pad 0.0
+PASS pending bs2 
+PASS pending consumed bs2 
+  bitwise inkernel==stock: True  cap==stock: True
+PASS attn bs2 ctx40000 swa inkernel-vs-stock 0 cap-vs-stock 0 (BF16 outputs, |out|max 0.15)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs2 
+PASS rel shape bs2 (16, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs2 maxdiff 0 pad 0.0
+PASS pending bs2 
+PASS pending consumed bs2 
+  bitwise inkernel==stock: True  cap==stock: True
+PASS attn bs2 ctx40000 global inkernel-vs-stock 0 cap-vs-stock 0 (BF16 outputs, |out|max 0.02)
+PASS orphan marker raises 
+PASS graph replay 0 maxdiff 0
+PASS graph replay 1 maxdiff 0
+PASS graph replay 2 maxdiff 0
+[inkling_vattn pid=77] verify visit inside a CUDA-graph capture before any eager one; bias lever stays stock there
+PASS capture-first fallback eye_in_capture=1 maxdiff 0
+STATS {'verify_cap': 13, 'verify_inkernel': 17, 'passthrough': 0, 'eye_in_capture': 1}
+RESULT ALL PASS
+== compile_check.py
+Traceback (most recent call last):
+  File "/work/compile_check.py", line 69, in <module>
+    main()
+  File "/work/compile_check.py", line 60, in main
+    compile_one(_decode_partials, ptrs, c, 4, st, f"stock w{window} bn{bn} st{st}")
+  File "/work/compile_check.py", line 42, in compile_one
+    ptxas = get_ptxas().path
+            ^^^^^^^^^^^
+TypeError: get_ptxas() missing 1 required positional argument: 'arch'
+== correct: max |err| vs FP32 reference (out = normalized attention output, lse natural log)
+/opt/sglang/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py:2300: UserWarning: Argument aux_data (position 17) cannot be converted to a JitArgument for function 'cutlass___call___sglangkernelsopsattentionfa4_sm120flash_fwdFlashAttentionForwardSm120_object_at__Tensorgmemoi64i641_Tensorgmemoi64i64i641_Tensorgmemoi64i64i641_Tensorgmemoi64i64i6'. Its type `<class 'sglang.kernels.ops.attention.flash_attn.cute.utils.AuxData'>` is not supported. If the value is known at compile time, annotate it: `aux_data: Constexpr`. Otherwise, implement the `JitArgument` or `DynamicExpression` protocol for type `<class 'sglang.kernels.ops.attention.flash_attn.cute.utils.AuxData'>`, or register a custom argument adapter.
+  exe_args, func_types, adapted_args = self.generate_mlir_function_types(
+{"bs": 4, "ctx": 1024, "local": true, "stock_out": 0.0025181, "stock_lse": 2.9e-06, "stock_final": 0.0042331, "compact_out": 0.0025331, "compact_lse": 1.9e-06, "compact_final": 0.0042331, "compact_vs_stock_out": 0.002178, "c64s2_out": 0.0025554, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0042331, "ink32_out": 0.0025331, "ink32_lse": 1.9e-06, "ink32_final": 0.0042331, "ink64_out": 0.0025554, "ink64_lse": 1.9e-06, "ink64_final": 0.0042331, "finite": true}
+{"bs": 4, "ctx": 1024, "local": false, "stock_out": 0.0025265, "stock_lse": 2.9e-06, "stock_final": 0.0042331, "compact_out": 0.0025331, "compact_lse": 1.9e-06, "compact_final": 0.0042331, "compact_vs_stock_out": 0.002178, "c64s2_out": 0.0025554, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0042331, "ink32_out": 0.0025331, "ink32_lse": 1.9e-06, "ink32_final": 0.0042331, "ink64_out": 0.0025554, "ink64_lse": 1.9e-06, "ink64_final": 0.0042331, "finite": true}
+{"bs": 4, "ctx": 4096, "local": true, "stock_out": 0.0025163, "stock_lse": 3.8e-06, "stock_final": 0.0063264, "compact_out": 0.0025127, "compact_lse": 2.9e-06, "compact_final": 0.0063264, "compact_vs_stock_out": 0.0023728, "c64s2_out": 0.0025172, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0063264, "ink32_out": 0.0025126, "ink32_lse": 2.9e-06, "ink32_final": 0.0063264, "ink64_out": 0.0025172, "ink64_lse": 2.9e-06, "ink64_final": 0.0063264, "finite": true}
+{"bs": 4, "ctx": 4096, "local": false, "stock_out": 0.0022018, "stock_lse": 3.8e-06, "stock_final": 0.0038593, "compact_out": 0.0019518, "compact_lse": 2.9e-06, "compact_final": 0.0038593, "compact_vs_stock_out": 0.0021656, "c64s2_out": 0.0019498, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0038593, "ink32_out": 0.0019518, "ink32_lse": 2.9e-06, "ink32_final": 0.0038593, "ink64_out": 0.0019498, "ink64_lse": 2.9e-06, "ink64_final": 0.0038593, "finite": true}
+{"bs": 4, "ctx": 32768, "local": true, "stock_out": 0.0028352, "stock_lse": 2.9e-06, "stock_final": 0.005636, "compact_out": 0.0028349, "compact_lse": 2.9e-06, "compact_final": 0.005636, "compact_vs_stock_out": 0.0020494, "c64s2_out": 0.002835, "c64s2_lse": 1.9e-06, "c64s2_final": 0.005636, "ink32_out": 0.0028356, "ink32_lse": 2.9e-06, "ink32_final": 0.005636, "ink64_out": 0.0028358, "ink64_lse": 2.9e-06, "ink64_final": 0.005636, "finite": true}
+{"bs": 4, "ctx": 32768, "local": false, "stock_out": 0.0017078, "stock_lse": 1.91e-05, "stock_final": 0.0035678, "compact_out": 0.0024101, "compact_lse": 1.9e-06, "compact_final": 0.0048189, "compact_vs_stock_out": 0.0024561, "c64s2_out": 0.0024096, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0048189, "ink32_out": 0.0024107, "ink32_lse": 1.9e-06, "ink32_final": 0.0048189, "ink64_out": 0.0024102, "ink64_lse": 1.9e-06, "ink64_final": 0.0048189, "finite": true}
+{"bs": 8, "ctx": 1024, "local": true, "stock_out": 0.0031228, "stock_lse": 2.9e-06, "stock_final": 0.0076895, "compact_out": 0.0030962, "compact_lse": 2.9e-06, "compact_final": 0.0076895, "compact_vs_stock_out": 0.0023311, "c64s2_out": 0.0030926, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0076895, "ink32_out": 0.0030957, "ink32_lse": 2.9e-06, "ink32_final": 0.0076895, "ink64_out": 0.0030923, "ink64_lse": 1.9e-06, "ink64_final": 0.0076895, "finite": true}
+{"bs": 8, "ctx": 1024, "local": false, "stock_out": 0.0030859, "stock_lse": 2.9e-06, "stock_final": 0.0076895, "compact_out": 0.0030962, "compact_lse": 2.9e-06, "compact_final": 0.0076895, "compact_vs_stock_out": 0.0023082, "c64s2_out": 0.0030926, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0076895, "ink32_out": 0.0030957, "ink32_lse": 2.9e-06, "ink32_final": 0.0076895, "ink64_out": 0.0030923, "ink64_lse": 1.9e-06, "ink64_final": 0.0076895, "finite": true}
+{"bs": 8, "ctx": 4096, "local": true, "stock_out": 0.0026791, "stock_lse": 2.9e-06, "stock_final": 0.0067284, "compact_out": 0.0026767, "compact_lse": 2.9e-06, "compact_final": 0.0067284, "compact_vs_stock_out": 0.002718, "c64s2_out": 0.0026751, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0067284, "ink32_out": 0.0026767, "ink32_lse": 1.9e-06, "ink32_final": 0.0067284, "ink64_out": 0.0026748, "ink64_lse": 1.9e-06, "ink64_final": 0.0067284, "finite": true}
+{"bs": 8, "ctx": 4096, "local": false, "stock_out": 0.0022613, "stock_lse": 3.8e-06, "stock_final": 0.0039692, "compact_out": 0.0018311, "compact_lse": 1.9e-06, "compact_final": 0.0039692, "compact_vs_stock_out": 0.0026488, "c64s2_out": 0.0021986, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0039692, "ink32_out": 0.0018311, "ink32_lse": 1.9e-06, "ink32_final": 0.0039692, "ink64_out": 0.0021986, "ink64_lse": 1.9e-06, "ink64_final": 0.0039692, "finite": true}
+{"bs": 8, "ctx": 32768, "local": true, "stock_out": 0.0034845, "stock_lse": 3.8e-06, "stock_final": 0.0071366, "compact_out": 0.0035016, "compact_lse": 1.9e-06, "compact_final": 0.0071366, "compact_vs_stock_out": 0.0028303, "c64s2_out": 0.0035016, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0071366, "ink32_out": 0.0035017, "ink32_lse": 1.9e-06, "ink32_final": 0.0071366, "ink64_out": 0.0035016, "ink64_lse": 1.9e-06, "ink64_final": 0.0071366, "finite": true}
+{"bs": 8, "ctx": 32768, "local": false, "stock_out": 0.0016328, "stock_lse": 1.91e-05, "stock_final": 0.0042892, "compact_out": 0.0016087, "compact_lse": 2.9e-06, "compact_final": 0.0042892, "compact_vs_stock_out": 0.0011162, "c64s2_out": 0.0016197, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0042892, "ink32_out": 0.0016086, "ink32_lse": 2.9e-06, "ink32_final": 0.0042892, "ink64_out": 0.0016197, "ink64_lse": 2.9e-06, "ink64_final": 0.0042892, "finite": true}
+{"bs": 24, "ctx": 1024, "local": true, "stock_out": 0.0023561, "stock_lse": 5.7e-06, "stock_final": 0.0077739, "compact_out": 0.0030582, "compact_lse": 2.9e-06, "compact_final": 0.0077739, "compact_vs_stock_out": 0.0029455, "c64s2_out": 0.0030547, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0077739, "ink32_out": 0.0030582, "ink32_lse": 2.9e-06, "ink32_final": 0.0077739, "ink64_out": 0.0030547, "ink64_lse": 2.9e-06, "ink64_final": 0.0077739, "finite": true}
+{"bs": 24, "ctx": 1024, "local": false, "stock_out": 0.0023561, "stock_lse": 5.7e-06, "stock_final": 0.0077739, "compact_out": 0.0030582, "compact_lse": 2.9e-06, "compact_final": 0.0077739, "compact_vs_stock_out": 0.0029455, "c64s2_out": 0.0030547, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0077739, "ink32_out": 0.0030582, "ink32_lse": 2.9e-06, "ink32_final": 0.0077739, "ink64_out": 0.0030547, "ink64_lse": 2.9e-06, "ink64_final": 0.0077739, "finite": true}
+{"bs": 24, "ctx": 4096, "local": true, "stock_out": 0.0026889, "stock_lse": 3.8e-06, "stock_final": 0.0078108, "compact_out": 0.0026973, "compact_lse": 2.9e-06, "compact_final": 0.0078108, "compact_vs_stock_out": 0.0026021, "c64s2_out": 0.0026929, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0078108, "ink32_out": 0.0026971, "ink32_lse": 2.9e-06, "ink32_final": 0.0078108, "ink64_out": 0.0026928, "ink64_lse": 2.9e-06, "ink64_final": 0.0078108, "finite": true}
+{"bs": 24, "ctx": 4096, "local": false, "stock_out": 0.0022367, "stock_lse": 9.5e-06, "stock_final": 0.0065682, "compact_out": 0.0019597, "compact_lse": 1.9e-06, "compact_final": 0.0065682, "compact_vs_stock_out": 0.0021769, "c64s2_out": 0.0022025, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0065682, "ink32_out": 0.0019588, "ink32_lse": 1.9e-06, "ink32_final": 0.0065682, "ink64_out": 0.0022026, "ink64_lse": 1.9e-06, "ink64_final": 0.0065682, "finite": true}
+{"bs": 24, "ctx": 32768, "local": true, "stock_out": 0.0030255, "stock_lse": 3.8e-06, "stock_final": 0.0075541, "compact_out": 0.0025482, "compact_lse": 2.9e-06, "compact_final": 0.0075541, "compact_vs_stock_out": 0.0030407, "c64s2_out": 0.0025478, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0075541, "ink32_out": 0.0025483, "ink32_lse": 2.9e-06, "ink32_final": 0.0075541, "ink64_out": 0.0025478, "ink64_lse": 1.9e-06, "ink64_final": 0.0075541, "finite": true}
+{"bs": 24, "ctx": 32768, "local": false, "stock_out": 0.0020945, "stock_lse": 6.1e-05, "stock_final": 0.0038446, "compact_out": 0.0021072, "compact_lse": 2.9e-06, "compact_final": 0.0038446, "compact_vs_stock_out": 0.0018939, "c64s2_out": 0.0021072, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0038446, "ink32_out": 0.0021072, "ink32_lse": 2.9e-06, "ink32_final": 0.0038446, "ink64_out": 0.0021072, "ink64_lse": 1.9e-06, "ink64_final": 0.0038446, "finite": true}
+{"bs": 48, "ctx": 1024, "local": true, "stock_out": 0.0029806, "stock_lse": 3.8e-06, "stock_final": 0.0077436, "compact_out": 0.0029205, "compact_lse": 2.9e-06, "compact_final": 0.0077436, "compact_vs_stock_out": 0.0029684, "c64s2_out": 0.0029976, "c64s2_lse": 3.8e-06, "c64s2_final": 0.0077436, "ink32_out": 0.0029205, "ink32_lse": 2.9e-06, "ink32_final": 0.0077436, "ink64_out": 0.0029972, "ink64_lse": 3.8e-06, "ink64_final": 0.0077436, "finite": true}
+{"bs": 48, "ctx": 1024, "local": false, "stock_out": 0.0029806, "stock_lse": 3.8e-06, "stock_final": 0.0077436, "compact_out": 0.0029205, "compact_lse": 2.9e-06, "compact_final": 0.0077436, "compact_vs_stock_out": 0.0029684, "c64s2_out": 0.0029976, "c64s2_lse": 3.8e-06, "c64s2_final": 0.0077436, "ink32_out": 0.0029205, "ink32_lse": 2.9e-06, "ink32_final": 0.0077436, "ink64_out": 0.0029972, "ink64_lse": 3.8e-06, "ink64_final": 0.0077436, "finite": true}
+{"bs": 48, "ctx": 4096, "local": true, "stock_out": 0.0030521, "stock_lse": 3.8e-06, "stock_final": 0.0077264, "compact_out": 0.0030423, "compact_lse": 2.9e-06, "compact_final": 0.0077264, "compact_vs_stock_out": 0.0026536, "c64s2_out": 0.0030438, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0077264, "ink32_out": 0.0030423, "ink32_lse": 2.9e-06, "ink32_final": 0.0077264, "ink64_out": 0.0030439, "ink64_lse": 2.9e-06, "ink64_final": 0.0077264, "finite": true}
+{"bs": 48, "ctx": 4096, "local": false, "stock_out": 0.0026461, "stock_lse": 9.5e-06, "stock_final": 0.0070543, "compact_out": 0.0021623, "compact_lse": 3.8e-06, "compact_final": 0.0070543, "compact_vs_stock_out": 0.0025253, "c64s2_out": 0.0022766, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0070543, "ink32_out": 0.0021626, "ink32_lse": 3.8e-06, "ink32_final": 0.0070543, "ink64_out": 0.0022766, "ink64_lse": 3.8e-06, "ink64_final": 0.0070543, "finite": true}
+{"bs": 48, "ctx": 32768, "local": true, "stock_out": 0.0030811, "stock_lse": 4.8e-06, "stock_final": 0.0076354, "compact_out": 0.0028632, "compact_lse": 3.8e-06, "compact_final": 0.0076354, "compact_vs_stock_out": 0.0030868, "c64s2_out": 0.0029289, "c64s2_lse": 3.8e-06, "c64s2_final": 0.0076354, "ink32_out": 0.0028632, "ink32_lse": 3.8e-06, "ink32_final": 0.0076354, "ink64_out": 0.0029289, "ink64_lse": 3.8e-06, "ink64_final": 0.0076354, "finite": true}
+{"bs": 48, "ctx": 32768, "local": false, "stock_out": 0.0025143, "stock_lse": 5.34e-05, "stock_final": 0.0057323, "compact_out": 0.0020589, "compact_lse": 2.9e-06, "compact_final": 0.0057323, "compact_vs_stock_out": 0.0025009, "c64s2_out": 0.0020589, "c64s2_lse": 2.9e-06, "c64s2_final": 0.0057323, "ink32_out": 0.0020584, "ink32_lse": 2.9e-06, "ink32_final": 0.0057323, "ink64_out": 0.0020584, "ink64_lse": 2.9e-06, "ink64_final": 0.0057323, "finite": true}
+{"bs": 1, "ctx": 32768, "local": true, "stock_out": 0.0029663, "stock_lse": 2.9e-06, "stock_final": 0.0064189, "compact_out": 0.0029602, "compact_lse": 1.9e-06, "compact_final": 0.0064189, "compact_vs_stock_out": 0.0017798, "c64s2_out": 0.0029694, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0064189, "ink32_out": 0.0029812, "ink32_lse": 1.9e-06, "ink32_final": 0.0064189, "ink64_out": 0.0029695, "ink64_lse": 1.9e-06, "ink64_final": 0.0064189, "finite": true}
+{"bs": 1, "ctx": 32768, "local": false, "stock_out": 0.0012902, "stock_lse": 5.7e-06, "stock_final": 0.003369, "compact_out": 0.0013226, "compact_lse": 1.9e-06, "compact_final": 0.003369, "compact_vs_stock_out": 0.0007766, "c64s2_out": 0.0013222, "c64s2_lse": 1.9e-06, "c64s2_final": 0.003369, "ink32_out": 0.0013228, "ink32_lse": 1.9e-06, "ink32_final": 0.003369, "ink64_out": 0.0013223, "ink64_lse": 1.9e-06, "ink64_final": 0.003369, "finite": true}
+{"bs": 1, "ctx": 131072, "local": true, "stock_out": 0.0014448, "stock_lse": 1.9e-06, "stock_final": 0.0037074, "compact_out": 0.0014747, "compact_lse": 1.9e-06, "compact_final": 0.0037074, "compact_vs_stock_out": 0.0010886, "c64s2_out": 0.0015026, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0037074, "ink32_out": 0.001533, "ink32_lse": 1.9e-06, "ink32_final": 0.0037074, "ink64_out": 0.0015026, "ink64_lse": 1.9e-06, "ink64_final": 0.0037074, "finite": true}
+{"bs": 1, "ctx": 131072, "local": false, "stock_out": 0.0006157, "stock_lse": 1.43e-05, "stock_final": 0.0030133, "compact_out": 0.0007647, "compact_lse": 1.9e-06, "compact_final": 0.0030133, "compact_vs_stock_out": 0.0008219, "c64s2_out": 0.0006718, "c64s2_lse": 1.9e-06, "c64s2_final": 0.0030133, "ink32_out": 0.0007637, "ink32_lse": 1.9e-06, "ink32_final": 0.0030133, "ink64_out": 0.0006718, "ink64_lse": 1.9e-06, "ink64_final": 0.0030133, "finite": true}
+== bench: cold median us per visit; GB/s = KV bytes attended / time
+{"bs": 1, "ctx": 1024, "local": false, "kv_MB": 4.19, "fa4_splits": 6, "stock_fa4": 50.0, "stock_total": 50.3, "compact_cfg": [12, 32, 3], "compact_parts": 27.9, "compact_total": 31.7, "best_cfg": [24, 32, 2], "best_parts": 27.7, "best_total": 33.8, "ink_cfg": [12, 32, 2], "ink_parts": 26.8, "ink_total": 30.7, "stock_fa4_GBs": 83.9, "stock_total_GBs": 83.4, "compact_parts_GBs": 150.1, "compact_total_GBs": 132.1, "best_parts_GBs": 151.5, "best_total_GBs": 124.0, "ink_parts_GBs": 156.8, "ink_total_GBs": 136.5}
+{"bs": 1, "ctx": 1024, "local": true, "kv_MB": 4.19, "fa4_splits": 6, "stock_fa4": 50.2, "stock_total": 52.3, "compact_cfg": [12, 32, 3], "compact_parts": 28.7, "compact_total": 31.7, "best_cfg": [16, 32, 2], "best_parts": 28.7, "best_total": 32.8, "ink_cfg": [12, 32, 2], "ink_parts": 27.7, "ink_total": 31.7, "stock_fa4_GBs": 83.5, "stock_total_GBs": 80.3, "compact_parts_GBs": 146.1, "compact_total_GBs": 132.1, "best_parts_GBs": 146.3, "best_total_GBs": 127.9, "ink_parts_GBs": 151.5, "ink_total_GBs": 132.1}
+{"bs": 1, "ctx": 4096, "local": true, "kv_MB": 4.22, "fa4_splits": 6, "stock_fa4": 51.2, "stock_total": 53.2, "compact_cfg": [12, 32, 3], "compact_parts": 29.7, "compact_total": 32.8, "best_cfg": [24, 32, 2], "best_parts": 28.7, "best_total": 34.8, "ink_cfg": [12, 32, 2], "ink_parts": 28.2, "ink_total": 32.0, "stock_fa4_GBs": 82.4, "stock_total_GBs": 79.3, "compact_parts_GBs": 142.2, "compact_total_GBs": 128.7, "best_parts_GBs": 147.3, "best_total_GBs": 121.4, "ink_parts_GBs": 149.8, "ink_total_GBs": 131.8}
+{"bs": 4, "ctx": 1024, "local": false, "kv_MB": 16.27, "fa4_splits": 3, "stock_fa4": 122.9, "stock_total": 125.8, "compact_cfg": [3, 32, 3], "compact_parts": 91.1, "compact_total": 94.4, "best_cfg": [6, 64, 2], "best_parts": 87.0, "best_total": 91.1, "ink_cfg": [12, 32, 2], "ink_parts": 78.0, "ink_total": 85.0, "stock_fa4_GBs": 132.4, "stock_total_GBs": 129.3, "compact_parts_GBs": 178.5, "compact_total_GBs": 172.3, "best_parts_GBs": 186.9, "best_total_GBs": 178.5, "ink_parts_GBs": 208.4, "ink_total_GBs": 191.4}
+{"bs": 4, "ctx": 1024, "local": true, "kv_MB": 16.27, "fa4_splits": 1, "stock_fa4": 114.6, "stock_total": 117.8, "compact_cfg": [3, 32, 3], "compact_parts": 90.1, "compact_total": 95.3, "best_cfg": [3, 64, 2], "best_parts": 87.1, "best_total": 91.1, "ink_cfg": [6, 32, 2], "ink_parts": 78.9, "ink_total": 84.0, "stock_fa4_GBs": 142.0, "stock_total_GBs": 138.1, "compact_parts_GBs": 180.4, "compact_total_GBs": 170.7, "best_parts_GBs": 186.7, "best_total_GBs": 178.5, "ink_parts_GBs": 206.2, "ink_total_GBs": 193.7}
+{"bs": 4, "ctx": 4096, "local": true, "kv_MB": 16.89, "fa4_splits": 1, "stock_fa4": 125.2, "stock_total": 128.0, "compact_cfg": [3, 32, 3], "compact_parts": 93.5, "compact_total": 96.3, "best_cfg": [6, 64, 2], "best_parts": 90.1, "best_total": 94.2, "ink_cfg": [12, 32, 2], "ink_parts": 83.2, "ink_total": 89.1, "stock_fa4_GBs": 134.9, "stock_total_GBs": 132.0, "compact_parts_GBs": 180.7, "compact_total_GBs": 175.5, "best_parts_GBs": 187.4, "best_total_GBs": 179.3, "ink_parts_GBs": 202.9, "ink_total_GBs": 189.6}
+{"bs": 8, "ctx": 1024, "local": false, "kv_MB": 32.09, "fa4_splits": 3, "stock_fa4": 240.6, "stock_total": 246.8, "compact_cfg": [1, 32, 3], "compact_parts": 188.4, "compact_total": 192.5, "best_cfg": [2, 32, 2], "best_parts": 165.9, "best_total": 169.0, "ink_cfg": [4, 32, 2], "ink_parts": 150.5, "ink_total": 155.6, "stock_fa4_GBs": 133.4, "stock_total_GBs": 130.0, "compact_parts_GBs": 170.3, "compact_total_GBs": 166.7, "best_parts_GBs": 193.5, "best_total_GBs": 189.9, "ink_parts_GBs": 213.2, "ink_total_GBs": 206.2}
+{"bs": 8, "ctx": 1024, "local": true, "kv_MB": 32.09, "fa4_splits": 1, "stock_fa4": 233.5, "stock_total": 239.9, "compact_cfg": [1, 32, 3], "compact_parts": 187.6, "compact_total": 190.7, "best_cfg": [3, 64, 2], "best_parts": 165.9, "best_total": 171.1, "ink_cfg": [3, 32, 3], "ink_parts": 152.4, "ink_total": 155.7, "stock_fa4_GBs": 137.5, "stock_total_GBs": 133.8, "compact_parts_GBs": 171.1, "compact_total_GBs": 168.3, "best_parts_GBs": 193.5, "best_total_GBs": 187.5, "ink_parts_GBs": 210.5, "ink_total_GBs": 206.1}
+{"bs": 8, "ctx": 4096, "local": true, "kv_MB": 33.78, "fa4_splits": 1, "stock_fa4": 263.2, "stock_total": 268.6, "compact_cfg": [1, 32, 3], "compact_parts": 196.6, "compact_total": 200.6, "best_cfg": [2, 32, 2], "best_parts": 173.1, "best_total": 177.2, "ink_cfg": [3, 64, 2], "ink_parts": 163.0, "ink_total": 170.3, "stock_fa4_GBs": 128.4, "stock_total_GBs": 125.8, "compact_parts_GBs": 171.8, "compact_total_GBs": 168.4, "best_parts_GBs": 195.2, "best_total_GBs": 190.7, "ink_parts_GBs": 207.3, "ink_total_GBs": 198.4}
+{"bs": 16, "ctx": 1024, "local": false, "kv_MB": 64.02, "fa4_splits": 3, "stock_fa4": 493.6, "stock_total": 498.8, "compact_cfg": [1, 32, 3], "compact_parts": 330.0, "compact_total": 334.9, "best_cfg": [1, 32, 3], "best_parts": 324.6, "best_total": 331.8, "ink_cfg": [2, 64, 2], "ink_parts": 303.1, "ink_total": 310.3, "stock_fa4_GBs": 129.7, "stock_total_GBs": 128.3, "compact_parts_GBs": 194.0, "compact_total_GBs": 191.2, "best_parts_GBs": 197.2, "best_total_GBs": 193.0, "ink_parts_GBs": 211.2, "ink_total_GBs": 206.3}
+{"bs": 16, "ctx": 1024, "local": true, "kv_MB": 64.02, "fa4_splits": 1, "stock_fa4": 448.4, "stock_total": 458.8, "compact_cfg": [1, 32, 3], "compact_parts": 322.6, "compact_total": 328.5, "best_cfg": [1, 32, 3], "best_parts": 322.5, "best_total": 328.7, "ink_cfg": [2, 64, 2], "ink_parts": 301.5, "ink_total": 310.3, "stock_fa4_GBs": 142.8, "stock_total_GBs": 139.5, "compact_parts_GBs": 198.5, "compact_total_GBs": 194.9, "best_parts_GBs": 198.5, "best_total_GBs": 194.8, "ink_parts_GBs": 212.3, "ink_total_GBs": 206.3}
+{"bs": 16, "ctx": 4096, "local": true, "kv_MB": 67.57, "fa4_splits": 1, "stock_fa4": 517.2, "stock_total": 520.3, "compact_cfg": [1, 32, 3], "compact_parts": 341.0, "compact_total": 347.1, "best_cfg": [1, 32, 3], "best_parts": 341.0, "best_total": 347.2, "ink_cfg": [2, 64, 2], "ink_parts": 319.5, "ink_total": 329.9, "stock_fa4_GBs": 130.7, "stock_total_GBs": 129.9, "compact_parts_GBs": 198.1, "compact_total_GBs": 194.7, "best_parts_GBs": 198.1, "best_total_GBs": 194.6, "ink_parts_GBs": 211.5, "ink_total_GBs": 204.8}
+{"bs": 24, "ctx": 1024, "local": false, "kv_MB": 96.18, "fa4_splits": 1, "stock_fa4": 649.2, "stock_total": 656.3, "compact_cfg": [1, 32, 3], "compact_parts": 511.0, "compact_total": 520.2, "best_cfg": [1, 64, 3], "best_parts": 488.4, "best_total": 498.7, "ink_cfg": [1, 64, 2], "ink_parts": 444.6, "ink_total": 454.7, "stock_fa4_GBs": 148.1, "stock_total_GBs": 146.6, "compact_parts_GBs": 188.2, "compact_total_GBs": 184.9, "best_parts_GBs": 197.0, "best_total_GBs": 192.9, "ink_parts_GBs": 216.3, "ink_total_GBs": 211.5}
+{"bs": 24, "ctx": 1024, "local": true, "kv_MB": 96.18, "fa4_splits": 1, "stock_fa4": 665.0, "stock_total": 675.8, "compact_cfg": [1, 32, 3], "compact_parts": 505.9, "compact_total": 516.1, "best_cfg": [1, 64, 2], "best_parts": 486.6, "best_total": 497.7, "ink_cfg": [1, 64, 2], "ink_parts": 442.4, "ink_total": 451.6, "stock_fa4_GBs": 144.6, "stock_total_GBs": 142.3, "compact_parts_GBs": 190.1, "compact_total_GBs": 186.4, "best_parts_GBs": 197.7, "best_total_GBs": 193.3, "ink_parts_GBs": 217.4, "ink_total_GBs": 213.0}
+{"bs": 24, "ctx": 4096, "local": true, "kv_MB": 101.35, "fa4_splits": 1, "stock_fa4": 780.3, "stock_total": 788.5, "compact_cfg": [1, 32, 3], "compact_parts": 532.5, "compact_total": 542.8, "best_cfg": [1, 64, 2], "best_parts": 516.1, "best_total": 522.3, "ink_cfg": [1, 64, 2], "ink_parts": 469.3, "ink_total": 476.2, "stock_fa4_GBs": 129.9, "stock_total_GBs": 128.5, "compact_parts_GBs": 190.3, "compact_total_GBs": 186.7, "best_parts_GBs": 196.4, "best_total_GBs": 194.1, "ink_parts_GBs": 216.0, "ink_total_GBs": 212.8}
+{"bs": 48, "ctx": 1024, "local": false, "kv_MB": 192.08, "fa4_splits": 1, "stock_fa4": 1285.2, "stock_total": 1307.7, "compact_cfg": [1, 32, 3], "compact_parts": 972.8, "compact_total": 997.4, "best_cfg": [1, 32, 2], "best_parts": 968.6, "best_total": 989.2, "ink_cfg": [1, 64, 2], "ink_parts": 882.8, "ink_total": 903.2, "stock_fa4_GBs": 149.5, "stock_total_GBs": 146.9, "compact_parts_GBs": 197.4, "compact_total_GBs": 192.6, "best_parts_GBs": 198.3, "best_total_GBs": 194.2, "ink_parts_GBs": 217.6, "ink_total_GBs": 212.7}
+{"bs": 48, "ctx": 1024, "local": true, "kv_MB": 192.08, "fa4_splits": 1, "stock_fa4": 1325.0, "stock_total": 1349.7, "compact_cfg": [1, 32, 3], "compact_parts": 965.9, "compact_total": 988.2, "best_cfg": [1, 32, 3], "best_parts": 968.9, "best_total": 988.2, "ink_cfg": [1, 64, 2], "ink_parts": 880.6, "ink_total": 900.1, "stock_fa4_GBs": 145.0, "stock_total_GBs": 142.3, "compact_parts_GBs": 198.9, "compact_total_GBs": 194.4, "best_parts_GBs": 198.2, "best_total_GBs": 194.4, "ink_parts_GBs": 218.1, "ink_total_GBs": 213.4}
+{"bs": 48, "ctx": 4096, "local": true, "kv_MB": 202.7, "fa4_splits": 1, "stock_fa4": 1563.7, "stock_total": 1595.4, "compact_cfg": [1, 32, 3], "compact_parts": 1018.9, "compact_total": 1041.4, "best_cfg": [1, 32, 3], "best_parts": 1022.0, "best_total": 1041.4, "ink_cfg": [1, 64, 2], "ink_parts": 925.7, "ink_total": 947.6, "stock_fa4_GBs": 129.6, "stock_total_GBs": 127.1, "compact_parts_GBs": 198.9, "compact_total_GBs": 194.6, "best_parts_GBs": 198.3, "best_total_GBs": 194.6, "ink_parts_GBs": 219.0, "ink_total_GBs": 213.9}
+{"bs": 1, "ctx": 32768, "local": false, "kv_MB": 134.22, "fa4_splits": 6, "stock_fa4": 621.6, "stock_total": 624.7, "compact_cfg": [12, 32, 3], "compact_parts": 595.4, "compact_total": 599.2, "best_cfg": [6, 64, 2], "best_parts": 590.9, "best_total": 603.2, "ink_cfg": [12, 32, 2], "ink_parts": 592.9, "ink_total": 604.2, "stock_fa4_GBs": 215.9, "stock_total_GBs": 214.9, "compact_parts_GBs": 225.4, "compact_total_GBs": 224.0, "best_parts_GBs": 227.1, "best_total_GBs": 222.5, "ink_parts_GBs": 226.4, "ink_total_GBs": 222.2}
+{"bs": 1, "ctx": 131072, "local": false, "kv_MB": 536.87, "fa4_splits": 6, "stock_fa4": 2367.5, "stock_total": 2383.7, "compact_cfg": [12, 32, 3], "compact_parts": 2349.0, "compact_total": 2350.0, "best_cfg": [12, 32, 3], "best_parts": 2299.9, "best_total": 2303.0, "ink_cfg": [12, 32, 2], "ink_parts": 2292.6, "ink_total": 2295.8, "stock_fa4_GBs": 226.8, "stock_total_GBs": 225.2, "compact_parts_GBs": 228.6, "compact_total_GBs": 228.5, "best_parts_GBs": 233.4, "best_total_GBs": 233.1, "ink_parts_GBs": 234.2, "ink_total_GBs": 233.8}
+{"bs": 2, "ctx": 32768, "local": false, "kv_MB": 268.28, "fa4_splits": 3, "stock_fa4": 1208.3, "stock_total": 1209.3, "compact_cfg": [6, 32, 3], "compact_parts": 1170.4, "compact_total": 1175.6, "best_cfg": [6, 64, 2], "best_parts": 1161.2, "best_total": 1165.3, "ink_cfg": [2, 64, 3], "ink_parts": 1157.4, "ink_total": 1159.2, "stock_fa4_GBs": 222.0, "stock_total_GBs": 221.8, "compact_parts_GBs": 229.2, "compact_total_GBs": 228.2, "best_parts_GBs": 231.0, "best_total_GBs": 230.2, "ink_parts_GBs": 231.8, "ink_total_GBs": 231.4}
+{"bs": 4, "ctx": 32768, "local": false, "kv_MB": 536.36, "fa4_splits": 3, "stock_fa4": 2396.4, "stock_total": 2394.1, "compact_cfg": [3, 32, 3], "compact_parts": 2310.2, "compact_total": 2313.2, "best_cfg": [3, 64, 3], "best_parts": 2303.0, "best_total": 2308.1, "ink_cfg": [1, 64, 3], "ink_parts": 2299.7, "ink_total": 2294.8, "stock_fa4_GBs": 223.8, "stock_total_GBs": 224.0, "compact_parts_GBs": 232.2, "compact_total_GBs": 231.9, "best_parts_GBs": 232.9, "best_total_GBs": 232.4, "ink_parts_GBs": 233.2, "ink_total_GBs": 233.7}
+{"bs": 4, "ctx": 131072, "local": false, "kv_MB": 2146.97, "fa4_splits": 3, "stock_fa4": 9325.6, "stock_total": 9317.4, "compact_cfg": [3, 32, 3], "compact_parts": 9141.3, "compact_total": 9132.5, "best_cfg": [3, 32, 2], "best_parts": 9126.9, "best_total": 9132.1, "ink_cfg": [1, 64, 3], "ink_parts": 9090.1, "ink_total": 9094.3, "stock_fa4_GBs": 230.2, "stock_total_GBs": 230.4, "compact_parts_GBs": 234.9, "compact_total_GBs": 235.1, "best_parts_GBs": 235.2, "best_total_GBs": 235.1, "ink_parts_GBs": 236.2, "ink_total_GBs": 236.1}
+{"bs": 8, "ctx": 32768, "local": false, "kv_MB": 1072.28, "fa4_splits": 3, "stock_fa4": 4749.8, "stock_total": 4789.3, "compact_cfg": [1, 32, 3], "compact_parts": 4586.5, "compact_total": 4588.5, "best_cfg": [2, 32, 3], "best_parts": 4581.4, "best_total": 4580.7, "ink_cfg": [1, 32, 2], "ink_parts": 4557.2, "ink_total": 4558.8, "stock_fa4_GBs": 225.8, "stock_total_GBs": 223.9, "compact_parts_GBs": 233.8, "compact_total_GBs": 233.7, "best_parts_GBs": 234.1, "best_total_GBs": 234.1, "ink_parts_GBs": 235.3, "ink_total_GBs": 235.2}
+{"bs": 16, "ctx": 32768, "local": false, "kv_MB": 2144.4, "fa4_splits": 3, "stock_fa4": 9519.1, "stock_total": 9636.9, "compact_cfg": [1, 32, 3], "compact_parts": 9431.0, "compact_total": 9162.0, "best_cfg": [1, 32, 3], "best_parts": 9146.7, "best_total": 9162.8, "ink_cfg": [1, 64, 3], "ink_parts": 9040.7, "ink_total": 9059.5, "stock_fa4_GBs": 225.3, "stock_total_GBs": 222.5, "compact_parts_GBs": 227.4, "compact_total_GBs": 234.1, "best_parts_GBs": 234.4, "best_total_GBs": 234.0, "ink_parts_GBs": 237.2, "ink_total_GBs": 236.7}
+{"bs": 24, "ctx": 32768, "local": false, "kv_MB": 3216.74, "fa4_splits": 1, "stock_fa4": 13875.2, "stock_total": 13866.0, "compact_cfg": [1, 32, 3], "compact_parts": 13870.1, "compact_total": 13877.2, "best_cfg": [1, 64, 2], "best_parts": 13519.0, "best_total": 13535.2, "ink_cfg": [1, 64, 3], "ink_parts": 13424.7, "ink_total": 13431.8, "stock_fa4_GBs": 231.8, "stock_total_GBs": 232.0, "compact_parts_GBs": 231.9, "compact_total_GBs": 231.8, "best_parts_GBs": 237.9, "best_total_GBs": 237.7, "ink_parts_GBs": 239.6, "ink_total_GBs": 239.5}
+{"bs": 48, "ctx": 32768, "local": false, "kv_MB": 6433.21, "fa4_splits": 1, "stock_fa4": 27986.1, "stock_total": 28016.6, "compact_cfg": [1, 32, 3], "compact_parts": 27465.6, "compact_total": 27498.5, "best_cfg": [1, 64, 2], "best_parts": 27315.2, "best_total": 27346.0, "ink_cfg": [1, 64, 3], "ink_parts": 27087.8, "ink_total": 27118.8, "stock_fa4_GBs": 229.9, "stock_total_GBs": 229.6, "compact_parts_GBs": 234.2, "compact_total_GBs": 233.9, "best_parts_GBs": 235.5, "best_total_GBs": 235.3, "ink_parts_GBs": 237.5, "ink_total_GBs": 237.2}
+DONE
+KBRUN end 2026-11-21T14:29:21Z rc=0 memavail=117GiB

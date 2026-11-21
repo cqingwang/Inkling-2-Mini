@@ -1,0 +1,34 @@
+KBRUN start 2026-11-21T14:42:34Z memavail=117GiB
+USDT:2026-11-21 14:42:37 1:1 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-11-21 14:42:37 1:1 SyncActivityProfilerHandler.cpp:46] profiler_stop
+USDT:2026-11-21 14:42:38 1:1 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-11-21 14:42:38 1:1 SyncActivityProfilerHandler.cpp:46] profiler_stop
+USDT:2026-11-21 14:42:38 1:1 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-11-21 14:42:38 1:1 SyncActivityProfilerHandler.cpp:46] profiler_stop
+USDT:2026-11-21 14:42:38 1:1 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-11-21 14:42:38 1:1 SyncActivityProfilerHandler.cpp:46] profiler_stop
+USDT:2026-11-21 14:42:39 1:1 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-11-21 14:42:39 1:1 SyncActivityProfilerHandler.cpp:46] profiler_stop
+loop attn local:
+         0.5 us  x1  Memset (Device)
+      2075.3 us  x1  _loop_stats_kernel
+      1120.1 us  x1  _controller_down
+      4606.4 us  x1  _loop_mix_kernel
+loop attn local onepass:
+         0.5 us  x1  Memset (Device)
+      2071.4 us  x1  _loop_stats_kernel
+      1122.9 us  x1  _controller_down
+      3402.8 us  x1  _loop_mix_kernel
+       518.8 us  x3  kernel_cutlass_kernel_sglangkernelsopslayernorminkling2_rms_
+loop mlp:
+         0.4 us  x1  Memset (Device)
+      1505.0 us  x1  _loop_stats_kernel
+       372.9 us  x1  _controller_down
+      1565.8 us  x1  _loop_mix_kernel
+resnorm local:
+         0.2 us  x1  Memset (Device)
+       726.0 us  x1  _resnorm_kernel
+resnorm mlp+add:
+         0.4 us  x1  Memset (Device)
+       853.6 us  x1  _resnorm_kernel
+KBRUN end 2026-11-21T14:42:40Z rc=0 memavail=117GiB

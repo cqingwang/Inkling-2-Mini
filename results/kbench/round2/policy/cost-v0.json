@@ -1,0 +1,2 @@
+{"source": "v0 (pre-profile): F(1)=60.4-0.97*27.9 (c1 step 60.4 ms); F(8)=126.3-0.97*68.8 (report_c8 step 126.3 ms at this data's c8 U(8)); linear in bs; b=0.97 ms per expert of union at every bs (dead rows keep their GEMM rows: only expert bytes are saved); dynamic-policy overhead 0.05+0.13*bs ms (unfused softmax stats over [bs,7,V])",
+ "fixed_ms": {"1": 33.34, "8": 59.56}, "b_ms_per_expert": 0.97, "ovh0_ms": 0.05, "ovh1_ms": 0.13}

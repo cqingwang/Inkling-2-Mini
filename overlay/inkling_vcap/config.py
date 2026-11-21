@@ -14,6 +14,12 @@ INKLING_VERIFY_CAP grammar (case-insensitive, whitespace ignored):
                                     bs uses the smallest key >= bs, bs above the largest
                                     key uses the largest key's threshold. T = 0 means
                                     "verify every row" (no draft-logit work that step).
+    policy:/path/policy.json     -> calibrated cost rule: per-position acceptance tables
+                                    (greedy / sampled) on bins of the draft max
+                                    probability, a per-batch-size price theta and the
+                                    marginal expert union of each row (optionally
+                                    batch-aware). Format: policyfile.py. The path keeps
+                                    its case; it must not contain commas.
 
 Options, appended with commas to any mode:
     min=A, max=B                 -> clamp of the live length (default 1 .. verify width)
@@ -40,6 +46,8 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Optional, Tuple
 
+from inkling_vcap.policyfile import PolicyFile, PolicyFileError, load_policy
+
 ENV_MODE = "INKLING_VERIFY_CAP"
 ENV_REMAP = "INKLING_VERIFY_CAP_REMAP"
 ENV_FUSED = "INKLING_VERIFY_CAP_FUSED"
@@ -58,12 +66,13 @@ class Policy:
     """This step's rule: a constant live length, or a survival threshold."""
 
     const_len: int = 0  # > 0: every request gets this L
-    threshold: float = 0.0  # used when const_len == 0
+    threshold: float = 0.0  # used when const_len == 0 (policy: mode: theta)
+    pool: float = 0.0  # policy: mode, batch-aware rounds (0: per-request rule)
 
 
 @dataclass(frozen=True)
 class VcapConfig:
-    kind: str  # "fixed" | "conf" | "cost"
+    kind: str  # "fixed" | "conf" | "cost" | "policy"
     fixed_len: int = 0
     threshold: float = 0.0
     cost_table: Tuple[Tuple[int, float], ...] = ()
@@ -75,6 +84,7 @@ class VcapConfig:
     log_every: int = 500
     union: bool = False
     raw: str = ""
+    policy_file: Optional[PolicyFile] = None
 
     @property
     def uses_draft_probs(self) -> bool:
@@ -82,6 +92,8 @@ class VcapConfig:
             return True
         if self.kind == "cost":
             return any(t > 0 for _, t in self.cost_table)
+        if self.kind == "policy":
+            return any(t > 0 for _, t in self.policy_file.theta)
         return False
 
     def resolved_max(self, stride: int) -> int:
@@ -102,6 +114,12 @@ class VcapConfig:
             return Policy(const_len=stride)
         if self.kind == "fixed":
             return Policy(const_len=max(self.min_len, min(self.fixed_len, max_len)))
+        if self.kind == "policy":
+            theta = self.policy_file.theta_for(bs)
+            if theta <= 0.0:
+                return Policy(const_len=max_len)
+            pool = self.policy_file.pool_for(bs) if self.policy_file.rounds else 0.0
+            return Policy(threshold=theta, pool=pool)
         threshold = self.threshold_for(bs)
         if threshold <= 0.0:
             # surv >= 0 always holds: every row up to max_len is live.
@@ -116,6 +134,8 @@ class VcapConfig:
             return max(self.min_len, min(self.fixed_len, stride)) >= stride
         if self.kind == "conf":
             return self.threshold <= 0.0
+        if self.kind == "policy":
+            return all(t <= 0.0 for _, t in self.policy_file.theta)
         return all(t <= 0.0 for _, t in self.cost_table)
 
     def describe(self) -> str:
@@ -123,6 +143,8 @@ class VcapConfig:
             body = f"fixed:{self.fixed_len}"
         elif self.kind == "conf":
             body = f"conf:{self.threshold:g}"
+        elif self.kind == "policy":
+            body = self.policy_file.describe()
         else:
             body = "cost:" + ",".join(f"{k}={v:g}" for k, v in self.cost_table)
         return (
@@ -135,6 +157,11 @@ class VcapConfig:
     def validate_for_stride(self, stride: int) -> None:
         if stride < 2:
             raise VcapConfigError(f"verify width {stride} < 2: nothing to cap")
+        if self.kind == "policy" and self.policy_file.stride != stride:
+            raise VcapConfigError(
+                f"{ENV_MODE}: policy file stride {self.policy_file.stride} != verify "
+                f"width {stride}"
+            )
         if self.kind == "fixed" and not (1 <= self.fixed_len <= stride):
             raise VcapConfigError(
                 f"{ENV_MODE}=fixed:{self.fixed_len} must be within 1..{stride}"
@@ -180,12 +207,24 @@ def parse_config(env: Mapping[str, str] = os.environ) -> Optional[VcapConfig]:
     raw = env.get(ENV_MODE)
     if raw is None or raw.strip().lower() in _OFF_VALUES:
         return None
-    text = "".join(raw.split()).lower()
+    text = "".join(raw.split())
     parts = text.split(",")
-    head, opts = parts[0], parts[1:]
+    head, opts = parts[0], [o.lower() for o in parts[1:]]
+    policy_file = None
+    if head.lower().startswith("policy:"):
+        path = head[len("policy:"):]
+        if not path:
+            raise VcapConfigError(f"{ENV_MODE}={raw!r}: policy: needs a JSON path")
+        try:
+            policy_file = load_policy(path)
+        except PolicyFileError as exc:
+            raise VcapConfigError(f"{ENV_MODE}={raw!r}: {exc}") from exc
+        head = "policy:"
+    head = head.lower()
     if ":" not in head:
         raise VcapConfigError(
-            f"{ENV_MODE}={raw!r}: expected off | fixed:K | conf:T | cost:B=T,..."
+            f"{ENV_MODE}={raw!r}: expected off | fixed:K | conf:T | cost:B=T,... | "
+            "policy:/path.json"
         )
     kind, arg = head.split(":", 1)
     fixed_len, threshold = 0, 0.0
@@ -202,9 +241,11 @@ def parse_config(env: Mapping[str, str] = os.environ) -> Optional[VcapConfig]:
         threshold = _parse_threshold(raw, arg)
     elif kind == "cost":
         opts = [arg] + opts
+    elif kind == "policy":
+        pass
     else:
         raise VcapConfigError(
-            f"{ENV_MODE}={raw!r}: unknown mode {kind!r} (fixed | conf | cost)"
+            f"{ENV_MODE}={raw!r}: unknown mode {kind!r} (fixed | conf | cost | policy)"
         )
     min_len, max_len, bsmax = 1, 0, 0
     for opt in opts:
@@ -254,4 +295,5 @@ def parse_config(env: Mapping[str, str] = os.environ) -> Optional[VcapConfig]:
         log_every=log_every,
         union=_parse_bool(ENV_UNION, env.get(ENV_UNION), False),
         raw=raw,
+        policy_file=policy_file,
     )

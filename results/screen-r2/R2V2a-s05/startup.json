@@ -1,0 +1,2 @@
+{"label":"R2V2a-s05","ready_utc":"2026-11-21T14:14:21Z","startup_s":252,"memavail_ready_gib":40.1,"kv":"[2026-11-21 14:14:16 PID103] max_total_num_tokens=794880, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=40.42 GB"}
+{"memavail_end_gib":39.5}

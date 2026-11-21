@@ -1,0 +1,41 @@
+KBRUN start 2026-11-21T14:32:10Z memavail=117GiB
+inkling_cert extension built in 36.5 s: /root/.cache/inkling-cert/e22343e85522e289
+device NVIDIA GB10 torch 2.14.1+cu130
+extensions ready 0.3s (/root/.cache/inkling-cert/e22343e85522e289)
+head [201024x2304] pico 715.1 MB; tables 1.4s eps 2.818%
+screen bytes 357.8 MB
+1 packing
+  ok   rows 0..: decode == quantised
+  ok   rows 100000..: decode == quantised
+  ok   rows 196928..: decode == quantised
+  ok   tables finite
+5983 real hidden rows
+2 screen accuracy (M=8 batches)
+  ok   screen accumulation error / model <= 1 (max 0.0002)
+  ok   pico accumulation error / model <= 1 (max 0.0004)
+  ok   s - B <= pico <= s + B for every logit (0 outside; max |pico - s| / B = 0.1318)
+3 exactness
+  ok   M=8: certified token == full-head token on 5976 rows (0 mismatches)
+  ok   M=8: computed tiles bit-identical to pico, others -inf (0 bad steps)
+     M=8: certified 747/747 steps; tiles/step mean 57.6 p50 29 p90 96 p99 238 max 9639
+  ok   M=16: certified token == full-head token on 5968 rows (0 mismatches)
+  ok   M=16: computed tiles bit-identical to pico, others -inf (0 bad steps)
+     M=16: certified 373/373 steps; tiles/step mean 104.7 p50 52 p90 181 p99 433 max 9639
+  ok   on = 0: pico's full head bit for bit
+  ok   near-tie rows (two ids, |x| 150-800): 2048 rows, 0 mismatches
+  ok   duplicate head rows (1 pairs): exact ties resolve like the full head
+4 CUDA graph
+  ok   graph replay == eager (40 steps, on toggled)
+5 bench (L2 flushed, CUDA events)
+     M=8: pico full head 2.887 ms (248 GB/s) | cert 2.663 ms at 18 tiles, 2.650 ms at 40 (p90 batch) | screen alone 2.565 ms = 140 GB/s of 358 MB | not-certified step (screen + full) 2.967 ms
+     M=16: pico full head 2.996 ms (239 GB/s) | cert 1.881 ms at 30 tiles, 1.888 ms at 61 (p90 batch) | screen alone 1.775 ms = 202 GB/s of 358 MB | not-certified step (screen + full) 3.015 ms
+     screen grid sweep (M=8 / M=16): grid -> screen ms, cert ms, on=0 ms
+     grid  12564:  M=8: 2.980 (120 GB/s) 3.082 3.009  M=16: 2.262 (158 GB/s) 2.365 3.031
+     grid     96:  M=8: 2.559 (140 GB/s) 2.662 2.955  M=16: 1.770 (202 GB/s) 1.881 3.006
+     grid    144:  M=8: 2.565 (140 GB/s) 2.674 2.956  M=16: 2.047 (175 GB/s) 2.156 3.005
+     grid    192:  M=8: 2.550 (140 GB/s) 2.654 2.956  M=16: 1.778 (201 GB/s) 1.884 3.007
+     grid    288:  M=8: 2.567 (139 GB/s) 2.665 2.951  M=16: 1.773 (202 GB/s) 1.880 3.006
+     grid    384:  M=8: 2.557 (140 GB/s) 2.654 2.962  M=16: 1.775 (202 GB/s) 1.888 3.005
+RESULT {"8": {"pico_ms": [2.8871840238571167, 2.881433606147766], "cert_ms_median_batch": [2.663424015045166, 2.625430369377136], "cert_ms_p90_batch": [2.6495999097824097, 2.6213343381881713], "screen_ms": [2.5645920038223267, 2.5381824254989622], "fallback_ms": [2.9665279388427734, 2.945024013519287], "screen_GBps": 139.52422820733, "tiles_median": 18, "tiles_p90": 40}, "16": {"pico_ms": [2.996240019798279, 2.987932896614075], "cert_ms_median_batch": [1.8805760145187378, 1.8738175630569458], "cert_ms_p90_batch": [1.8877599835395813, 1.8769184470176696], "screen_ms": [1.774720013141632, 1.760371172428131], "fallback_ms": [3.01473605632782, 3.009433627128601], "screen_GBps": 201.6220684673396, "tiles_median": 30, "tiles_p90": 61}, "sweep": {"0/8": [2.98035204410553, 3.0817281007766724, 3.008512020111084], "0/16": [2.262239933013916, 2.3654398918151855, 3.0310399532318115], "96/8": [2.5589599609375, 2.662368059158325, 2.955280065536499], "96/16": [1.7696319818496704, 1.8811039924621582, 3.005952000617981], "144/8": [2.5646079778671265, 2.6741760969161987, 2.9557600021362305], "144/16": [2.047119975090027, 2.156000018119812, 3.0054399967193604], "192/8": [2.550271987915039, 2.6536959409713745, 2.9557600021362305], "192/16": [1.7777920365333557, 1.8841279745101929, 3.007472038269043], "288/8": [2.566640019416809, 2.6654560565948486, 2.9512319564819336], "288/16": [1.7727360129356384, 1.880079984664917, 3.0060479640960693], "384/8": [2.557423949241638, 2.6542398929595947, 2.9619359970092773], "384/16": [1.7752479910850525, 1.887727975845337, 3.0054399967193604]}}
+cert gpu_check result PASS
+KBRUN end 2026-11-21T14:33:12Z rc=0 memavail=116GiB

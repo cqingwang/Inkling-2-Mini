@@ -28,15 +28,21 @@ VLLM_IMAGE=${VLLM_IMAGE:-vllm/vllm-openai@sha256:c2dc759f5984f69c1e2418c6af7c26e
 MODEL_REVISION=ed40e7da625f594fc9c4990f5f66be24873c22d7
 
 # SGLang profile
-MEM_FRACTION=${MEM_FRACTION:-0.62}
+MEM_FRACTION=${MEM_FRACTION:-0.84}
 # Speed overlays (overlay/, see overlay/README.md). OVERLAY=0 runs the stock image exactly as the cookbook does.
 OVERLAY=${OVERLAY:-1}
 OVERLAY_DIR=${OVERLAY_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/overlay}
-VERIFY_CAP=${VERIFY_CAP:-cost:1=0.30,2=0.25,4=0.15,8=0.0}   # verify-width cap per batch size (off = stock)
+VERIFY_CAP=${VERIFY_CAP:-policy:/opt/inkling-overlay/inkling_vcap/policies/r2-theta004.json,bsmax=16}  # verify-width policy (off = stock)
 DRAFT_BYTES=${DRAFT_BYTES:-gemv,fold8,head8,draftmx8}       # draft-side byte cuts (empty = stock)
 KERNELS=${KERNELS:-moe_tiles,qkvr_gemv}                     # target-side kernel choices (empty = stock)
 PREFILL=${PREFILL:-qkvr_split,bias_layout,quant_once,partial_bf16}  # exact prefill levers (empty = stock)
 PICO12=${PICO12:-dense,lmhead}                              # pico packed 12-bit BF16 GEMVs (empty = stock)
+CERT_HEAD=${CERT_HEAD:-1}                                   # certified greedy LM-head argmax (0 = off; needs PICO12 lmhead)
+WIDE=${WIDE:-dense,lmhead}                                  # packed 12-bit GEMM for 17-256-row verify batches (empty = stock)
+WIDE_SCOPE=${WIDE_SCOPE:-verify}                            # wide only on decode/verify forwards
+VATTN=${VATTN:-1}                                           # verify attention on the split-KV relative-bias kernel at all batch sizes
+ATTN=${ATTN:-prefill_swa,prefill_global}                    # fused relative-bias prefill attention (empty = stock FA4 path)
+PFUSE=${PFUSE:-all}                                         # prefill glue fusion (empty = stock)
 MOE_TILES=${MOE_TILES:-1@2304:swap_ab=1,tile_n=32,tile_k=256;1@1152:swap_ab=1,tile_n=32,tile_k=256;8@2304:swap_ab=1,tile_n=32,tile_k=256;8@1152:swap_ab=1,tile_n=32,tile_k=256;64@2304:swap_ab=0,tile_n=64,tile_k=256;64@1152:swap_ab=1,tile_n=32,tile_k=256}
 SPEC=${SPEC:-dspark}                   # dspark | none
 SGLANG_ARGS=${SGLANG_ARGS:-}
@@ -90,7 +96,9 @@ if [[ $ENGINE == sglang ]]; then
     ov=(-v "$OVERLAY_DIR":/opt/inkling-overlay:ro -e PYTHONPATH=/opt/inkling-overlay
         -e INKLING_VERIFY_CAP="$VERIFY_CAP" -e INKLING_VERIFY_CAP_LOG_EVERY="${VERIFY_CAP_LOG_EVERY:-0}"
         -e INKLING_DRAFT_BYTES="$DRAFT_BYTES" -e INKLING_KERNELS="$KERNELS" -e INKLING_MOE_TILES="$MOE_TILES"
-        -e INKLING_PICO12="$PICO12" -e INKLING_PREFILL="$PREFILL" -e INKLING_PREFILL_QKVR_OUT=strided)
+        -e INKLING_PICO12="$PICO12" -e INKLING_PREFILL="$PREFILL" -e INKLING_PREFILL_QKVR_OUT=strided
+        -e INKLING_CERT_HEAD="$CERT_HEAD" -e INKLING_WIDE="$WIDE" -e INKLING_WIDE_SCOPE="$WIDE_SCOPE"
+        -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE")
   fi
   run=("${common[@]}" ${ov[@]+"${ov[@]}"}
        -e MAX_JOBS=4

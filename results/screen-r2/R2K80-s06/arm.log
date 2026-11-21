@@ -1,0 +1,4 @@
+2026-11-21T14:58:33Z R2K80-s06 mode kvstress
+needle 240K                  PASS  {"prompt_tokens": 240104, "seconds": 133.8, "expected": "WILLOW-FALCON-3624", "answer": "WILLOW-FALCON-3624"}
+1 / 1 passed
+2026-11-21T15:04:54Z R2K80-s06 mode corpus40

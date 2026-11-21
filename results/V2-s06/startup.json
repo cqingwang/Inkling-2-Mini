@@ -1,0 +1,2 @@
+{"label":"V2Fc-s06","ready_utc":"2026-11-21T17:44:48Z","startup_s":378,"memavail_ready_gib":19.0,"kv":"[2026-11-21 17:44:43 PID104] max_total_num_tokens=1187840, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=19.65 GB"}
+{"memavail_end_gib":18.4}

@@ -1,0 +1,75 @@
+KBRUN start 2026-11-21T14:22:12Z memavail=117GiB
+device NVIDIA GB10 cap (12, 1) torch 2.14.1+cu130
+Traceback (most recent call last):
+  File "/opt/sglang/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2906, in _run_ninja_build
+    subprocess.run(
+  File "/opt/python/cpython-3.12.16-linux-aarch64-gnu/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['ninja', '-v', '-j', '8']' returned non-zero exit status 1.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/work/inkling_attn/build.py", line 72, in load
+    ext = cpp_extension.load(
+          ^^^^^^^^^^^^^^^^^^^
+  File "/opt/sglang/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 1937, in load
+    return _jit_compile(
+           ^^^^^^^^^^^^^
+  File "/opt/sglang/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2398, in _jit_compile
+    _write_ninja_file_and_build_library(
+  File "/opt/sglang/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2555, in _write_ninja_file_and_build_library
+    _run_ninja_build(
+  File "/opt/sglang/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2923, in _run_ninja_build
+    raise RuntimeError(message) from e
+RuntimeError: Error building extension 'inkling_attn_ext': [1/2] ccache /usr/local/cuda/bin/nvcc -MD -MF inkling_attn_ext.cuda.o.d -DTORCH_EXTENSION_NAME=inkling_attn_ext -DTORCH_API_INCLUDE_EXTENSION_H -I/work/inkling_attn/csrc -isystem /opt/sglang/lib/python3.12/site-packages/torch/include -isystem /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /opt/python/cpython-3.12.16-linux-aarch64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_121a,code=sm_121a -O3 -std=c++17 -lineinfo -U__CUDA_NO_HALF_OPERATORS__ -U__CUDA_NO_HALF_CONVERSIONS__ -U__CUDA_NO_BFLOAT16_CONVERSIONS__ -U__CUDA_NO_HALF2_OPERATORS__ -c /work/inkling_attn/csrc/inkling_attn_ext.cu -o inkling_attn_ext.cuda.o 
+FAILED: [code=1] inkling_attn_ext.cuda.o 
+ccache /usr/local/cuda/bin/nvcc -MD -MF inkling_attn_ext.cuda.o.d -DTORCH_EXTENSION_NAME=inkling_attn_ext -DTORCH_API_INCLUDE_EXTENSION_H -I/work/inkling_attn/csrc -isystem /opt/sglang/lib/python3.12/site-packages/torch/include -isystem /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /opt/python/cpython-3.12.16-linux-aarch64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_121a,code=sm_121a -O3 -std=c++17 -lineinfo -U__CUDA_NO_HALF_OPERATORS__ -U__CUDA_NO_HALF_CONVERSIONS__ -U__CUDA_NO_BFLOAT16_CONVERSIONS__ -U__CUDA_NO_HALF2_OPERATORS__ -c /work/inkling_attn/csrc/inkling_attn_ext.cu -o inkling_attn_ext.cuda.o 
+In file included from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/extension.h:6,
+                 from /work/inkling_attn/csrc/inkling_attn_ext.cu:12:
+/opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/all.h:5:2: error: #error C++20 or later compatible compiler is required to use PyTorch.
+    5 | #error C++20 or later compatible compiler is required to use PyTorch.
+      |  ^~~~~
+In file included from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/types.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader_options.h:5,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader/base.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader/stateful.h:5,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/all.h:10:
+/opt/sglang/lib/python3.12/site-packages/torch/include/ATen/ATen.h:5:2: error: #error C++20 or later compatible compiler is required to use ATen.
+    5 | #error C++20 or later compatible compiler is required to use ATen.
+      |  ^~~~~
+ninja: build stopped: subcommand failed.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/work/check_attn.py", line 496, in <module>
+    main()
+  File "/work/check_attn.py", line 479, in main
+    build.load(verbose=False)
+  File "/work/inkling_attn/build.py", line 81, in load
+    raise RuntimeError(f"inkling_attn: building the extension in {build_dir} failed: {exc}") from exc
+RuntimeError: inkling_attn: building the extension in /root/.cache/inkling-attn/72c482b31ae8ac15 failed: Error building extension 'inkling_attn_ext': [1/2] ccache /usr/local/cuda/bin/nvcc -MD -MF inkling_attn_ext.cuda.o.d -DTORCH_EXTENSION_NAME=inkling_attn_ext -DTORCH_API_INCLUDE_EXTENSION_H -I/work/inkling_attn/csrc -isystem /opt/sglang/lib/python3.12/site-packages/torch/include -isystem /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /opt/python/cpython-3.12.16-linux-aarch64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_121a,code=sm_121a -O3 -std=c++17 -lineinfo -U__CUDA_NO_HALF_OPERATORS__ -U__CUDA_NO_HALF_CONVERSIONS__ -U__CUDA_NO_BFLOAT16_CONVERSIONS__ -U__CUDA_NO_HALF2_OPERATORS__ -c /work/inkling_attn/csrc/inkling_attn_ext.cu -o inkling_attn_ext.cuda.o 
+FAILED: [code=1] inkling_attn_ext.cuda.o 
+ccache /usr/local/cuda/bin/nvcc -MD -MF inkling_attn_ext.cuda.o.d -DTORCH_EXTENSION_NAME=inkling_attn_ext -DTORCH_API_INCLUDE_EXTENSION_H -I/work/inkling_attn/csrc -isystem /opt/sglang/lib/python3.12/site-packages/torch/include -isystem /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /opt/python/cpython-3.12.16-linux-aarch64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_121a,code=sm_121a -O3 -std=c++17 -lineinfo -U__CUDA_NO_HALF_OPERATORS__ -U__CUDA_NO_HALF_CONVERSIONS__ -U__CUDA_NO_BFLOAT16_CONVERSIONS__ -U__CUDA_NO_HALF2_OPERATORS__ -c /work/inkling_attn/csrc/inkling_attn_ext.cu -o inkling_attn_ext.cuda.o 
+In file included from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/extension.h:6,
+                 from /work/inkling_attn/csrc/inkling_attn_ext.cu:12:
+/opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/all.h:5:2: error: #error C++20 or later compatible compiler is required to use PyTorch.
+    5 | #error C++20 or later compatible compiler is required to use PyTorch.
+      |  ^~~~~
+In file included from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/types.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader_options.h:5,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader/base.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader/stateful.h:5,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data/dataloader.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/data.h:4,
+                 from /opt/sglang/lib/python3.12/site-packages/torch/include/torch/csrc/api/include/torch/all.h:10:
+/opt/sglang/lib/python3.12/site-packages/torch/include/ATen/ATen.h:5:2: error: #error C++20 or later compatible compiler is required to use ATen.
+    5 | #error C++20 or later compatible compiler is required to use ATen.
+      |  ^~~~~
+ninja: build stopped: subcommand failed.
+
+KBRUN end 2026-11-21T14:22:16Z rc=1 memavail=117GiB

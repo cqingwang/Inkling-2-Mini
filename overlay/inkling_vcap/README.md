@@ -45,7 +45,7 @@ It also adds the MoE dead-row remap, which no engine mode has.
 
 | Variable | Values | Default |
 |---|---|---|
-| `INKLING_VERIFY_CAP` | `off` (or unset); `fixed:K` (K in 1..8); `conf:T` (alias `confmax:T`); `cost:B1=T1,B2=T2,...`. Any mode can be followed by `,min=A`, `,max=B`, `,bsmax=N` | off |
+| `INKLING_VERIFY_CAP` | `off` (or unset); `fixed:K` (K in 1..8); `conf:T` (alias `confmax:T`); `cost:B1=T1,B2=T2,...`; `policy:/path/policy.json` (see "The `policy:` mode" below). Any mode can be followed by `,min=A`, `,max=B`, `,bsmax=N` | off |
 | `INKLING_VERIFY_CAP_REMAP` | `1` = remap dead rows; `0` = cap only (for the exactness A/B) | 1 |
 | `INKLING_VERIFY_CAP_FUSED` | `1` = remap is one Triton launch per MoE visit, bit-checked against `index_select` on the device at startup, with fallback; `0` = two `index_select` launches | 1 |
 | `INKLING_VERIFY_CAP_LOG_EVERY` | prints a stats line every N decode steps; `0` = no stats kernels at all | 500 |
@@ -411,3 +411,97 @@ c4.
   under `SGLANG_ENABLE_NV_MEGA_RUNTIME_OPTIMIZATION`, which is off by default.
 - **Scope.** TP or attention DP with `conf` mode is refused. EP>1 and the MegaMoE path
   take the same gate output and should work with `fixed:K`, but were not reviewed.
+
+## The `policy:` mode (round 2: calibrated, priced per batch size)
+
+`INKLING_VERIFY_CAP=policy:/opt/inkling-overlay/inkling_vcap/policies/r2-theta004.json`
+
+### Rule
+
+Per request, from the same draft max probabilities `m_j` as `conf`:
+
+```
+a_j = calib[greedy|sampled][j][bin(m_j)]      measured P(d_j accepted | d_<j accepted, bin)
+S_j = a_0 * ... * a_j                          (estimated P(d_0..d_j all accepted))
+d_j is live while S_j >= theta * c_j           c_j = u1(j+2) - u1(j+1)
+L   = 1 + leading run, clamped to [min, max]
+```
+
+- `calib` is fitted on full-width steplogs, separately for greedy rows (m at T = 1)
+  and sampled rows (m at the request temperature). Bins: `m` edges 0.3, 0.5, 0.7,
+  0.8, 0.9, 0.95, 0.98, 0.995.
+- `c_j` is the c1 marginal expert union of the row that verifies `d_j`
+  (`u1` = the measured c1 prefix union 8.0 12.5 16.0 19.0 21.7 24.0 26.0 27.9): late
+  rows are cheaper than early ones, which a flat `conf` threshold ignores.
+- `theta` is a price in "expected accepted tokens per expert of union". It is looked
+  up by batch size like `cost:`; `theta = 0` means full width with no draft-logit
+  work. The replay found ONE theta (0.04) best at every batch size (per-bs tuning
+  gave 0.033-0.053 and no extra gain), so the shipped file has a single key.
+- Optional batch-aware rounds (`"pool"`, `"rounds"`): request r's price is scaled by
+  `P_r = prod_{s != r} (1 - u1(L_s) / E)`, the chance that its extra experts are
+  not already read for another request, iterated K times from `L = 1`. The replay
+  found no gain over the per-request rule (within +-0.3 %), so the shipped file
+  uses `rounds = 0`. The option stays (tested) for later cost models.
+- Stateless: no per-request history (prev_full added nothing in the replay).
+  Graph-safe as `conf`: eager tensor ops before the verify replay, no host sync;
+  about 8 more small launches than `conf` per step.
+
+### Exactness
+
+Same argument as `conf` (section "Why the output stays exact", point 4): `S_j` is a
+function of `m_0..m_j`, and `m_j` depends on `d_<j` only, so `{L = l}` is decided by
+`d_0..d_{l-2}`: a stopping rule. With the batch-aware rounds the other requests'
+widths enter too; they are independent of this request's drafts, and the rounds are
+monotone from `L = 1`, so each round only reads this request's `S` up to its final
+cut. `tests/vcap/test_policy.py` checks this three ways:
+
+- perturbing a request's `m_j` for every `j >= L_r` never changes any width of the
+  batch (with rounds on);
+- a Monte Carlo of the stock capped sampled accept with two interacting requests
+  per batch (gamma 3, dead rows given a garbage target, about 13 % trims and 4 %
+  boundary cases; shuffling the partner request changes about 40 % of the widths)
+  matches the exact joint
+  law of the first three tokens within 3.5e-3; a look-ahead rule is detected (> 1e-2);
+- the device rule equals the replay's numpy reference decision for decision.
+
+### Replay (round 2 data, stock engine, full width + union counter)
+
+Data: `R2SL-s06` (Spark_06, 2026-11-21): 36,201 request-steps; thinking c1/c4/c8
+(sampled T = 0.8), decode table prose+code c1-c16 (greedy), speedbench quick c1.
+Replay tool: `bsreplay.py` (track directory). Step time `T = F(bs) + 0.97 ms x U`
+(`U` = expert union per MoE visit; `F(1) = 33.3`, `F(8) = 59.6` ms from the c1 and
+c8 profiles, linear in between), plus 0.05 + 0.13 x bs ms for the draft-logit
+statistics of a dynamic rule. Mixed widths: the step's own measured fixed-width
+union curve, read at the batch's mean c1 union (exact for uniform widths).
+2-fold cross-fit (calibration and theta fitted on the other fold), 95 % CIs from a
+paired cluster bootstrap (request at bs 1, 32-step blocks at bs > 1).
+
+Gain over the shipped `cost:1=0.30,2=0.25,4=0.15,8=0.0`, all workloads mixed:
+
+| bs | steps | `policy:` theta 0.04 | `cost:1=0.30,24=0.25` | oracle |
+|---|---|---|---|---|
+| 1 | 8054 | +0.5 % [+0.3, +0.7] | 0 | +15.7 % |
+| 2 | 64 | +0.7 % [-0.5, +2.6] | 0 | +17.6 % |
+| 4 | 1840 | +2.2 % [+1.8, +2.6] | +1.0 % | +18.6 % |
+| 6 | 123 | +3.9 % [+2.1, +8.2] | +2.9 % | +18.7 % |
+| 7 | 524 | +2.5 % [+1.8, +3.4] | +1.7 % | +17.5 % |
+| 8 | 1101 | +5.0 % [+3.5, +6.3] | +4.2 % | +19.4 % |
+| 16 | 365 (greedy only) | +5.9 % [+4.5, +7.3] | +6.0 % | +20.5 % |
+
+By workload, `policy:` theta 0.04: thinking (sampled) c4 +1.5 %, c8 +1.8 %; greedy
+decode c4 +3.8 %, c8 +10.4 %, c16 +5.9 %. The greedy decode load accepts only
+1.2-1.3 drafts per step at c4-c16, so its late rows rarely pay. Sensitivity (union
+model "mean row count", F +15 %, b = 1.19 at bs >= 4, overhead x2): the gain stays
+positive at every bs with enough data (bs 8: +3.5 to +7.2 %). bs 9-15 and 24 are
+not in the data; theta 0.04 is extrapolated.
+
+## Tests (round 2)
+
+`python -m unittest discover -s tests/vcap` from the overlay root: 33 tests (the 22
+above plus 11 in `test_policy.py`: JSON format and validation, env grammar, the
+shipped policy file, device rule vs replay reference, round monotonicity, the
+width-ignores-confidences-past-the-cut property, the two-request sampled Monte
+Carlo and its negative control, `plan_step`, and greedy byte identity end to end
+for a per-request policy, a batch-aware policy and an inert policy on both accept
+paths with remap on and off). `test_policy.py` imports `bsreplay.py` from the
+overlay root for the reference rule.

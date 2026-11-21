@@ -1,0 +1,54 @@
+## mode all
+  steps cost:              step 60.4 ms);
+bs=1: 8054 steps ltrc_global*     +0.51% [ +0.30,
+bs=1: 8054 steps cost:1=0.3,24=0.25   +0.00% [ +0.00,
+bs=1: 8054 steps oracle          +15.65% [+14.77,+16.32]% 
+bs=2: 64 steps ltrc_global*     +0.70% [ -0.45,
+bs=2: 64 steps cost:1=0.3,24=0.25   +0.00% [ +0.00,
+bs=2: 64 steps oracle          +17.61% [+11.66,+25.45]% 
+bs=4: 1840 steps ltrc_global*     +2.19% [ +1.78,
+bs=4: 1840 steps cost:1=0.3,24=0.25   +1.00% [ +0.66,
+bs=4: 1840 steps oracle          +18.62% [+18.13,+19.16]% 
+bs=6: 123 steps ltrc_global*     +3.87% [ +2.15,
+bs=6: 123 steps cost:1=0.3,24=0.25   +2.85% [ +1.31,
+bs=6: 123 steps oracle          +18.72% [+16.51,+23.54]% 
+bs=7: 524 steps ltrc_global*     +2.47% [ +1.76,
+bs=7: 524 steps cost:1=0.3,24=0.25   +1.71% [ +1.05,
+bs=7: 524 steps oracle          +17.49% [+16.31,+18.94]% 
+bs=8: 1101 steps ltrc_global*     +4.98% [ +3.50,
+bs=8: 1101 steps cost:1=0.3,24=0.25   +4.19% [ +2.79,
+bs=8: 1101 steps oracle          +19.43% [+17.72,+20.97]% 
+bs=16: 365 steps ltrc_global*     +5.95% [ +4.50,
+bs=16: 365 steps cost:1=0.3,24=0.25   +6.04% [ +4.78,
+bs=16: 365 steps oracle          +20.50% [+18.96,+21.91]% 
+## mode --sampled-only
+  steps cost:              step 60.4 ms);
+bs=1: 2589 steps ltrc_global*     +0.35% [ +0.24,
+bs=1: 2589 steps cost:1=0.3,24=0.25   +0.00% [ +0.00,
+bs=1: 2589 steps oracle          +17.34% [+16.30,+18.21]% 
+bs=4: 1377 steps ltrc_global*     +1.46% [ +1.18,
+bs=4: 1377 steps cost:1=0.3,24=0.25   +0.59% [ +0.21,
+bs=4: 1377 steps oracle          +18.02% [+17.56,+18.55]% 
+bs=6: 101 steps ltrc_global*     +1.58% [ +1.10,
+bs=6: 101 steps cost:1=0.3,24=0.25   +0.87% [ +0.65,
+bs=6: 101 steps oracle          +16.07% [+14.54,+17.41]% 
+bs=7: 481 steps ltrc_global*     +1.89% [ +1.28,
+bs=7: 481 steps cost:1=0.3,24=0.25   +1.11% [ +0.53,
+bs=7: 481 steps oracle          +16.58% [+15.57,+17.40]% 
+bs=8: 707 steps ltrc_global*     +1.79% [ +1.34,
+bs=8: 707 steps cost:1=0.3,24=0.25   +1.00% [ +0.48,
+bs=8: 707 steps oracle          +15.76% [+15.23,+16.32]% 
+## mode --greedy-only
+  steps cost:              step 60.4 ms);
+bs=1: 5465 steps ltrc_global*     +0.40% [ +0.17,
+bs=1: 5465 steps cost:1=0.3,24=0.25   +0.00% [ +0.00,
+bs=1: 5465 steps oracle          +14.78% [+14.20,+15.39]% 
+bs=4: 463 steps ltrc_global*     +3.79% [ +2.88,
+bs=4: 463 steps cost:1=0.3,24=0.25   +2.32% [ +1.62,
+bs=4: 463 steps oracle          +20.43% [+19.63,+21.08]% 
+bs=8: 394 steps ltrc_global*    +10.38% [ +9.07,+11.70]%
+bs=8: 394 steps cost:1=0.3,24=0.25   +9.94% [ +8.83,+11.03]%
+bs=8: 394 steps oracle          +25.78% [+24.35,+27.09]% 
+bs=16: 365 steps ltrc_global*     +5.90% [ +4.41,
+bs=16: 365 steps cost:1=0.3,24=0.25   +6.04% [ +4.77,
+bs=16: 365 steps oracle          +20.48% [+18.94,+21.88]% 

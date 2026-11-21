@@ -1,0 +1,184 @@
+KBRUN start 2026-11-21T14:33:17Z memavail=116GiB
+
+OK
+wide memguard MemAvailable_GiB=116.8 need_GiB=12.0
+wide device=NVIDIA GB10 cc=12.1 sms=48 torch=2.14.1+cu130 cuda=13.0
+wide ext reused in 0.3 s at /root/.cache/inkling-wide/354cd47ac7dd6828
+wide kernel fmt=raw M<=16 mt=2 mg=1 regs=118 local_bytes=0 threads=256
+wide kernel fmt=raw M<=32 mt=2 mg=1 regs=124 local_bytes=0 threads=256
+wide kernel fmt=raw M<=48 mt=2 mg=1 regs=124 local_bytes=0 threads=256
+wide kernel fmt=raw M<=64 mt=2 mg=1 regs=126 local_bytes=0 threads=256
+wide kernel fmt=raw M<=96 mt=2 mg=1 regs=160 local_bytes=0 threads=256
+wide kernel fmt=raw M<=96 mt=2 mg=2 regs=124 local_bytes=0 threads=512
+wide kernel fmt=raw M<=128 mt=2 mg=1 regs=172 local_bytes=0 threads=256
+wide kernel fmt=raw M<=128 mt=2 mg=2 regs=126 local_bytes=0 threads=512
+wide kernel fmt=raw M<=192 mt=1 mg=1 regs=124 local_bytes=0 threads=512
+wide kernel fmt=raw M<=192 mt=2 mg=1 regs=204 local_bytes=0 threads=256
+wide kernel fmt=raw M<=256 mt=1 mg=1 regs=122 local_bytes=0 threads=512
+wide kernel fmt=raw M<=256 mt=2 mg=1 regs=238 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=16 mt=2 mg=1 regs=128 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=32 mt=2 mg=1 regs=128 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=48 mt=2 mg=1 regs=128 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=64 mt=2 mg=1 regs=128 local_bytes=16 threads=256
+wide kernel fmt=bf16x M<=96 mt=2 mg=1 regs=188 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=96 mt=2 mg=2 regs=127 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=128 mt=2 mg=1 regs=204 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=128 mt=2 mg=2 regs=128 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=192 mt=1 mg=1 regs=125 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=192 mt=2 mg=1 regs=234 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=256 mt=1 mg=1 regs=128 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=256 mt=2 mg=1 regs=252 local_bytes=0 threads=256
+wide real weights layer=0 qkvr=(8600, 2304) splits=[3072, 1024, 1024, 384, 3072, 24] wo=(2304, 3072) head=(201024, 2304)
+wide decode qkvr [8600x2304] raw_MB=39.6 packed_MB=30.6 ratio=0.7725 raw_tiles=1135/77400 decoded==weight PASS
+wide bits qkvr M=17 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.920 PASS
+wide accuracy qkvr M=17 err_vs_fp64 wide max_abs=1.550e-02 max_rel=2.536e-03 mean=1.305e-03 | cublas max_abs=1.550e-02 max_rel=2.536e-03 mean=1.305e-03 | max|wide-cublas|=3.906e-03 PASS
+wide bits qkvr M=24 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.932 PASS
+wide accuracy qkvr M=24 err_vs_fp64 wide max_abs=1.559e-02 max_rel=2.916e-03 mean=1.297e-03 | cublas max_abs=1.559e-02 max_rel=2.916e-03 mean=1.297e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=40 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.904 PASS
+wide accuracy qkvr M=40 err_vs_fp64 wide max_abs=1.562e-02 max_rel=2.679e-03 mean=1.297e-03 | cublas max_abs=1.562e-02 max_rel=2.679e-03 mean=1.297e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=64 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.940 PASS
+wide accuracy qkvr M=64 err_vs_fp64 wide max_abs=1.550e-02 max_rel=2.759e-03 mean=1.300e-03 | cublas max_abs=1.550e-02 max_rel=2.759e-03 mean=1.300e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=100 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.926 PASS
+wide accuracy qkvr M=100 err_vs_fp64 wide max_abs=1.561e-02 max_rel=2.808e-03 mean=1.297e-03 | cublas max_abs=1.561e-02 max_rel=2.808e-03 mean=1.297e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=128 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.940 PASS
+wide accuracy qkvr M=128 err_vs_fp64 wide max_abs=1.560e-02 max_rel=2.802e-03 mean=1.299e-03 | cublas max_abs=1.560e-02 max_rel=2.802e-03 mean=1.299e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=160 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.928 PASS
+wide accuracy qkvr M=160 err_vs_fp64 wide max_abs=1.561e-02 max_rel=2.751e-03 mean=1.301e-03 | cublas max_abs=1.561e-02 max_rel=2.751e-03 mean=1.301e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=192 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.944 PASS
+wide accuracy qkvr M=192 err_vs_fp64 wide max_abs=1.562e-02 max_rel=2.644e-03 mean=1.298e-03 | cublas max_abs=1.562e-02 max_rel=2.644e-03 mean=1.298e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=256 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.931 PASS
+wide accuracy qkvr M=256 err_vs_fp64 wide max_abs=1.562e-02 max_rel=2.671e-03 mean=1.302e-03 | cublas max_abs=1.562e-02 max_rel=2.671e-03 mean=1.302e-03 | max|wide-cublas|=1.562e-02 PASS
+wide stacked regions (3072, 4096, 5120) PASS
+wide stacked M=17 kept==per-source IDENTICAL layout=stock max|wide-cublas_stacked|=7.812e-03 PASS
+wide time stacked M=17x3 cublas(cat+3M)_us=186.4 wide_x_us=143.4 (213 GB/s) wide_raw_us=185.8 (213 GB/s) speedup_x=1.30
+wide stacked M=24 kept==per-source IDENTICAL layout=stock max|wide-cublas_stacked|=1.562e-02 PASS
+wide time stacked M=24x3 cublas(cat+3M)_us=188.5 wide_x_us=143.2 (214 GB/s) wide_raw_us=185.5 (214 GB/s) speedup_x=1.32
+wide stacked M=32 kept==per-source IDENTICAL layout=stock max|wide-cublas_stacked|=1.562e-02 PASS
+wide time stacked M=32x3 cublas(cat+3M)_us=190.5 wide_x_us=143.5 (213 GB/s) wide_raw_us=187.4 (211 GB/s) speedup_x=1.33
+wide stacked M=64 kept==per-source IDENTICAL layout=stock max|wide-cublas_stacked|=1.562e-02 PASS
+wide time stacked M=64x3 cublas(cat+3M)_us=200.3 wide_x_us=149.6 (205 GB/s) wide_raw_us=191.6 (207 GB/s) speedup_x=1.34
+wide stacked M=85 kept==per-source IDENTICAL layout=stock max|wide-cublas_stacked|=1.562e-02 PASS
+wide time stacked M=85x3 cublas(cat+3M)_us=207.2 wide_x_us=181.2 (169 GB/s) wide_raw_us=198.7 (199 GB/s) speedup_x=1.14
+wide time qkvr M=9 split=1 cublas_us=179.6 (221 GB/s) pico16x1_us=144.4 wide_x_us=139.3 (220 GB/s packed, 285 eff) wide_raw_us=183.3 (216 GB/s) speedup_x=1.29
+wide time qkvr M=16 split=1 cublas_us=180.3 (220 GB/s) pico16x1_us=144.9 wide_x_us=139.3 (220 GB/s packed, 285 eff) wide_raw_us=183.3 (216 GB/s) speedup_x=1.29
+wide time qkvr M=17 split=1 cublas_us=185.3 (214 GB/s) pico16x2_us=276.0 wide_x_us=145.0 (211 GB/s packed, 273 eff) wide_raw_us=185.3 (214 GB/s) speedup_x=1.28
+wide time qkvr M=24 split=1 cublas_us=186.4 (213 GB/s) pico16x2_us=274.5 wide_x_us=140.3 (218 GB/s packed, 282 eff) wide_raw_us=184.3 (215 GB/s) speedup_x=1.33
+wide time qkvr M=32 split=1 cublas_us=186.2 (213 GB/s) pico16x2_us=275.0 wide_x_us=141.4 (217 GB/s packed, 280 eff) wide_raw_us=184.8 (214 GB/s) speedup_x=1.32
+wide time qkvr M=48 split=1 cublas_us=182.3 (217 GB/s) pico16x3_us=404.0 wide_x_us=143.4 (213 GB/s packed, 276 eff) wide_raw_us=186.4 (213 GB/s) speedup_x=1.27
+wide time qkvr M=64 split=1 cublas_us=182.3 (217 GB/s) pico16x4_us=533.5 wide_x_us=147.5 (208 GB/s packed, 269 eff) wide_raw_us=187.4 (211 GB/s) speedup_x=1.24
+wide time qkvr M=96 split=1 cublas_us=186.5 (213 GB/s) pico16x6_us=794.3 wide_x_us=189.4 (162 GB/s packed, 209 eff) wide_raw_us=197.5 (201 GB/s) speedup_x=0.98
+wide time qkvr M=128 split=1 cublas_us=192.5 (206 GB/s) pico16x8_us=1053.7 wide_x_us=204.8 (149 GB/s packed, 193 eff) wide_raw_us=205.4 (193 GB/s) speedup_x=0.94
+wide time qkvr M=192 split=1 cublas_us=197.7 (200 GB/s) pico16x12_us=1570.8 wide_x_us=223.3 (137 GB/s packed, 177 eff) wide_raw_us=235.6 (168 GB/s) speedup_x=0.89
+wide time qkvr M=256 split=1 cublas_us=207.0 (191 GB/s) pico16x16_us=2094.0 wide_x_us=268.4 (114 GB/s packed, 148 eff) wide_raw_us=270.8 (146 GB/s) speedup_x=0.77
+wide decode wo [2304x3072] raw_MB=14.2 packed_MB=10.9 ratio=0.7729 raw_tiles=416/27648 decoded==weight PASS
+wide bits wo M=17 split=3/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.862 PASS
+wide accuracy wo M=17 err_vs_fp64 wide max_abs=1.549e-02 max_rel=3.252e-03 mean=1.307e-03 | cublas max_abs=1.549e-02 max_rel=3.252e-03 mean=1.307e-03 | max|wide-cublas|=1.953e-03 PASS
+wide bits wo M=24 split=3/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.878 PASS
+wide accuracy wo M=24 err_vs_fp64 wide max_abs=1.532e-02 max_rel=3.033e-03 mean=1.298e-03 | cublas max_abs=1.532e-02 max_rel=3.033e-03 mean=1.298e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits wo M=40 split=3/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.867 PASS
+wide accuracy wo M=40 err_vs_fp64 wide max_abs=1.446e-02 max_rel=2.872e-03 mean=1.291e-03 | cublas max_abs=3.600e-02 max_rel=7.150e-03 mean=2.831e-03 | max|wide-cublas|=3.125e-02 PASS
+wide bits wo M=64 split=3/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.867 PASS
+wide accuracy wo M=64 err_vs_fp64 wide max_abs=1.530e-02 max_rel=3.086e-03 mean=1.301e-03 | cublas max_abs=3.415e-02 max_rel=6.888e-03 mean=2.880e-03 | max|wide-cublas|=3.125e-02 PASS
+wide bits wo M=100 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.918 PASS
+wide accuracy wo M=100 err_vs_fp64 wide max_abs=1.557e-02 max_rel=2.810e-03 mean=1.303e-03 | cublas max_abs=1.557e-02 max_rel=2.810e-03 mean=1.303e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits wo M=128 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.880 PASS
+wide accuracy wo M=128 err_vs_fp64 wide max_abs=1.538e-02 max_rel=2.784e-03 mean=1.300e-03 | cublas max_abs=1.538e-02 max_rel=2.784e-03 mean=1.300e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits wo M=160 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.919 PASS
+wide accuracy wo M=160 err_vs_fp64 wide max_abs=1.560e-02 max_rel=2.910e-03 mean=1.298e-03 | cublas max_abs=1.560e-02 max_rel=2.910e-03 mean=1.298e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits wo M=192 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.925 PASS
+wide accuracy wo M=192 err_vs_fp64 wide max_abs=1.562e-02 max_rel=2.509e-03 mean=1.298e-03 | cublas max_abs=1.562e-02 max_rel=2.509e-03 mean=1.298e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits wo M=256 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.915 PASS
+wide accuracy wo M=256 err_vs_fp64 wide max_abs=1.563e-02 max_rel=2.855e-03 mean=1.304e-03 | cublas max_abs=1.563e-02 max_rel=2.855e-03 mean=1.304e-03 | max|wide-cublas|=1.562e-02 PASS
+wide time wo M=9 split=3 cublas_us=65.6 (216 GB/s) pico16x1_us=60.5 wide_x_us=57.4 (190 GB/s packed, 246 eff) wide_raw_us=71.2 (199 GB/s) speedup_x=1.14
+wide time wo M=16 split=3 cublas_us=67.4 (210 GB/s) pico16x1_us=61.4 wide_x_us=58.4 (187 GB/s packed, 243 eff) wide_raw_us=71.7 (197 GB/s) speedup_x=1.16
+wide time wo M=17 split=3 cublas_us=67.7 (209 GB/s) pico16x2_us=112.1 wide_x_us=59.4 (184 GB/s packed, 238 eff) wide_raw_us=73.7 (192 GB/s) speedup_x=1.14
+wide time wo M=24 split=3 cublas_us=68.6 (206 GB/s) pico16x2_us=112.7 wide_x_us=59.8 (183 GB/s packed, 237 eff) wide_raw_us=74.8 (189 GB/s) speedup_x=1.15
+wide time wo M=32 split=3 cublas_us=68.6 (206 GB/s) pico16x2_us=116.8 wide_x_us=61.5 (178 GB/s packed, 230 eff) wide_raw_us=75.9 (187 GB/s) speedup_x=1.12
+wide time wo M=48 split=3 cublas_us=69.0 (205 GB/s) pico16x3_us=170.0 wide_x_us=65.2 (168 GB/s packed, 217 eff) wide_raw_us=82.0 (173 GB/s) speedup_x=1.06
+wide time wo M=64 split=3 cublas_us=69.7 (203 GB/s) pico16x4_us=223.9 wide_x_us=71.7 (152 GB/s packed, 197 eff) wide_raw_us=88.1 (161 GB/s) speedup_x=0.97
+wide time wo M=96 split=2 cublas_us=71.7 (197 GB/s) pico16x6_us=334.4 wide_x_us=86.1 (127 GB/s packed, 164 eff) wide_raw_us=95.3 (148 GB/s) speedup_x=0.83
+wide time wo M=128 split=2 cublas_us=73.7 (192 GB/s) pico16x8_us=443.7 wide_x_us=98.3 (111 GB/s packed, 144 eff) wide_raw_us=108.6 (130 GB/s) speedup_x=0.75
+wide time wo M=192 split=2 cublas_us=77.8 (182 GB/s) pico16x12_us=658.4 wide_x_us=98.4 (111 GB/s packed, 144 eff) wide_raw_us=101.4 (140 GB/s) speedup_x=0.79
+wide time wo M=256 split=2 cublas_us=81.9 (173 GB/s) pico16x16_us=881.2 wide_x_us=123.0 (89 GB/s packed, 115 eff) wide_raw_us=131.1 (108 GB/s) speedup_x=0.67
+wide decode head [201024x2304] raw_MB=926.3 packed_MB=715.1 ratio=0.7720 raw_tiles=25591/1809216 decoded==weight PASS
+wide bits head M=17 split=1/alt2 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.025 PASS
+wide accuracy head M=17 err_vs_fp64 wide max_abs=1.983e-05 max_rel=3.465e-06 mean=1.968e-06 | cublas max_abs=1.787e-05 max_rel=3.124e-06 mean=1.971e-06 | max|wide-cublas|=3.815e-06 PASS
+wide bits head M=64 split=1/alt2 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.023 PASS
+wide accuracy head M=64 err_vs_fp64 wide max_abs=1.880e-05 max_rel=2.937e-06 mean=1.965e-06 | cublas max_abs=1.945e-05 max_rel=3.038e-06 mean=1.965e-06 | max|wide-cublas|=4.768e-06 PASS
+wide bits head M=256 split=1/alt2 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.026 PASS
+wide accuracy head M=256 err_vs_fp64 wide max_abs=2.126e-05 max_rel=3.106e-06 mean=1.978e-06 | cublas max_abs=2.061e-05 max_rel=3.012e-06 mean=1.978e-06 | max|wide-cublas|=7.629e-06 PASS
+wide time head M=9 split=1 cublas_us=4127.6 (224 GB/s) pico16x1_us=3058.6 wide_x_us=3103.6 (230 GB/s packed, 298 eff) wide_raw_us=4189.2 (221 GB/s) speedup_x=1.33
+wide time head M=16 split=1 cublas_us=4085.7 (227 GB/s) pico16x1_us=3007.6 wide_x_us=3127.0 (229 GB/s packed, 296 eff) wide_raw_us=4313.1 (215 GB/s) speedup_x=1.31
+wide time head M=17 split=1 cublas_us=5245.3 (177 GB/s) pico16x2_us=5894.1 wide_x_us=3140.4 (228 GB/s packed, 295 eff) wide_raw_us=4230.1 (219 GB/s) speedup_x=1.67
+wide time head M=24 split=1 cublas_us=5097.6 (182 GB/s) pico16x2_us=5928.1 wide_x_us=3169.3 (226 GB/s packed, 292 eff) wide_raw_us=4265.9 (217 GB/s) speedup_x=1.61
+wide time head M=32 split=1 cublas_us=4356.1 (213 GB/s) pico16x2_us=5985.5 wide_x_us=3201.8 (223 GB/s packed, 289 eff) wide_raw_us=4309.2 (215 GB/s) speedup_x=1.36
+wide time head M=48 split=1 cublas_us=4444.4 (208 GB/s) pico16x3_us=8977.4 wide_x_us=3268.7 (219 GB/s packed, 283 eff) wide_raw_us=4392.1 (211 GB/s) speedup_x=1.36
+wide time head M=64 split=1 cublas_us=4577.3 (202 GB/s) pico16x4_us=11958.0 wide_x_us=3415.1 (209 GB/s packed, 271 eff) wide_raw_us=4463.6 (208 GB/s) speedup_x=1.34
+wide time head M=96 split=1 cublas_us=4633.6 (200 GB/s) pico16x6_us=17972.2 wide_x_us=3464.2 (206 GB/s packed, 267 eff) wide_raw_us=4595.8 (202 GB/s) speedup_x=1.34
+wide time head M=128 split=1 cublas_us=4789.3 (193 GB/s) pico16x8_us=23936.1 wide_x_us=3608.7 (198 GB/s packed, 257 eff) wide_raw_us=4820.0 (192 GB/s) speedup_x=1.33
+wide time head M=192 split=1 cublas_us=5279.7 (175 GB/s) pico16x12_us=35895.4 wide_x_us=4051.7 (176 GB/s packed, 229 eff) wide_raw_us=4996.9 (185 GB/s) speedup_x=1.30
+wide time head M=256 split=1 cublas_us=5325.9 (174 GB/s) pico16x16_us=47964.2 wide_x_us=4662.5 (153 GB/s packed, 199 eff) wide_raw_us=5376.8 (172 GB/s) speedup_x=1.14
+wide summary (us, L2 cold; GB/s of one pass's bytes: packed for wide_x, raw BF16 for the others)
+shape          M   cublas  pico16x   wide_x   wide_raw   GB/s:cublas wide_x wide_raw   wide_x/cublas
+qkvr-stacked    17    186.4      nan    143.4     185.8          213    213      213           1.30
+qkvr-stacked    24    188.5      nan    143.2     185.5          210    214      214           1.32
+qkvr-stacked    32    190.5      nan    143.5     187.4          208    213      211           1.33
+qkvr-stacked    64    200.3      nan    149.6     191.6          198    205      207           1.34
+qkvr-stacked    85    207.2      nan    181.2     198.7          191    169      199           1.14
+qkvr             9    179.6    144.4    139.3     183.3          221    220      216           1.29
+qkvr            16    180.3    144.9    139.3     183.3          220    220      216           1.29
+qkvr            17    185.3    276.0    145.0     185.3          214    211      214           1.28
+qkvr            24    186.4    274.5    140.3     184.3          213    218      215           1.33
+qkvr            32    186.2    275.0    141.4     184.8          213    217      214           1.32
+qkvr            48    182.3    404.0    143.4     186.4          217    213      213           1.27
+qkvr            64    182.3    533.5    147.5     187.4          217    208      211           1.24
+qkvr            96    186.5    794.3    189.4     197.5          213    162      201           0.98
+qkvr           128    192.5   1053.7    204.8     205.4          206    149      193           0.94
+qkvr           192    197.7   1570.8    223.3     235.6          200    137      168           0.89
+qkvr           256    207.0   2094.0    268.4     270.8          191    114      146           0.77
+wo               9     65.6     60.5     57.4      71.2          216    190      199           1.14
+wo              16     67.4     61.4     58.4      71.7          210    187      197           1.16
+wo              17     67.7    112.1     59.4      73.7          209    184      192           1.14
+wo              24     68.6    112.7     59.8      74.8          206    183      189           1.15
+wo              32     68.6    116.8     61.5      75.9          206    178      187           1.12
+wo              48     69.0    170.0     65.2      82.0          205    168      173           1.06
+wo              64     69.7    223.9     71.7      88.1          203    152      161           0.97
+wo              96     71.7    334.4     86.1      95.3          197    127      148           0.83
+wo             128     73.7    443.7     98.3     108.6          192    111      130           0.75
+wo             192     77.8    658.4     98.4     101.4          182    111      140           0.79
+wo             256     81.9    881.2    123.0     131.1          173     89      108           0.67
+head             9   4127.6   3058.6   3103.6    4189.2          224    230      221           1.33
+head            16   4085.7   3007.6   3127.0    4313.1          227    229      215           1.31
+head            17   5245.3   5894.1   3140.4    4230.1          177    228      219           1.67
+head            24   5097.6   5928.1   3169.3    4265.9          182    226      217           1.61
+head            32   4356.1   5985.5   3201.8    4309.2          213    223      215           1.36
+head            48   4444.4   8977.4   3268.7    4392.1          208    219      211           1.36
+head            64   4577.3  11958.0   3415.1    4463.6          202    209      208           1.34
+head            96   4633.6  17972.2   3464.2    4595.8          200    206      202           1.34
+head           128   4789.3  23936.1   3608.7    4820.0          193    198      192           1.33
+head           192   5279.7  35895.4   4051.7    4996.9          175    176      185           1.30
+head           256   5325.9  47964.2   4662.5    5376.8          174    153      172           1.14
+wide dense M=64 (qkvr + wo) cublas_us=252.0 wide_x_us=219.2 ratio=1.15 kill_line(>=1.15)=MISSED
+wide gpu_check result PASS (0 failed: )
+wide integ pico install  PASS
+wide integ install  PASS
+wide integ patched lm head  PASS
+wide integ patched _project_sources  PASS
+wide integ patched post_load_weights  PASS
+wide integ patched: ['unquant.sm12x_fp32_lm_head', 'Inkling2Attention._project_sources', 'Inkling2ForConditionalGeneration.post_load_weights']
+[inkling_pico12 pid=1] active (target): dense: qkvr 1 (+kv 1) wo_ud 1, head [201024x2304] for lmhead; packed 763.9 MB extra beside 980.1 MB of BF16 originals (kept); patched unquant.sm12x_fp32_lm_head, Inkling2Attention._project_sources, Inkling2ForConditionalGeneration.post_load_weights; ext reused in 0.0 s (/root/.cache/inkling-pico12/227377f9786ac9d5); encode 0.1 s; max_m=16 stacked_max_m=16 wk=16 pdl=1
+[inkling_wide pid=1] active (target): dense: qkvr 1 (stacked 1) wo_ud 1, bf16x 2/2, head [201024x2304] bf16x; split-K workspace 4.7 MB; patched unquant.sm12x_fp32_lm_head, Inkling2Attention._project_sources, Inkling2ForConditionalGeneration.post_load_weights; ext reused in 0.0 s (/root/.cache/inkling-wide/354cd47ac7dd6828); min_m=17 max_m=256 (qkvr=96,wo=32,head=256) fmt=auto pdl=1 mg=2 pfd=1 splitk=auto
+wide integ qkvr method WidePico12UnquantizedLinearMethod, fmt bf16x
+wide integ formats  PASS
+wide integ dispatch M=8 expected=pico wide_calls=0 PASS
+wide integ dispatch M=16 expected=pico wide_calls=0 PASS
+wide integ dispatch M=17 expected=wide wide_calls=3 PASS
+wide integ dispatch M=64 expected=wide wide_calls=3 PASS
+wide integ dispatch M=256 expected=wide wide_calls=3 PASS
+wide integ dispatch M=300 expected=stock wide_calls=0 PASS
+wide integ stacked M=24 layout=stock close=True wide_calls=1 PASS
+wide integ stacked graph M=24  PASS
+wide integ stacked M=64 layout=stock close=True wide_calls=1 PASS
+wide integ stacked graph M=64  PASS
+wide integration result PASS ()
+KBRUN end 2026-11-21T14:33:56Z rc=0 memavail=117GiB

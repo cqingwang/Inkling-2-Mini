@@ -1,0 +1,68 @@
+KBRUN start 2026-11-21T14:31:22Z memavail=117GiB
+device NVIDIA GB10 cap (12, 1) torch 2.14.1+cu130
+extension built in 28.1 s
+== correct
+proj: real layer 0 (16, 1024) absmax 1.133
+proj: real layer 5 (16, 1024) absmax 1.734
+/opt/sglang/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/dsl.py:2300: UserWarning: Argument aux_data (position 17) cannot be converted to a JitArgument for function 'cutlass___call___sglangkernelsopsattentionfa4_sm120flash_fwdFlashAttentionForwardSm120_object_at__Tensorgmemoi64i641_Tensorgmemoi64i64i641_Tensorgmemoi64i64i641_Tensorgmemoi64i64i6'. Its type `<class 'sglang.kernels.ops.attention.flash_attn.cute.utils.AuxData'>` is not supported. If the value is known at compile time, annotate it: `aux_data: Constexpr`. Otherwise, implement the `JitArgument` or `DynamicExpression` protocol for type `<class 'sglang.kernels.ops.attention.flash_attn.cute.utils.AuxData'>`, or register a custom argument adapter.
+  exe_args, func_types, adapted_args = self.generate_mlir_function_types(
+  chunk8192 prefix0                  swa    rows   430  out err ours 5.149e-03 stock 5.149e-03 | lse ours 1.647e-03 stock 1.646e-03 | ours-stock out 2.773e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  CLOSE
+  chunk8192 prefix0                  global rows   440  out err ours 3.437e-03 stock 3.437e-03 | lse ours 5.722e-06 stock 1.526e-05 | ours-stock out 2.462e-03 lse 1.335e-05 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk8192 prefix8192               swa    rows   431  out err ours 3.678e-03 stock 3.682e-03 | lse ours 2.375e-04 stock 2.384e-04 | ours-stock out 2.766e-03 lse 2.861e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk8192 prefix8192               global rows   433  out err ours 2.463e-03 stock 2.452e-03 | lse ours 7.057e-05 stock 7.153e-05 | ours-stock out 1.419e-03 lse 2.480e-05 | nan 0/0 unwritten 0 variants bit-equal True  CLOSE
+  chunk8192 prefix32768              swa    rows   433  out err ours 2.609e-03 stock 2.606e-03 | lse ours 4.005e-05 stock 4.005e-05 | ours-stock out 2.505e-03 lse 2.861e-06 | nan 0/0 unwritten 0 variants bit-equal True  CLOSE
+  chunk8192 prefix32768              global rows   435  out err ours 5.686e-03 stock 5.735e-03 | lse ours 1.698e-03 stock 1.698e-03 | ours-stock out 1.762e-03 lse 7.439e-05 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk2048 prefix0                  swa    rows   380  out err ours 3.633e-03 stock 3.634e-03 | lse ours 3.815e-06 stock 3.815e-06 | ours-stock out 5.454e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk2048 prefix0                  global rows   388  out err ours 3.870e-03 stock 3.869e-03 | lse ours 9.251e-05 stock 9.251e-05 | ours-stock out 2.776e-03 lse 3.815e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  mixed 5 req + empty slots          swa    rows  1160  out err ours 3.732e-03 stock 3.732e-03 | lse ours 2.766e-05 stock 2.670e-05 | ours-stock out 2.344e-03 lse 3.815e-06 | nan 0/0 unwritten 0 variants bit-equal True  CLOSE
+  mixed 5 req + empty slots          global rows  1140  out err ours 3.548e-03 stock 3.548e-03 | lse ours 4.101e-05 stock 4.101e-05 | ours-stock out 2.223e-03 lse 7.629e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  tiny rows                          swa    rows    86  out err ours 3.653e-03 stock 3.653e-03 | lse ours 1.907e-06 stock 2.861e-06 | ours-stock out 3.552e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  tiny rows                          global rows    86  out err ours 3.141e-03 stock 3.141e-03 | lse ours 1.907e-06 stock 2.861e-06 | ours-stock out 2.558e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+== correct done in 10 s
+== graph
+proj: real layer 0 (16, 1024) absmax 1.133
+  graph swa    split [(3000, 2000), (2000, 100), (1000, 7000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph swa    split [(5999, 1), (1, 9000), (0, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph swa    split [(6000, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph swa    split [(2500, 300), (0, 0), (900, 4000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(3000, 2000), (2000, 100), (1000, 7000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(5999, 1), (1, 9000), (0, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(6000, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(2500, 300), (0, 0), (900, 4000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+== graph done in 0 s
+== patch
+proj: real layer 0 (16, 1024) absmax 1.133
+  patch swa    wrapper == direct True  kernel calls 1
+[inkling_attn pid=57] a marked call is outside the kernel's coverage; running stock FA4 for it
+  patch fallback == stock True (fallbacks 1)
+Traceback (most recent call last):
+  File "/work/check_attn.py", line 496, in <module>
+    main()
+  File "/work/check_attn.py", line 485, in main
+    res = globals()[f"sec_{sec}"](torch, dev, a)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/check_attn.py", line 341, in sec_patch
+    run_stock(torch, case, proj, local, o_p, rb=case.r[:n])
+  File "/work/check_attn.py", line 117, in run_stock
+    return flash_attn_with_kvcache(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/kernels/ops/attention/flash_attention_v4_sm120.py", line 292, in flash_attn_with_kvcache
+    result = flash_attn_varlen_func(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/kernels/ops/attention/flash_attention_v4_sm120.py", line 145, in flash_attn_varlen_func
+    result = _flash_attn_varlen_func(
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/inkling_attn/patch.py", line 351, in _flash_attn_varlen_func
+    return stock(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/kernels/ops/attention/flash_attn/cute/interface.py", line 2460, in flash_attn_varlen_func
+    return FlashAttnVarlenFunc.forward(None, *autograd_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/kernels/ops/attention/flash_attn/cute/interface.py", line 2140, in forward
+    out, lse = _flash_attn_fwd(
+               ^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/kernels/ops/attention/flash_attn/cute/interface.py", line 1155, in _flash_attn_fwd
+    assert rel_extent % 128 == 0
+           ^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+KBRUN end 2026-11-21T14:32:02Z rc=1 memavail=117GiB

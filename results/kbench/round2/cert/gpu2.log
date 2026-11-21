@@ -1,0 +1,42 @@
+KBRUN start 2026-11-21T14:22:18Z memavail=117GiB
+inkling_cert extension built in 38.6 s: /root/.cache/inkling-cert/d60471090d3934a4
+  ok   lm head: cert outermost
+  ok   lm head: pico inside
+  ok   _get_logits
+  ok   post_load_weights
+  ok   run_non_compact
+  ok   begin_static_step
+patched: ['unquant.sm12x_fp32_lm_head (outside inkling_pico12)', 'Inkling2LogitsProcessor._get_logits', 'Inkling2ForConditionalGeneration.post_load_weights', 'DsparkVerifyEpilogue.begin_static_step/begin_step, TargetVerifyExecutor.run_non_compact']
+cert smoke_hooks PASS
+device NVIDIA GB10 torch 2.14.1+cu130
+extensions ready 26.1s (/root/.cache/inkling-cert/d60471090d3934a4)
+head [201024x2304] pico 715.1 MB; tables 1.5s eps 2.818%
+screen bytes 357.8 MB
+1 packing
+  ok   rows 0..: decode == quantised
+  ok   rows 100000..: decode == quantised
+  ok   rows 196928..: decode == quantised
+  ok   tables finite
+5983 real hidden rows
+2 screen accuracy (M=8 batches)
+  ok   screen accumulation error / model <= 1 (max 0.0002)
+  ok   pico accumulation error / model <= 1 (max 0.0004)
+  ok   s - B <= pico <= s + B for every logit (0 outside; max |pico - s| / B = 0.1318)
+3 exactness
+  ok   M=8: certified token == full-head token on 5976 rows (0 mismatches)
+  ok   M=8: computed tiles bit-identical to pico, others -inf (0 bad steps)
+     M=8: certified 747/747 steps; tiles/step mean 57.6 p50 29 p90 96 p99 238 max 9639
+  ok   M=16: certified token == full-head token on 5968 rows (0 mismatches)
+  ok   M=16: computed tiles bit-identical to pico, others -inf (0 bad steps)
+     M=16: certified 373/373 steps; tiles/step mean 104.7 p50 52 p90 181 p99 433 max 9639
+  ok   on = 0: pico's full head bit for bit
+  ok   near-tie rows (two ids, |x| 150-800): 2048 rows, 0 mismatches
+  ok   duplicate head rows (1 pairs): exact ties resolve like the full head
+4 CUDA graph
+  ok   graph replay == eager (40 steps, on toggled)
+5 bench (L2 flushed, CUDA events)
+     M=8: pico full head 2.886 ms (248 GB/s) | cert 1.686 ms at 18 tiles, 1.680 ms at 40 (p90 batch) | screen alone 1.580 ms = 226 GB/s of 358 MB | not-certified step (screen + full) 2.975 ms
+     M=16: pico full head 2.992 ms (239 GB/s) | cert 1.728 ms at 30 tiles, 1.732 ms at 61 (p90 batch) | screen alone 1.618 ms = 221 GB/s of 358 MB | not-certified step (screen + full) 3.033 ms
+RESULT {"8": {"pico_ms": [2.885648012161255, 2.8805407524108886], "cert_ms_median_batch": [1.6858559846878052, 1.6770048141479492], "cert_ms_p90_batch": [1.6804479956626892, 1.6750720024108887], "screen_ms": [1.5800319910049438, 1.5749119520187378], "fallback_ms": [2.974720001220703, 2.9591551065444945], "screen_GBps": 226.46549059580425, "tiles_median": 18, "tiles_p90": 40}, "16": {"pico_ms": [2.9921278953552246, 2.9820032835006716], "cert_ms_median_batch": [1.7284319996833801, 1.7243168115615846], "cert_ms_p90_batch": [1.7316800355911255, 1.7285120487213135], "screen_ms": [1.6179200410842896, 1.6147648215293884], "fallback_ms": [3.032655954360962, 3.0204511165618895], "screen_GBps": 221.16217792827152, "tiles_median": 30, "tiles_p90": 61}}
+cert gpu_check result PASS
+KBRUN end 2026-11-21T14:23:57Z rc=0 memavail=116GiB

@@ -1,0 +1,15 @@
+KBRUN start 2026-11-21T14:48:24Z memavail=117GiB
+  sconvres T=8192 partial=True: bit-equal
+    time stock    996.8 us  fused    676.7 us  saved   320.0 us
+  sconvres T=8192 partial=False: bit-equal
+    time stock    822.6 us  fused    497.5 us  saved   325.1 us
+  sconvres T=4097 partial=True: bit-equal
+  sconvres T=4097 partial=False: bit-equal
+  sconvres T=2048 partial=True: bit-equal
+  sconvres T=2048 partial=False: bit-equal
+  sconvres T=2049 partial=True: bit-equal
+  sconvres T=2049 partial=False: bit-equal
+  sconvres T=3001 partial=True: bit-equal
+  sconvres T=3001 partial=False: bit-equal
+ALL OK
+KBRUN end 2026-11-21T14:48:28Z rc=0 memavail=117GiB

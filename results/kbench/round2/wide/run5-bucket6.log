@@ -1,0 +1,52 @@
+KBRUN start 2026-11-21T14:35:04Z memavail=117GiB
+wide memguard MemAvailable_GiB=117.4 need_GiB=12.0
+wide device=NVIDIA GB10 cc=12.1 sms=48 torch=2.14.1+cu130 cuda=13.0
+wide ext reused in 0.3 s at /root/.cache/inkling-wide/354cd47ac7dd6828
+wide kernel fmt=raw M<=16 mt=2 mg=1 regs=118 local_bytes=0 threads=256
+wide kernel fmt=raw M<=32 mt=2 mg=1 regs=124 local_bytes=0 threads=256
+wide kernel fmt=raw M<=48 mt=2 mg=1 regs=124 local_bytes=0 threads=256
+wide kernel fmt=raw M<=64 mt=2 mg=1 regs=126 local_bytes=0 threads=256
+wide kernel fmt=raw M<=96 mt=2 mg=1 regs=160 local_bytes=0 threads=256
+wide kernel fmt=raw M<=96 mt=2 mg=2 regs=124 local_bytes=0 threads=512
+wide kernel fmt=raw M<=128 mt=2 mg=1 regs=172 local_bytes=0 threads=256
+wide kernel fmt=raw M<=128 mt=2 mg=2 regs=126 local_bytes=0 threads=512
+wide kernel fmt=raw M<=192 mt=1 mg=1 regs=124 local_bytes=0 threads=512
+wide kernel fmt=raw M<=192 mt=2 mg=1 regs=204 local_bytes=0 threads=256
+wide kernel fmt=raw M<=256 mt=1 mg=1 regs=122 local_bytes=0 threads=512
+wide kernel fmt=raw M<=256 mt=2 mg=1 regs=238 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=16 mt=2 mg=1 regs=128 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=32 mt=2 mg=1 regs=128 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=48 mt=2 mg=1 regs=128 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=64 mt=2 mg=1 regs=128 local_bytes=16 threads=256
+wide kernel fmt=bf16x M<=96 mt=2 mg=1 regs=188 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=96 mt=2 mg=2 regs=127 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=128 mt=2 mg=1 regs=204 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=128 mt=2 mg=2 regs=128 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=192 mt=1 mg=1 regs=125 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=192 mt=2 mg=1 regs=234 local_bytes=0 threads=256
+wide kernel fmt=bf16x M<=256 mt=1 mg=1 regs=128 local_bytes=0 threads=512
+wide kernel fmt=bf16x M<=256 mt=2 mg=1 regs=252 local_bytes=0 threads=256
+wide real weights layer=0 qkvr=(8600, 2304) splits=[3072, 1024, 1024, 384, 3072, 24] wo=(2304, 3072) head=(201024, 2304)
+wide decode qkvr [8600x2304] raw_MB=39.6 packed_MB=30.6 ratio=0.7725 raw_tiles=1135/77400 decoded==weight PASS
+wide bits qkvr M=65 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.925 PASS
+wide accuracy qkvr M=65 err_vs_fp64 wide max_abs=1.561e-02 max_rel=2.939e-03 mean=1.305e-03 | cublas max_abs=1.561e-02 max_rel=2.939e-03 mean=1.305e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=72 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.915 PASS
+wide accuracy qkvr M=72 err_vs_fp64 wide max_abs=1.561e-02 max_rel=2.660e-03 mean=1.298e-03 | cublas max_abs=1.561e-02 max_rel=2.660e-03 mean=1.298e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=80 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.938 PASS
+wide accuracy qkvr M=80 err_vs_fp64 wide max_abs=1.560e-02 max_rel=2.746e-03 mean=1.299e-03 | cublas max_abs=1.560e-02 max_rel=2.746e-03 mean=1.299e-03 | max|wide-cublas|=1.562e-02 PASS
+wide bits qkvr M=96 split=1/alt3 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.937 PASS
+wide accuracy qkvr M=96 err_vs_fp64 wide max_abs=1.561e-02 max_rel=2.921e-03 mean=1.298e-03 | cublas max_abs=1.561e-02 max_rel=2.921e-03 mean=1.298e-03 | max|wide-cublas|=1.562e-02 PASS
+wide stacked regions (3072, 4096, 5120) PASS
+wide stacked M=65 kept==per-source IDENTICAL layout=stock max|wide-cublas_stacked|=1.562e-02 PASS
+wide stacked M=80 kept==per-source IDENTICAL layout=stock max|wide-cublas_stacked|=1.562e-02 PASS
+wide decode wo [2304x3072] raw_MB=14.2 packed_MB=10.9 ratio=0.7729 raw_tiles=416/27648 decoded==weight PASS
+wide bits wo M=65 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.925 PASS
+wide accuracy wo M=65 err_vs_fp64 wide max_abs=1.556e-02 max_rel=2.957e-03 mean=1.302e-03 | cublas max_abs=3.003e-02 max_rel=5.708e-03 mean=2.371e-03 | max|wide-cublas|=3.125e-02 PASS
+wide bits wo M=72 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.905 PASS
+wide accuracy wo M=72 err_vs_fp64 wide max_abs=1.549e-02 max_rel=2.962e-03 mean=1.296e-03 | cublas max_abs=2.892e-02 max_rel=5.531e-03 mean=2.377e-03 | max|wide-cublas|=3.125e-02 PASS
+wide bits wo M=80 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.887 PASS
+wide accuracy wo M=80 err_vs_fp64 wide max_abs=1.549e-02 max_rel=2.764e-03 mean=1.296e-03 | cublas max_abs=3.347e-02 max_rel=5.972e-03 mean=2.369e-03 | max|wide-cublas|=3.125e-02 PASS
+wide bits wo M=96 split=2/alt1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL variant=IDENTICAL prefetch_off=IDENTICAL fp64_bound_worst=0.906 PASS
+wide accuracy wo M=96 err_vs_fp64 wide max_abs=1.542e-02 max_rel=2.977e-03 mean=1.297e-03 | cublas max_abs=2.743e-02 max_rel=5.295e-03 mean=2.369e-03 | max|wide-cublas|=3.125e-02 PASS
+wide gpu_check result PASS (0 failed: )
+KBRUN end 2026-11-21T14:35:13Z rc=0 memavail=117GiB

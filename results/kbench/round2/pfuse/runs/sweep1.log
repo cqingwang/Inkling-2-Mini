@@ -1,0 +1,32 @@
+KBRUN start 2026-11-21T14:46:26Z memavail=117GiB
+attn norm  bm= 32 bn= 64 w=4 s=1: mix   4719.2 us  bit-equal
+attn norm  bm= 64 bn= 64 w=8 s=1: mix   7849.6 us  DIFFERS
+attn norm  bm= 16 bn= 64 w=4 s=1: mix   5169.9 us  bit-equal
+attn norm  bm= 16 bn= 64 w=4 s=2: mix   6353.0 us  bit-equal
+attn norm  bm= 32 bn=128 w=8 s=1: mix   4846.3 us  DIFFERS
+attn norm  bm= 64 bn=128 w=8 s=1: mix   9366.7 us  DIFFERS
+attn norm  bm= 32 bn= 64 w=8 s=1: mix   5384.5 us  DIFFERS
+attn norm  bm= 64 bn= 64 w=4 s=1: mix   5969.3 us  DIFFERS
+attn norm  bm= 32 bn= 32 w=4 s=1: mix   6518.5 us  DIFFERS
+attn norm  bm= 32 bn= 64 w=4 s=2: mix   5478.8 us  bit-equal
+attn fp32  bm= 32 bn= 64 w=4 s=1: mix   3382.5 us  bit-equal
+attn fp32  bm= 64 bn= 64 w=8 s=1: mix   6065.7 us  bit-equal
+attn fp32  bm= 16 bn= 64 w=4 s=1: mix   3516.3 us  bit-equal
+attn fp32  bm= 16 bn= 64 w=4 s=2: mix   3642.1 us  bit-equal
+attn fp32  bm= 32 bn=128 w=8 s=1: mix   3364.7 us  bit-equal
+attn fp32  bm= 64 bn=128 w=8 s=1: mix   5890.4 us  bit-equal
+attn fp32  bm= 32 bn= 64 w=8 s=1: mix   3564.8 us  bit-equal
+attn fp32  bm= 64 bn= 64 w=4 s=1: mix   4826.4 us  bit-equal
+attn fp32  bm= 32 bn= 32 w=4 s=1: mix   4212.5 us  bit-equal
+attn fp32  bm= 32 bn= 64 w=4 s=2: mix   3383.1 us  bit-equal
+mlp fp32   bm= 32 bn= 64 w=4 s=1: mix   1576.1 us  bit-equal
+mlp fp32   bm= 64 bn= 64 w=8 s=1: mix   1984.1 us  bit-equal
+mlp fp32   bm= 16 bn= 64 w=4 s=1: mix   1608.9 us  bit-equal
+mlp fp32   bm= 16 bn= 64 w=4 s=2: mix   1472.4 us  bit-equal
+mlp fp32   bm= 32 bn=128 w=8 s=1: mix   1763.7 us  bit-equal
+mlp fp32   bm= 64 bn=128 w=8 s=1: mix   2093.9 us  bit-equal
+mlp fp32   bm= 32 bn= 64 w=8 s=1: mix   1922.0 us  bit-equal
+mlp fp32   bm= 64 bn= 64 w=4 s=1: mix   1743.7 us  bit-equal
+mlp fp32   bm= 32 bn= 32 w=4 s=1: mix   1956.9 us  bit-equal
+mlp fp32   bm= 32 bn= 64 w=4 s=2: mix   1487.8 us  bit-equal
+KBRUN end 2026-11-21T14:46:55Z rc=0 memavail=117GiB

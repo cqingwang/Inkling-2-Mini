@@ -1,0 +1,635 @@
+{
+ "results": [
+  {
+   "name": "resnorm attn local N=3 T=8192",
+   "bit_equal": 0.9999260306358337,
+   "max_ulps": 26,
+   "stock_max": 0.0021373060507645964,
+   "fused_max": 0.0021373060507645964,
+   "stock_mean": 0.0015424260636791587,
+   "fused_mean": 0.0015424261800944805,
+   "ok": true
+  },
+  {
+   "name": "time resnorm attn local N=3",
+   "tokens": 8192,
+   "stock_us": 1324.8800039291382,
+   "fused_us": 726.8159985542297
+  },
+  {
+   "name": "resnorm attn global N=3 Q=3 T=8192",
+   "bit_equal": 0.9999133348464966,
+   "max_ulps": 676,
+   "stock_max": 0.0033611725004740545,
+   "fused_max": 0.0033611725004740545,
+   "stock_mean": 0.0009908740175887942,
+   "fused_mean": 0.0009908740175887942,
+   "ok": true
+  },
+  {
+   "name": "time resnorm attn global N=3 Q=3",
+   "tokens": 8192,
+   "stock_us": 2984.2559099197388,
+   "fused_us": 1299.456000328064
+  },
+  {
+   "name": "resnorm mlp N=4 +addend T=8192",
+   "bit_equal": 0.9999082684516907,
+   "max_ulps": 53,
+   "stock_max": 0.002002608224362607,
+   "fused_max": 0.002002608224362607,
+   "stock_mean": 0.0011085537262260914,
+   "fused_mean": 0.0011085537262260914,
+   "ok": true
+  },
+  {
+   "name": "time resnorm mlp N=4 +addend",
+   "tokens": 8192,
+   "stock_us": 1644.3519592285156,
+   "fused_us": 1161.0239744186401
+  },
+  {
+   "name": "resnorm mlp boundary N=5 T=8192",
+   "bit_equal": 0.9999057054519653,
+   "max_ulps": 25768,
+   "stock_max": 0.002910586291330239,
+   "fused_max": 0.002910586291330239,
+   "stock_mean": 0.0017487762961536646,
+   "fused_mean": 0.0017487762961536646,
+   "ok": true
+  },
+  {
+   "name": "time resnorm mlp boundary N=5",
+   "tokens": 8192,
+   "stock_us": 1637.6799941062927,
+   "fused_us": 1306.4320087432861
+  },
+  {
+   "name": "resnorm attn local N=3 T=4097",
+   "bit_equal": 0.9999269247055054,
+   "max_ulps": 86,
+   "stock_max": 0.003286876944169134,
+   "fused_max": 0.003286876944169134,
+   "stock_mean": 0.0015418595867231488,
+   "fused_mean": 0.0015418595867231488,
+   "ok": true
+  },
+  {
+   "name": "resnorm attn global N=3 Q=3 T=4097",
+   "bit_equal": 0.9999119639396667,
+   "max_ulps": 25887,
+   "stock_max": 0.0024824904170918636,
+   "fused_max": 0.0024824904170918636,
+   "stock_mean": 0.000990570173598826,
+   "fused_mean": 0.000990570173598826,
+   "ok": true
+  },
+  {
+   "name": "resnorm mlp N=4 +addend T=4097",
+   "bit_equal": 0.9999059438705444,
+   "max_ulps": 54,
+   "stock_max": 0.00202633693467189,
+   "fused_max": 0.00202633693467189,
+   "stock_mean": 0.0011086660670116544,
+   "fused_mean": 0.0011086660670116544,
+   "ok": true
+  },
+  {
+   "name": "resnorm mlp boundary N=5 T=4097",
+   "bit_equal": 0.9999017119407654,
+   "max_ulps": 29,
+   "stock_max": 0.0033787660277420878,
+   "fused_max": 0.0033787660277420878,
+   "stock_mean": 0.0017483250703662634,
+   "fused_mean": 0.0017483250703662634,
+   "ok": true
+  },
+  {
+   "name": "resnorm attn local N=3 T=1025",
+   "bit_equal": 0.9999208450317383,
+   "max_ulps": 9,
+   "stock_max": 0.0018497341968139798,
+   "fused_max": 0.0018497341968139798,
+   "stock_mean": 0.0015420049894601107,
+   "fused_mean": 0.0015420049894601107,
+   "ok": true
+  },
+  {
+   "name": "resnorm attn global N=3 Q=3 T=1025",
+   "bit_equal": 0.999916136264801,
+   "max_ulps": 8,
+   "stock_max": 0.0035650944052288665,
+   "fused_max": 0.0035650944052288665,
+   "stock_mean": 0.0009911422384902835,
+   "fused_mean": 0.0009911422384902835,
+   "ok": true
+  },
+  {
+   "name": "resnorm mlp N=4 +addend T=1025",
+   "bit_equal": 0.9999111294746399,
+   "max_ulps": 282,
+   "stock_max": 0.003010754598900162,
+   "fused_max": 0.003010754598900162,
+   "stock_mean": 0.0011089121690019965,
+   "fused_mean": 0.0011089121690019965,
+   "ok": true
+  },
+  {
+   "name": "resnorm mlp boundary N=5 T=1025",
+   "bit_equal": 0.9998971223831177,
+   "max_ulps": 4,
+   "stock_max": 0.002363868508696701,
+   "fused_max": 0.002363868508696701,
+   "stock_mean": 0.0017479960806667805,
+   "fused_mean": 0.0017479960806667805,
+   "ok": true
+  },
+  {
+   "name": "resnorm attn local N=3 T=513",
+   "bit_equal": 0.9999154210090637,
+   "max_ulps": 48,
+   "stock_max": 0.0021254312610274944,
+   "fused_max": 0.0021254312610274944,
+   "stock_mean": 0.0015438604168593884,
+   "fused_mean": 0.0015438604168593884,
+   "ok": true
+  },
+  {
+   "name": "resnorm attn global N=3 Q=3 T=513",
+   "bit_equal": 0.9999160170555115,
+   "max_ulps": 25857,
+   "stock_max": 0.001950441458948075,
+   "fused_max": 0.001950441458948075,
+   "stock_mean": 0.000990742933936417,
+   "fused_mean": 0.000990742933936417,
+   "ok": true
+  },
+  {
+   "name": "resnorm mlp N=4 +addend T=513",
+   "bit_equal": 0.9999035596847534,
+   "max_ulps": 17,
+   "stock_max": 0.002445927895897247,
+   "fused_max": 0.002445927895897247,
+   "stock_mean": 0.0011087482562288642,
+   "fused_mean": 0.0011087482562288642,
+   "ok": true
+  },
+  {
+   "name": "resnorm mlp boundary N=5 T=513",
+   "bit_equal": 0.9998942613601685,
+   "max_ulps": 20,
+   "stock_max": 0.003200410111792096,
+   "fused_max": 0.003200410111792096,
+   "stock_mean": 0.0017475970089435577,
+   "fused_mean": 0.0017475970089435577,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn local L7 N=3 T=8192",
+   "bit_equal": 0.9952786564826965,
+   "max_ulps": 30412,
+   "stock_max": 0.0028109435153599338,
+   "fused_max": 0.0028160660617355514,
+   "stock_mean": 0.0014388423878699541,
+   "fused_mean": 0.00143915181979537,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn local L7 N=3 one-pass+stock norm T=8192",
+   "bit_equal": 0.9952796697616577,
+   "max_ulps": 30412,
+   "stock_max": 0.0028109435153599338,
+   "fused_max": 0.0028160660617355514,
+   "stock_mean": 0.0014388423878699541,
+   "fused_mean": 0.00143915181979537,
+   "ok": true
+  },
+  {
+   "name": "time loopmix attn local L7 N=3",
+   "tokens": 8192,
+   "stock_us": 10946.352005004883,
+   "fused_us": 5699.4078159332275,
+   "fused_onepass_us": 6308.608055114746
+  },
+  {
+   "name": "loopmix attn global L11 N=3 T=8192",
+   "bit_equal": 0.9959518909454346,
+   "max_ulps": 30330,
+   "stock_max": 0.0023866774028652167,
+   "fused_max": 0.0023866774028652167,
+   "stock_mean": 0.0009594882722012699,
+   "fused_mean": 0.0009592880378477275,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn global L11 N=3 one-pass+stock norm T=8192",
+   "bit_equal": 0.9959536194801331,
+   "max_ulps": 30330,
+   "stock_max": 0.0023866774028652167,
+   "fused_max": 0.0023866774028652167,
+   "stock_mean": 0.0009594882722012699,
+   "fused_mean": 0.0009592879796400666,
+   "ok": true
+  },
+  {
+   "name": "time loopmix attn global L11 N=3",
+   "tokens": 8192,
+   "stock_us": 11621.744155883789,
+   "fused_us": 6549.7918128967285,
+   "fused_onepass_us": 7164.752006530762
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend T=8192",
+   "bit_equal": 0.9955331087112427,
+   "max_ulps": 30413,
+   "stock_max": 0.0034021928314787856,
+   "fused_max": 0.0034021928314787856,
+   "stock_mean": 0.0010226209415122867,
+   "fused_mean": 0.001022272976115346,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend FP32 mix T=8192",
+   "bit_equal": 0.3865913450717926,
+   "max_ulps": NaN,
+   "stock_max": 0.001606713506982691,
+   "fused_max": 0.0013656807630814905,
+   "stock_mean": 1.0506528269615956e-05,
+   "fused_mean": 7.962706149555743e-06,
+   "ok": true
+  },
+  {
+   "name": "time loopmix mlp L7 N=3 +addend",
+   "tokens": 8192,
+   "stock_us": 4573.440074920654,
+   "fused_us": 3848.0000495910645
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 T=8192",
+   "bit_equal": 0.9946043491363525,
+   "max_ulps": 30020,
+   "stock_max": 0.0021578010776456893,
+   "fused_max": 0.0021578010776456893,
+   "stock_mean": 0.000901086488738656,
+   "fused_mean": 0.0009009606437757611,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 FP32 mix T=8192",
+   "bit_equal": 0.3218567669391632,
+   "max_ulps": NaN,
+   "stock_max": 0.0013996104627668393,
+   "fused_max": 0.0013896008182360088,
+   "stock_mean": 7.989276127773337e-06,
+   "fused_mean": 7.738649401289877e-06,
+   "ok": true
+  },
+  {
+   "name": "time loopmix mlp L12 boundary N=4",
+   "tokens": 8192,
+   "stock_us": 4569.216012954712,
+   "fused_us": 3823.4879970550537
+  },
+  {
+   "name": "loopmix attn local L7 N=3 T=4097",
+   "bit_equal": 0.9952491521835327,
+   "max_ulps": 30524,
+   "stock_max": 0.0025519941088043992,
+   "fused_max": 0.0025519941088043992,
+   "stock_mean": 0.0014403556706383824,
+   "fused_mean": 0.0014403347158804536,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn local L7 N=3 one-pass+stock norm T=4097",
+   "bit_equal": 0.9952514171600342,
+   "max_ulps": 30524,
+   "stock_max": 0.0025519941088043992,
+   "fused_max": 0.0025519941088043992,
+   "stock_mean": 0.0014403556706383824,
+   "fused_mean": 0.0014403342502191663,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn global L11 N=3 T=4097",
+   "bit_equal": 0.9961010217666626,
+   "max_ulps": 30026,
+   "stock_max": 0.0020282685156043927,
+   "fused_max": 0.0020282685156043927,
+   "stock_mean": 0.0009610562701709569,
+   "fused_mean": 0.0009611042332835495,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn global L11 N=3 one-pass+stock norm T=4097",
+   "bit_equal": 0.9961023926734924,
+   "max_ulps": 30026,
+   "stock_max": 0.0020282685156043927,
+   "fused_max": 0.0020282685156043927,
+   "stock_mean": 0.0009610562701709569,
+   "fused_mean": 0.0009611041168682277,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend T=4097",
+   "bit_equal": 0.9959076046943665,
+   "max_ulps": 29770,
+   "stock_max": 0.00287433151655113,
+   "fused_max": 0.00287433151655113,
+   "stock_mean": 0.0010215813526883721,
+   "fused_mean": 0.0010217372328042984,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend FP32 mix T=4097",
+   "bit_equal": 0.3855637013912201,
+   "max_ulps": NaN,
+   "stock_max": 0.0012401048751294855,
+   "fused_max": 0.0016685966710698504,
+   "stock_mean": 6.4468144955753814e-06,
+   "fused_mean": 6.904326710355235e-06,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 T=4097",
+   "bit_equal": 0.9950247406959534,
+   "max_ulps": 29921,
+   "stock_max": 0.0023824397248538537,
+   "fused_max": 0.0023824397248538537,
+   "stock_mean": 0.0008984734886325896,
+   "fused_mean": 0.0008979164413176477,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 FP32 mix T=4097",
+   "bit_equal": 0.31691601872444153,
+   "max_ulps": NaN,
+   "stock_max": 0.0013087731910134644,
+   "fused_max": 0.0013088159711654931,
+   "stock_mean": 8.302911737700924e-06,
+   "fused_mean": 6.408687113435008e-06,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn local L7 N=3 T=1025",
+   "bit_equal": 0.9967105388641357,
+   "max_ulps": 30254,
+   "stock_max": 0.002007234621380355,
+   "fused_max": 0.002007234621380355,
+   "stock_mean": 0.0014401307562366128,
+   "fused_mean": 0.0014398270286619663,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn local L7 N=3 one-pass+stock norm T=1025",
+   "bit_equal": 0.9967120885848999,
+   "max_ulps": 30254,
+   "stock_max": 0.002007234621380355,
+   "fused_max": 0.002007234621380355,
+   "stock_mean": 0.0014401307562366128,
+   "fused_mean": 0.0014398269122466445,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn global L11 N=3 T=1025",
+   "bit_equal": 0.9957082271575928,
+   "max_ulps": 29919,
+   "stock_max": 0.0027849685790946642,
+   "fused_max": 0.0027849685790946642,
+   "stock_mean": 0.0009606252424418926,
+   "fused_mean": 0.0009605448576621711,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn global L11 N=3 one-pass+stock norm T=1025",
+   "bit_equal": 0.9957100749015808,
+   "max_ulps": 29919,
+   "stock_max": 0.0027849685790946642,
+   "fused_max": 0.0027849685790946642,
+   "stock_mean": 0.0009606252424418926,
+   "fused_mean": 0.0009605447994545102,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend T=1025",
+   "bit_equal": 0.9955602288246155,
+   "max_ulps": 29832,
+   "stock_max": 0.0028951332654170692,
+   "fused_max": 0.0028951332654170692,
+   "stock_mean": 0.0010211635380983353,
+   "fused_mean": 0.0010214621433988214,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend FP32 mix T=1025",
+   "bit_equal": 0.38701558113098145,
+   "max_ulps": NaN,
+   "stock_max": 0.0016265041693666947,
+   "fused_max": 0.0016265041693666947,
+   "stock_mean": 8.24792186904233e-06,
+   "fused_mean": 9.828227121033706e-06,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 T=1025",
+   "bit_equal": 0.9939905405044556,
+   "max_ulps": 29665,
+   "stock_max": 0.0021728229526848104,
+   "fused_max": 0.0021728229526848104,
+   "stock_mean": 0.0008985534659586847,
+   "fused_mean": 0.0008991140057332814,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 FP32 mix T=1025",
+   "bit_equal": 0.31652185320854187,
+   "max_ulps": NaN,
+   "stock_max": 0.0017104749846999004,
+   "fused_max": 0.002026379438116536,
+   "stock_mean": 8.084911314654164e-06,
+   "fused_mean": 9.009069799503777e-06,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn local L7 N=3 T=513",
+   "bit_equal": 0.995356559753418,
+   "max_ulps": 30114,
+   "stock_max": 0.0025885624326432233,
+   "fused_max": 0.0025885624326432233,
+   "stock_mean": 0.0014394574100151658,
+   "fused_mean": 0.0014382124645635486,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn local L7 N=3 one-pass+stock norm T=513",
+   "bit_equal": 0.9953574538230896,
+   "max_ulps": 30114,
+   "stock_max": 0.0025885624326432233,
+   "fused_max": 0.0025885624326432233,
+   "stock_mean": 0.0014394574100151658,
+   "fused_mean": 0.0014382124645635486,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn global L11 N=3 T=513",
+   "bit_equal": 0.9951695799827576,
+   "max_ulps": 29687,
+   "stock_max": 0.002434146958040302,
+   "fused_max": 0.002434146958040302,
+   "stock_mean": 0.0009618931217119098,
+   "fused_mean": 0.0009608249529264867,
+   "ok": true
+  },
+  {
+   "name": "loopmix attn global L11 N=3 one-pass+stock norm T=513",
+   "bit_equal": 0.9951701760292053,
+   "max_ulps": 29687,
+   "stock_max": 0.002434146958040302,
+   "fused_max": 0.002434146958040302,
+   "stock_mean": 0.0009618931217119098,
+   "fused_mean": 0.0009608249529264867,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend T=513",
+   "bit_equal": 0.9936588406562805,
+   "max_ulps": 29824,
+   "stock_max": 0.0021487039652973152,
+   "fused_max": 0.0021487039652973152,
+   "stock_mean": 0.0010261988500133157,
+   "fused_mean": 0.0010256252717226744,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L7 N=3 +addend FP32 mix T=513",
+   "bit_equal": 0.3765745162963867,
+   "max_ulps": NaN,
+   "stock_max": 0.0012690839246061244,
+   "fused_max": 0.0013418791128255272,
+   "stock_mean": 1.0725851097959094e-05,
+   "fused_mean": 9.199578926200047e-06,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 T=513",
+   "bit_equal": 0.9936580061912537,
+   "max_ulps": 29537,
+   "stock_max": 0.0027473416611420547,
+   "fused_max": 0.0027473416611420547,
+   "stock_mean": 0.0009012846276164055,
+   "fused_mean": 0.0009011602960526943,
+   "ok": true
+  },
+  {
+   "name": "loopmix mlp L12 boundary N=4 FP32 mix T=513",
+   "bit_equal": 0.30991190671920776,
+   "max_ulps": NaN,
+   "stock_max": 0.001325840088756583,
+   "fused_max": 0.0011940481938994636,
+   "stock_mean": 9.930557098414283e-06,
+   "fused_mean": 9.129934369411785e-06,
+   "ok": true
+  },
+  {
+   "name": "split down local T=8192",
+   "ok": true
+  },
+  {
+   "name": "split down global T=8192",
+   "ok": true
+  },
+  {
+   "name": "split down mlp T=8192",
+   "ok": true
+  },
+  {
+   "name": "split down local T=4097",
+   "ok": true
+  },
+  {
+   "name": "split down global T=4097",
+   "ok": true
+  },
+  {
+   "name": "split down mlp T=4097",
+   "ok": true
+  },
+  {
+   "name": "split down local T=1025",
+   "ok": true
+  },
+  {
+   "name": "split down global T=1025",
+   "ok": true
+  },
+  {
+   "name": "split down mlp T=1025",
+   "ok": true
+  },
+  {
+   "name": "split down local T=513",
+   "ok": true
+  },
+  {
+   "name": "split down global T=513",
+   "ok": true
+  },
+  {
+   "name": "split down mlp T=513",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=8192 partial=True",
+   "ok": true
+  },
+  {
+   "name": "time sconvres partial=True",
+   "tokens": 8192,
+   "stock_us": 998.1759786605835,
+   "fused_us": 671.5199947357178
+  },
+  {
+   "name": "sconvres T=8192 partial=False",
+   "ok": true
+  },
+  {
+   "name": "time sconvres partial=False",
+   "tokens": 8192,
+   "stock_us": 827.1999955177307,
+   "fused_us": 498.4639883041382
+  },
+  {
+   "name": "sconvres T=4097 partial=True",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=4097 partial=False",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=2048 partial=True",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=2048 partial=False",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=2049 partial=True",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=2049 partial=False",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=3001 partial=True",
+   "ok": true
+  },
+  {
+   "name": "sconvres T=3001 partial=False",
+   "ok": true
+  }
+ ],
+ "failed": []
+}

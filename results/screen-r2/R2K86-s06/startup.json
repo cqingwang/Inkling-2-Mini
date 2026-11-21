@@ -1,0 +1,2 @@
+{"label":"R2K86-s06","ready_utc":"2026-11-21T16:20:42Z","startup_s":227,"memavail_ready_gib":15.6,"kv":"[2026-11-21 16:20:37 PID107] max_total_num_tokens=1257856, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=15.92 GB"}
+{"memavail_end_gib":12.3}

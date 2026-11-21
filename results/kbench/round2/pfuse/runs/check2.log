@@ -1,0 +1,72 @@
+KBRUN start 2026-11-21T14:39:19Z memavail=117GiB
+resnorm T=8192
+  resnorm attn local N=3 T=8192                bit-equal  99.993 %  max 26 ulp | err/max stock 2.14e-03 fused 2.14e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+    time stock   1323.9 us  fused    724.8 us  saved   599.1 us
+  resnorm attn global N=3 Q=3 T=8192           bit-equal  99.991 %  max 676 ulp | err/max stock 2.03e-03 fused 2.03e-03 | mean stock 9.90e-04 fused 9.90e-04  ok
+    time stock   2972.0 us  fused   1291.0 us  saved  1681.0 us
+  resnorm mlp N=4 +addend T=8192               bit-equal  99.991 %  max 53 ulp | err/max stock 2.00e-03 fused 2.00e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+    time stock   1635.1 us  fused   1161.0 us  saved   474.1 us
+  resnorm mlp boundary N=5 T=8192              bit-equal  99.991 %  max 25768 ulp | err/max stock 3.22e-03 fused 3.22e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+    time stock   1705.4 us  fused   1348.8 us  saved   356.6 us
+resnorm T=4097
+  resnorm attn local N=3 T=4097                bit-equal  99.993 %  max 86 ulp | err/max stock 3.29e-03 fused 3.29e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+  resnorm attn global N=3 Q=3 T=4097           bit-equal  99.991 %  max 25887 ulp | err/max stock 2.54e-03 fused 2.54e-03 | mean stock 9.90e-04 fused 9.90e-04  ok
+  resnorm mlp N=4 +addend T=4097               bit-equal  99.991 %  max 54 ulp | err/max stock 2.03e-03 fused 2.03e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+  resnorm mlp boundary N=5 T=4097              bit-equal  99.990 %  max 29 ulp | err/max stock 3.32e-03 fused 3.32e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+resnorm T=1025
+  resnorm attn local N=3 T=1025                bit-equal  99.992 %  max 9 ulp | err/max stock 2.41e-03 fused 2.41e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+  resnorm attn global N=3 Q=3 T=1025           bit-equal  99.992 %  max 8 ulp | err/max stock 3.57e-03 fused 3.57e-03 | mean stock 9.92e-04 fused 9.92e-04  ok
+  resnorm mlp N=4 +addend T=1025               bit-equal  99.991 %  max 282 ulp | err/max stock 2.85e-03 fused 2.85e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+  resnorm mlp boundary N=5 T=1025              bit-equal  99.990 %  max 4 ulp | err/max stock 2.36e-03 fused 2.36e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+resnorm T=513
+  resnorm attn local N=3 T=513                 bit-equal  99.992 %  max 48 ulp | err/max stock 2.13e-03 fused 2.13e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+  resnorm attn global N=3 Q=3 T=513            bit-equal  99.992 %  max 25857 ulp | err/max stock 1.95e-03 fused 1.95e-03 | mean stock 9.91e-04 fused 9.91e-04  ok
+  resnorm mlp N=4 +addend T=513                bit-equal  99.990 %  max 17 ulp | err/max stock 2.45e-03 fused 2.45e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+  resnorm mlp boundary N=5 T=513               bit-equal  99.989 %  max 20 ulp | err/max stock 3.20e-03 fused 3.20e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+loopmix T=8192
+  loopmix attn local L7 N=3 T=8192             bit-equal  99.528 %  max 30412 ulp | err/max stock 2.81e-03 fused 2.82e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+  loopmix attn local L7 N=3 one-pass+stock norm T=8192 bit-equal  99.528 %  max 30412 ulp | err/max stock 2.81e-03 fused 2.82e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+    time stock  10943.3 us  fused   7842.6 us  saved  3100.8 us  one-pass+stock norm   8037.2 us
+  loopmix attn global L11 N=3 T=8192           bit-equal  99.595 %  max 30330 ulp | err/max stock 3.00e-03 fused 3.00e-03 | mean stock 9.59e-04 fused 9.59e-04  ok
+  loopmix attn global L11 N=3 one-pass+stock norm T=8192 bit-equal  99.595 %  max 30330 ulp | err/max stock 3.00e-03 fused 3.00e-03 | mean stock 9.59e-04 fused 9.59e-04  ok
+    time stock  11616.1 us  fused   8538.4 us  saved  3077.6 us  one-pass+stock norm   8891.7 us
+  loopmix mlp L7 N=3 +addend T=8192            bit-equal  99.553 %  max 30413 ulp | err/max stock 3.40e-03 fused 3.40e-03 | mean stock 1.02e-03 fused 1.02e-03  ok
+  loopmix mlp L7 N=3 +addend FP32 mix T=8192   bit-equal  38.659 %  max nan ulp | err/max stock 1.72e-03 fused 1.49e-03 | mean stock 1.20e-05 fused 8.72e-06  ok
+    time stock   4636.5 us  fused   3923.4 us  saved   713.2 us
+  loopmix mlp L12 boundary N=4 T=8192          bit-equal  99.460 %  max 30020 ulp | err/max stock 2.13e-03 fused 2.13e-03 | mean stock 9.02e-04 fused 9.03e-04  ok
+  loopmix mlp L12 boundary N=4 FP32 mix T=8192 bit-equal  32.186 %  max nan ulp | err/max stock 1.40e-03 fused 1.39e-03 | mean stock 8.38e-06 fused 1.04e-05  ok
+    time stock   4558.6 us  fused   3864.9 us  saved   693.7 us
+loopmix T=4097
+  loopmix attn local L7 N=3 T=4097             bit-equal  99.525 %  max 30524 ulp | err/max stock 2.90e-03 fused 2.90e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+  loopmix attn local L7 N=3 one-pass+stock norm T=4097 bit-equal  99.525 %  max 30524 ulp | err/max stock 2.90e-03 fused 2.90e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+  loopmix attn global L11 N=3 T=4097           bit-equal  99.610 %  max 30026 ulp | err/max stock 2.09e-03 fused 2.09e-03 | mean stock 9.61e-04 fused 9.61e-04  ok
+  loopmix attn global L11 N=3 one-pass+stock norm T=4097 bit-equal  99.610 %  max 30026 ulp | err/max stock 2.09e-03 fused 2.09e-03 | mean stock 9.61e-04 fused 9.61e-04  ok
+  loopmix mlp L7 N=3 +addend T=4097            bit-equal  99.591 %  max 29770 ulp | err/max stock 1.81e-03 fused 1.81e-03 | mean stock 1.02e-03 fused 1.02e-03  ok
+  loopmix mlp L7 N=3 +addend FP32 mix T=4097   bit-equal  38.556 %  max nan ulp | err/max stock 7.53e-04 fused 7.53e-04 | mean stock 6.57e-06 fused 6.74e-06  ok
+  loopmix mlp L12 boundary N=4 T=4097          bit-equal  99.502 %  max 29921 ulp | err/max stock 2.23e-03 fused 2.23e-03 | mean stock 9.01e-04 fused 9.00e-04  ok
+  loopmix mlp L12 boundary N=4 FP32 mix T=4097 bit-equal  31.692 %  max nan ulp | err/max stock 9.74e-04 fused 9.74e-04 | mean stock 8.52e-06 fused 6.35e-06  ok
+loopmix T=1025
+  loopmix attn local L7 N=3 T=1025             bit-equal  99.671 %  max 30254 ulp | err/max stock 2.83e-03 fused 2.83e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+  loopmix attn local L7 N=3 one-pass+stock norm T=1025 bit-equal  99.671 %  max 30254 ulp | err/max stock 2.83e-03 fused 2.83e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+  loopmix attn global L11 N=3 T=1025           bit-equal  99.571 %  max 29919 ulp | err/max stock 2.78e-03 fused 2.78e-03 | mean stock 9.61e-04 fused 9.61e-04  ok
+  loopmix attn global L11 N=3 one-pass+stock norm T=1025 bit-equal  99.571 %  max 29919 ulp | err/max stock 2.78e-03 fused 2.78e-03 | mean stock 9.61e-04 fused 9.61e-04  ok
+  loopmix mlp L7 N=3 +addend T=1025            bit-equal  99.556 %  max 29832 ulp | err/max stock 3.11e-03 fused 3.11e-03 | mean stock 1.02e-03 fused 1.02e-03  ok
+  loopmix mlp L7 N=3 +addend FP32 mix T=1025   bit-equal  38.702 %  max nan ulp | err/max stock 1.38e-03 fused 1.25e-03 | mean stock 6.19e-06 fused 1.01e-05  FAIL
+  loopmix mlp L12 boundary N=4 T=1025          bit-equal  99.399 %  max 29665 ulp | err/max stock 2.14e-03 fused 2.14e-03 | mean stock 8.96e-04 fused 8.96e-04  ok
+  loopmix mlp L12 boundary N=4 FP32 mix T=1025 bit-equal  31.652 %  max nan ulp | err/max stock 1.58e-03 fused 2.14e-03 | mean stock 6.70e-06 fused 5.70e-06  ok
+loopmix T=513
+  loopmix attn local L7 N=3 T=513              bit-equal  99.536 %  max 30114 ulp | err/max stock 2.59e-03 fused 2.59e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+  loopmix attn local L7 N=3 one-pass+stock norm T=513 bit-equal  99.536 %  max 30114 ulp | err/max stock 2.59e-03 fused 2.59e-03 | mean stock 1.44e-03 fused 1.44e-03  ok
+  loopmix attn global L11 N=3 T=513            bit-equal  99.517 %  max 29687 ulp | err/max stock 2.43e-03 fused 2.43e-03 | mean stock 9.62e-04 fused 9.61e-04  ok
+  loopmix attn global L11 N=3 one-pass+stock norm T=513 bit-equal  99.517 %  max 29687 ulp | err/max stock 2.43e-03 fused 2.43e-03 | mean stock 9.62e-04 fused 9.61e-04  ok
+  loopmix mlp L7 N=3 +addend T=513             bit-equal  99.366 %  max 29824 ulp | err/max stock 2.15e-03 fused 2.15e-03 | mean stock 1.03e-03 fused 1.03e-03  ok
+  loopmix mlp L7 N=3 +addend FP32 mix T=513    bit-equal  37.657 %  max nan ulp | err/max stock 1.27e-03 fused 1.34e-03 | mean stock 9.88e-06 fused 8.35e-06  ok
+  loopmix mlp L12 boundary N=4 T=513           bit-equal  99.366 %  max 29537 ulp | err/max stock 2.75e-03 fused 2.75e-03 | mean stock 9.01e-04 fused 9.01e-04  ok
+  loopmix mlp L12 boundary N=4 FP32 mix T=513  bit-equal  30.991 %  max nan ulp | err/max stock 1.33e-03 fused 1.19e-03 | mean stock 9.92e-06 fused 9.15e-06  ok
+graphs replay 0: bit-equal to eager
+graphs replay 1: bit-equal to eager
+graphs replay 2: bit-equal to eager
+graphs replay after input change: bit-equal to eager
+install: patched ['layer@sglang.srt.models.inkling2'] [inkling_pfuse pid=128] enabled loopmix,resnorm,sconvres (min_rows=512)
+FAILED: loopmix mlp L7 N=3 +addend FP32 mix T=1025
+KBRUN end 2026-11-21T14:40:46Z rc=1 memavail=117GiB

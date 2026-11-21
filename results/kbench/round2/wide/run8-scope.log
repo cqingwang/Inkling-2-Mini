@@ -1,0 +1,26 @@
+KBRUN start 2026-11-21T16:57:08Z memavail=117GiB
+
+OK
+wide integ pico install  PASS
+wide integ install  PASS
+wide integ patched lm head  PASS
+wide integ patched _project_sources  PASS
+wide integ patched post_load_weights + forward (scope)  PASS
+wide integ scope modes decode/verify/extend=[True, True, False] PASS
+wide integ patched: ['unquant.sm12x_fp32_lm_head', 'Inkling2Attention._project_sources', 'Inkling2ForConditionalGeneration.forward (scope)', 'Inkling2ForConditionalGeneration.post_load_weights']
+[inkling_pico12 pid=1] active (target): dense: qkvr 1 (+kv 1) wo_ud 1, head [201024x2304] for lmhead; packed 763.9 MB extra beside 980.1 MB of BF16 originals (kept); patched unquant.sm12x_fp32_lm_head, Inkling2Attention._project_sources, Inkling2ForConditionalGeneration.post_load_weights; ext reused in 0.3 s (/root/.cache/inkling-pico12/227377f9786ac9d5); encode 0.1 s; max_m=16 stacked_max_m=16 wk=16 pdl=1
+wide integ qkvr method WidePico12UnquantizedLinearMethod, fmt bf16x
+[inkling_wide pid=1] active (target): dense: qkvr 1 (stacked 1) wo_ud 1, bf16x 2/2, head [201024x2304] bf16x; split-K workspace 4.7 MB; patched unquant.sm12x_fp32_lm_head, Inkling2Attention._project_sources, Inkling2ForConditionalGeneration.forward (scope), Inkling2ForConditionalGeneration.post_load_weights; ext reused in 0.0 s (/root/.cache/inkling-wide/354cd47ac7dd6828); min_m=17 max_m=256 (qkvr=96,wo=32,head=256) scope=all fmt=auto pdl=1 mg=2 pfd=1 splitk=auto
+wide integ formats  PASS
+wide integ dispatch M=8 expected=pico wide_calls=0 PASS
+wide integ dispatch M=16 expected=pico wide_calls=0 PASS
+wide integ dispatch M=17 expected=wide wide_calls=3 PASS
+wide integ dispatch M=64 expected=wide wide_calls=3 PASS
+wide integ dispatch M=256 expected=wide wide_calls=3 PASS
+wide integ dispatch M=300 expected=stock wide_calls=0 PASS
+wide integ stacked M=24 layout=stock close=True wide_calls=1 PASS
+wide integ stacked graph M=24  PASS
+wide integ stacked M=64 layout=stock close=True wide_calls=1 PASS
+wide integ stacked graph M=64  PASS
+wide integration result PASS ()
+KBRUN end 2026-11-21T16:57:32Z rc=0 memavail=117GiB

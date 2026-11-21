@@ -1,0 +1,34 @@
+KBRUN start 2026-11-21T14:36:05Z memavail=117GiB
+inkling_cert extension built in 38.4 s: /root/.cache/inkling-cert/a3264406b9b93b25
+device NVIDIA GB10 torch 2.14.1+cu130
+extensions ready 0.2s (/root/.cache/inkling-cert/a3264406b9b93b25)
+head [201024x2304] pico 715.1 MB; tables 1.4s eps 2.818%
+screen bytes 357.8 MB
+1 packing
+  ok   rows 0..: decode == quantised
+  ok   rows 100000..: decode == quantised
+  ok   rows 196928..: decode == quantised
+  ok   tables finite
+5983 real hidden rows
+2 screen accuracy (M=8 batches)
+  ok   screen accumulation error / model <= 1 (max 0.0002)
+  ok   pico accumulation error / model <= 1 (max 0.0004)
+  ok   s - B <= pico <= s + B for every logit (0 outside; max |pico - s| / B = 0.1318)
+3 exactness
+  ok   M=8: certified token == full-head token on 5976 rows (0 mismatches)
+  ok   M=8: computed tiles bit-identical to pico, others -inf (0 bad steps)
+     M=8: certified 747/747 steps; tiles/step mean 57.6 p50 29 p90 96 p99 238 max 9639
+  ok   M=16: certified token == full-head token on 5968 rows (0 mismatches)
+  ok   M=16: computed tiles bit-identical to pico, others -inf (0 bad steps)
+     M=16: certified 373/373 steps; tiles/step mean 104.7 p50 52 p90 181 p99 433 max 9639
+  ok   on = 0: pico's full head bit for bit
+  ok   near-tie rows (two ids, |x| 150-800): 2048 rows, 0 mismatches
+  ok   duplicate head rows (1 pairs): exact ties resolve like the full head
+4 CUDA graph
+  ok   graph replay == eager (40 steps, on toggled)
+5 bench (L2 flushed, CUDA events)
+     M=8: pico full head 2.898 ms (247 GB/s) | cert 1.671 ms at 18 tiles, 1.680 ms at 40 (p90 batch) | screen alone 1.569 ms = 228 GB/s of 358 MB | not-certified step (screen + full) 2.971 ms
+     M=16: pico full head 3.036 ms (236 GB/s) | cert 1.730 ms at 30 tiles, 1.730 ms at 61 (p90 batch) | screen alone 1.618 ms = 221 GB/s of 358 MB | not-certified step (screen + full) 3.027 ms
+RESULT {"8": {"pico_ms": [2.8979198932647705, 2.8887040615081787], "cert_ms_median_batch": [1.6711679697036743, 1.6671008110046386], "cert_ms_p90_batch": [1.6803840398788452, 1.6752640008926392], "screen_ms": [1.5687519907951355, 1.5645695924758911], "fallback_ms": [2.9711519479751587, 2.9487136363983155], "screen_GBps": 228.09387468482794, "tiles_median": 18, "tiles_p90": 40}, "16": {"pico_ms": [3.0363839864730835, 2.9917919635772705], "cert_ms_median_batch": [1.7300639748573303, 1.7223680019378662], "cert_ms_p90_batch": [1.7295360565185547, 1.7263391733169555], "screen_ms": [1.6180319786071777, 1.6128031730651855], "fallback_ms": [3.0274399518966675, 3.0197696924209594], "screen_GBps": 221.14687764577948, "tiles_median": 30, "tiles_p90": 61}}
+cert gpu_check result PASS
+KBRUN end 2026-11-21T14:37:04Z rc=0 memavail=116GiB

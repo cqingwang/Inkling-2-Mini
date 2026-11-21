@@ -1,0 +1,35 @@
+KBRUN start 2026-11-21T14:34:03Z memavail=117GiB
+device NVIDIA GB10 cap (12, 1) torch 2.14.1+cu130
+extension reused in 0.0 s
+== patch
+proj: real layer 0 (16, 1024) absmax 1.133
+  patch swa    wrapper == direct True  kernel calls 1
+[inkling_attn pid=57] a marked call is outside the kernel's coverage; running stock FA4 for it
+  patch fallback == stock True (fallbacks 1)
+  patch: marker outside visit raised as intended (inkling_attn: an r-shaped rel_bias (width 16) reached FA4 ou...)
+  patch global wrapper == direct True  kernel calls 2
+  patch fallback == stock True (fallbacks 1)
+  patch: marker outside visit raised as intended (inkling_attn: an r-shaped rel_bias (width 16) reached FA4 ou...)
+  RelLogitsProj dispatch (bias_layout first): visit -> r True, no visit -> einsum True
+  RelLogitsProj dispatch (inkling_attn first): visit -> r True, no visit -> einsum True
+== patch done in 8 s
+== bench
+proj: real layer 0 (16, 1024) absmax 1.133
+proj: real layer 5 (16, 1024) absmax 1.734
+  swa    chunk 2048  prefix 0      stock    2343.0 us (  8.3 TF)  bias_layout    1567.3 us ( 12.3 TF)  ours     420.4 us ( 46.0 TF)  ours_unpacked     483.9 us ( 40.0 TF)  ours_w8     498.2 us ( 38.8 TF)  einsum 500.7 us  ours/stock x5.57  ours/bias_layout x3.73
+  global chunk 2048  prefix 0      stock    2471.9 us ( 10.4 TF)  bias_layout    1696.2 us ( 15.2 TF)  ours     526.9 us ( 48.9 TF)  ours_unpacked     575.0 us ( 44.8 TF)  ours_w8     605.4 us ( 42.6 TF)  einsum 502.8 us  ours/stock x4.69  ours/bias_layout x3.22
+  swa    chunk 2048  prefix 8192   stock    2487.3 us ( 10.4 TF)  bias_layout    1684.6 us ( 15.3 TF)  ours     522.3 us ( 49.3 TF)  ours_unpacked     600.1 us ( 42.9 TF)  ours_w8     606.2 us ( 42.5 TF)  einsum 498.8 us  ours/stock x4.76  ours/bias_layout x3.23
+  global chunk 2048  prefix 8192   stock    6779.4 us ( 34.2 TF)  bias_layout    5904.4 us ( 39.3 TF)  ours    3308.0 us ( 70.1 TF)  ours_unpacked    3325.0 us ( 69.8 TF)  ours_w8    3593.3 us ( 64.5 TF)  einsum 500.8 us  ours/stock x2.05  ours/bias_layout x1.78
+  swa    chunk 2048  prefix 32768  stock    2467.3 us ( 10.4 TF)  bias_layout    1672.2 us ( 15.4 TF)  ours     523.3 us ( 49.2 TF)  ours_unpacked     589.2 us ( 43.7 TF)  ours_w8     601.6 us ( 42.8 TF)  einsum 500.8 us  ours/stock x4.71  ours/bias_layout x3.20
+  global chunk 2048  prefix 32768  stock   19833.9 us ( 42.9 TF)  bias_layout   19036.0 us ( 44.7 TF)  ours   11944.6 us ( 71.2 TF)  ours_unpacked   11978.9 us ( 71.0 TF)  ours_w8   12642.9 us ( 67.3 TF)  einsum 498.7 us  ours/stock x1.66  ours/bias_layout x1.59
+  swa    chunk 8192  prefix 0      stock    9696.3 us ( 10.0 TF)  bias_layout    6236.8 us ( 15.5 TF)  ours    1860.6 us ( 51.9 TF)  ours_unpacked    2059.5 us ( 46.9 TF)  ours_w8    2145.8 us ( 45.0 TF)  einsum 2037.2 us  ours/stock x5.21  ours/bias_layout x3.35
+  global chunk 8192  prefix 0      stock   16810.6 us ( 24.5 TF)  bias_layout   13303.0 us ( 31.0 TF)  ours    6238.8 us ( 66.1 TF)  ours_unpacked    6295.5 us ( 65.5 TF)  ours_w8    6918.7 us ( 59.6 TF)  einsum 2030.1 us  ours/stock x2.69  ours/bias_layout x2.13
+  swa    chunk 8192  prefix 8192   stock    9832.4 us ( 10.5 TF)  bias_layout    6433.3 us ( 16.0 TF)  ours    1957.5 us ( 52.7 TF)  ours_unpacked    2187.4 us ( 47.1 TF)  ours_w8    2287.6 us ( 45.1 TF)  einsum 2031.2 us  ours/stock x5.02  ours/bias_layout x3.29
+  global chunk 8192  prefix 8192   stock   33954.9 us ( 36.4 TF)  bias_layout   30360.0 us ( 40.7 TF)  ours   17910.4 us ( 69.1 TF)  ours_unpacked   18147.0 us ( 68.2 TF)  ours_w8   18896.9 us ( 65.5 TF)  einsum 2041.2 us  ours/stock x1.90  ours/bias_layout x1.70
+  swa    chunk 8192  prefix 32768  stock    9834.7 us ( 10.5 TF)  bias_layout    6439.0 us ( 16.0 TF)  ours    1973.1 us ( 52.2 TF)  ours_unpacked    2187.3 us ( 47.1 TF)  ours_w8    2404.4 us ( 42.9 TF)  einsum 2067.9 us  ours/stock x4.98  ours/bias_layout x3.26
+  global chunk 8192  prefix 32768  stock   86433.9 us ( 42.9 TF)  bias_layout   82373.6 us ( 45.0 TF)  ours   52523.2 us ( 70.7 TF)  ours_unpacked   52620.3 us ( 70.5 TF)  ours_w8   55080.4 us ( 67.4 TF)  einsum 2032.2 us  ours/stock x1.65  ours/bias_layout x1.57
+  swa    chunk 8192  prefix 122880 stock    9880.6 us ( 10.4 TF)  bias_layout    6432.8 us ( 16.0 TF)  ours    1941.1 us ( 53.1 TF)  ours_unpacked    2179.6 us ( 47.3 TF)  ours_w8    2246.7 us ( 45.9 TF)  einsum 2021.8 us  ours/stock x5.09  ours/bias_layout x3.31
+  global chunk 8192  prefix 122880 stock  280944.9 us ( 45.5 TF)  bias_layout  275467.8 us ( 46.4 TF)  ours  180335.6 us ( 70.9 TF)  ours_unpacked  180811.3 us ( 70.7 TF)  ours_w8  186181.2 us ( 68.7 TF)  einsum 2014.7 us  ours/stock x1.56  ours/bias_layout x1.53
+== bench done in 47 s
+total 55 s; failed sections: none
+KBRUN end 2026-11-21T14:35:00Z rc=0 memavail=117GiB

@@ -146,3 +146,64 @@ def distinct_experts(ids: torch.Tensor, num_experts: int) -> torch.Tensor:
     flat = ids.reshape(-1).to(torch.int64).clamp(0, num_experts - 1)
     present.index_fill_(0, flat, 1.0)
     return present.sum()
+
+
+def calibrated_live_lens(
+    m: torch.Tensor,
+    sampled: torch.Tensor,
+    *,
+    table: torch.Tensor,
+    edges: torch.Tensor,
+    row_cost: torch.Tensor,
+    theta: float,
+    min_len: int,
+    max_len: int,
+    u1: Optional[torch.Tensor] = None,
+    pool: float = 0.0,
+    rounds: int = 0,
+) -> torch.Tensor:
+    """[bs] int64 live lengths of the calibrated cost rule (``policy:`` mode).
+
+    m [bs, gamma]: the draft's per-position max probabilities (``draft_token_probs``
+    with use_max). sampled [bs] bool picks the calibration table: table [2, gamma, nb]
+    (0 = greedy rows, 1 = sampled rows), a_j = table[mode, j, bin(m_j)], bin(m) =
+    #{edges <= m}. S_j = a_0 * ... * a_j estimates P(d_0..d_j all accepted).
+    (Leading dims are allowed: m [..., bs, gamma], sampled [..., bs]; the batch is
+    dim -2. The tests use this to run many independent batches at once.)
+
+    Draft d_j (verify row j+1) is live while S_j >= theta * P_r * row_cost[j]:
+    row_cost[j] is the c1 marginal expert union of row j+1 (u1[j+1] - u1[j]) and P_r
+    the probability that a new expert of request r is not already read for another
+    request. rounds = 0 (or bs = 1, or pool <= 0): P_r = 1, a per-request rule. With
+    rounds K > 0 and an effective expert pool E (> u1[-1]):
+
+        L^0 = 1;  P_r^k = prod_{s != r} (1 - u1(L_s^{k-1}) / E);  L^k = rule(P^k)
+
+    P_r^k only falls when other requests' widths grow and L^1 >= L^0, so the rounds
+    are monotone (L^k >= L^{k-1}). Each round is a left-to-right rule on request r's
+    own S_0..S_j (functions of the drafts before d_j) with a threshold from the other
+    requests' widths of the previous round, which in turn only read r's survival up to
+    r's final width. So {L_r = l} is decided by d_0..d_{l-2}: a stopping rule, exact
+    for sampled rows (README, "policy: mode"). No host sync; fixed launch count."""
+    bs, gamma = m.shape[-2], m.shape[-1]
+    mode = sampled.to(torch.int64)
+    bins = torch.bucketize(m.to(torch.float32).contiguous(), edges, right=True)
+    pos = torch.arange(gamma, device=m.device)
+    a = table[mode[..., None], pos, bins]  # [..., bs, gamma]
+    surv = torch.cumprod(a, dim=-1)
+    base = float(theta) * row_cost
+
+    def rule(thr):
+        ok = (surv >= thr).to(torch.int64)
+        return 1 + torch.cumprod(ok, dim=-1).sum(dim=-1)
+
+    if rounds <= 0 or bs == 1 or pool <= 0.0 or u1 is None:
+        lens = rule(base)
+    else:
+        lens = torch.ones(m.shape[:-1], dtype=torch.int64, device=m.device)
+        for _ in range(int(rounds)):
+            free = (1.0 - u1[lens - 1] / float(pool)).clamp_min(1e-6)
+            logf = torch.log(free)
+            p_other = torch.exp(logf.sum(dim=-1, keepdim=True) - logf)  # prod s != r
+            lens = rule(base * p_other[..., None])
+    return lens.clamp_(int(min_len), int(max_len))

@@ -1,0 +1,30 @@
+2026-11-21T16:49:27Z R2ATT-s05 mode warm
+R2ATT-s05-warm: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 51.53, "geomean_tok_s": 54.99, "aggregate_tok_s": 53.18, "median_ttft_ms": 171.4, "truncated_frac": 0.967, "reasoning_token_frac": 0.788, "reasoning_char_frac": 0.829, "median_step_ms": 42.45, "median_tokens_per_step": 2.255, "steps_source": "response", "median_accept_rate": 0.1793, "median_draft_per_step": 7.0}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": 0.184, "drift_pct_all": 0.184}}
+wrote /home/knapcio/inkling/r2/results/R2ATT-s05/warm-sbquick.json (1.8 min)
+2026-11-21T16:51:15Z R2ATT-s05 mode pf
+R2ATT-s05  longctx: 3.275 chars/token (tokenize)
+context  tokens   TTFT cold  prefill t/s TTFT cached  cached    decode tok/s [CI]        step ms   tok/step
+1K       1002.0   0.372      2693.5      0.238        None      -                        -         -
+8K       8161.0   1.67       4886.8      0.245        None      -                        -         -
+32K      32704.0  7.005      4668.7      0.195        None      61.6 [40.6, 93.4]        -         -
+128K     130922.0 37.033     3535.3      18.62        None      39.4 [31.7, 49.0]        -         -
+wrote /home/knapcio/inkling/r2/results/R2ATT-s05/longctx.json (3.6 min)
+2026-11-21T16:54:49Z R2ATT-s05 mode guard
+R2ATT-s05-guard: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 51.23, "geomean_tok_s": 55.02, "aggregate_tok_s": 53.12, "median_ttft_ms": 171.9, "truncated_frac": 0.967, "reasoning_token_frac": 0.782, "reasoning_char_frac": 0.827, "median_step_ms": 41.89, "median_tokens_per_step": 2.195, "steps_source": "stream"}, "sentinel": {"n": 2, "identical_text": 1, "drift_pct_identical": 0.408, "drift_pct_all": 1.316}}
+R2ATT-s05-guard: quality guard 30/30 passed
+wrote /home/knapcio/inkling/r2/results/R2ATT-s05/guard.json (2.2 min)
+2026-11-21T16:57:02Z R2ATT-s05 mode sanity
+chat: 17*23                  PASS  {"answer": "391", "completion_tokens": 44}
+chat: capital + river        PASS  {"answer": "The capital of Poland is Warsaw, which is crossed by the Vistula River."}
+effort none                  PASS  {"completion_tokens": 280, "reasoning_chars": 593, "prompt_tokens": 46, "answer": "count: (142 − 12) + (90 − 12) = 130 + 78 = 208.\n\nAnswer: 208"}
+effort low                   PASS  {"completion_tokens": 280, "reasoning_chars": 552, "prompt_tokens": 48, "answer": "y both but by one: (142−12)+(90−12)=130+78=208.\n\nAnswer: 208"}
+effort medium                PASS  {"completion_tokens": 275, "reasoning_chars": 514, "prompt_tokens": 48, "answer": "visible by exactly one: 142 + 90 − 2·12 = 208  \n\nAnswer: 208"}
+effort high                  PASS  {"completion_tokens": 292, "reasoning_chars": 573, "prompt_tokens": 48, "answer": "/77⌋ = 12  \n\nXOR count: 142 + 90 − 2·12 = 208  \n\nAnswer: 208"}
+effort: none <= high         PASS  {"lengths": {"none": 280, "low": 280, "medium": 275, "high": 292}}
+tool call                    PASS  {"finish": "tool_calls", "calls": [{"name": "get_weather", "arguments": "{\"city\": \"Krakow\", \"unit\": \"c\"}"}]}
+tool result -> answer        PASS  {"answer": "Right now in Krakow: 7°C with light rain."}
+json_schema output           PASS  {"parsed": {"city": "Gdańsk", "population_millions": 0.47, "landmarks": ["Main Market Square", "Long Market", "Westerplatte", "Gdańsk Maritime Museum"]}}
+needle 120K                  PASS  {"prompt_tokens": 120097, "seconds": 33.9, "expected": "MEADOW-FALCON-0347", "answer": "MEADOW-FALCON-0347"}
+11 / 11 passed
+needle 240K                  PASS  {"prompt_tokens": 240104, "seconds": 89.2, "expected": "WILLOW-FALCON-3624", "answer": "WILLOW-FALCON-3624"}
+1 / 1 passed

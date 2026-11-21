@@ -1,0 +1,99 @@
+# c8  bs=8  rows/verify=64  trace=1795266657.9001338-TP-0.trace.json.gz
+device NVIDIA GB10 SMs=48; GPU events=68162; annotations draft=40 verify=40; complete periods=39
+events outside complete periods (kept out of per-step numbers, not dropped): 1707 (117.62 ms total, i.e. the partial last step and pre-profile tail)
+long kernels > threshold: none
+
+## Step timeline (ms per step, 39 complete periods)
+| | mean | p10 | p50 | p90 |
+|---|---:|---:|---:|---:|
+| wall period | 117.051 | 113.831 | 117.057 | 120.563 |
+| GPU busy (union) | 116.505 | 113.289 | 116.509 | 120.017 |
+| GPU idle | 0.546 | 0.536 | 0.544 | 0.556 |
+| draft window | 7.280 | 7.230 | 7.251 | 7.298 |
+|   idle in draft window | 0.078 | 0.076 | 0.078 | 0.080 |
+| gap draft->verify | 0.077 | 0.072 | 0.075 | 0.083 |
+| verify window | 109.426 | 106.236 | 109.470 | 112.982 |
+|   idle in verify window | 0.403 | 0.396 | 0.402 | 0.411 |
+| gap verify->next draft | 0.268 | 0.261 | 0.266 | 0.279 |
+
+## Classes (mean per step; excl sums to busy: 116.505 vs 116.505 ms, diff +0.0000)
+| group | n/step | raw ms | excl ms | % period | weight MB/step | GB/s (MB/raw) |
+|---|---:|---:|---:|---:|---:|---:|
+| MoE grouped GEMM | 96.0 | 75.774 | 75.768 | 64.7 | 0 | - |
+| MoE glue (route/remap/quant/args/combine) | 384.0 | 3.283 | 2.379 | 2.0 | 0 | - |
+| dense qkvr | 48.0 | 10.499 | 10.418 | 8.9 | 1902 | 181 |
+| dense wo | 48.0 | 4.395 | 4.395 | 3.8 | 679 | 155 |
+| router + global conv wproj | 128.0 | 0.531 | 0.415 | 0.4 | 31 | 58 |
+| target LM head | 1.0 | 4.341 | 4.341 | 3.7 | 926 | 213 |
+| logits softcap+argmax | 4.0 | 0.614 | 0.614 | 0.5 | 0 | - |
+| attention SWA (40 visits) | 200.0 | 6.163 | 5.553 | 4.7 | 0 | - |
+| attention global (8 visits) | 48.0 | 1.467 | 1.222 | 1.0 | 0 | - |
+| small: norms/attn-res/sconv/controllers | 498.0 | 5.986 | 3.595 | 3.1 | 113 | 19 |
+| fwd glue (copies/act in layer stack) | 4.0 | 0.008 | 0.008 | 0.0 | 0 | - |
+| verify prep + accept/commit (graph) | 35.0 | 0.059 | 0.059 | 0.1 | 0 | - |
+| draft layers (3) | 59.0 | 2.962 | 2.962 | 2.5 | 255 | 86 |
+| draft vocab: head (FP8) | 1.0 | 2.093 | 2.093 | 1.8 | 464 | 222 |
+| draft vocab: Markov fold (FP8) x7 | 7.0 | 1.672 | 1.672 | 1.4 | 366 | 219 |
+| draft rnn + sample + misc | 47.0 | 0.465 | 0.465 | 0.4 | 55 | 118 |
+| draft ctx K/V (in verify graph) | 16.0 | 0.229 | 0.229 | 0.2 | 15 | 64 |
+| eager kernels between graphs | 23.0 | 0.286 | 0.281 | 0.2 | 0 | - |
+| memcpy/memset | 57.0 | 0.041 | 0.036 | 0.0 | 0 | - |
+| **busy** | | 120.869 | 116.505 | 99.5 | | |
+| idle | | | 0.546 | 0.5 | | |
+
+### Class detail
+| class | n/step | raw ms | excl ms | MB/step | GB/s |
+|---|---:|---:|---:|---:|---:|
+| moe.nvfp4.w13 | 44.0 | 45.058 | 45.054 | 0.0 | 0 |
+| moe.nvfp4.w2 | 44.0 | 20.946 | 20.944 | 0.0 | 0 |
+| dense.qkvr | 48.0 | 10.499 | 10.418 | 1902.2 | 181 |
+| moe.mxfp8.w13 | 4.0 | 6.358 | 6.358 | 0.0 | 0 |
+| dense.wo | 48.0 | 4.395 | 4.395 | 679.5 | 155 |
+| lmhead | 1.0 | 4.341 | 4.341 | 926.3 | 213 |
+| attn.swa.core | 40.0 | 4.088 | 3.801 | 0.0 | 0 |
+| moe.mxfp8.w2 | 4.0 | 3.412 | 3.412 | 0.0 | 0 |
+| draft.layers.gemm | 12.0 | 2.675 | 2.675 | 255.5 | 95 |
+| draft.head | 1.0 | 2.093 | 2.093 | 464.0 | 222 |
+| draft.fold | 7.0 | 1.672 | 1.672 | 365.9 | 219 |
+| moe.glue.quant | 104.0 | 1.595 | 1.478 | 0.0 | 0 |
+| small.ctrl | 144.0 | 2.377 | 1.470 | 113.2 | 48 |
+| small.attn_res | 144.0 | 1.697 | 1.166 | 0.0 | 0 |
+| attn.swa.bias | 40.0 | 0.929 | 0.825 | 0.0 | 0 |
+| attn.glob.core | 8.0 | 0.828 | 0.768 | 0.0 | 0 |
+| attn.swa.prologue | 80.0 | 0.932 | 0.714 | 0.0 | 0 |
+| small.sconv | 96.0 | 1.036 | 0.625 | 0.0 | 0 |
+| logits.softcap_argmax | 4.0 | 0.614 | 0.614 | 0.0 | 0 |
+| moe.glue.combine | 48.0 | 0.474 | 0.473 | 0.0 | 0 |
+| dense.router | 96.0 | 0.440 | 0.347 | 28.3 | 64 |
+| small.norm | 114.0 | 0.876 | 0.334 | 0.0 | 0 |
+| draft.rnn | 28.0 | 0.316 | 0.316 | 55.1 | 174 |
+| moe.glue.route | 96.0 | 0.308 | 0.306 | 0.0 | 0 |
+| draft.ctxkv | 16.0 | 0.229 | 0.229 | 14.6 | 64 |
+| eager.conv_state_commit | 1.0 | 0.220 | 0.220 | 0.0 | 0 |
+| attn.swa.epi | 40.0 | 0.214 | 0.214 | 0.0 | 0 |
+| attn.glob.bias | 8.0 | 0.211 | 0.184 | 0.0 | 0 |
+| draft.layers.attn | 9.0 | 0.172 | 0.172 | 0.0 | 0 |
+| attn.glob.prologue | 16.0 | 0.252 | 0.163 | 0.0 | 0 |
+| draft.sample | 14.0 | 0.143 | 0.143 | 0.0 | 0 |
+| attn.glob.epi | 16.0 | 0.176 | 0.106 | 0.0 | 0 |
+| dense.conv_wproj | 32.0 | 0.091 | 0.068 | 2.4 | 26 |
+| draft.layers.misc | 32.0 | 0.068 | 0.068 | 0.0 | 0 |
+| moe.glue.args | 88.0 | 0.848 | 0.064 | 0.0 | 0 |
+| moe.glue.vcap_remap | 48.0 | 0.058 | 0.058 | 0.0 | 0 |
+| verify.accept | 32.0 | 0.048 | 0.048 | 0.0 | 0 |
+| draft.prep | 6.0 | 0.047 | 0.047 | 0.0 | 0 |
+| mem.copy_set | 57.0 | 0.041 | 0.036 | 0.0 | 0 |
+| eager.draft_to_verify | 11.0 | 0.026 | 0.026 | 0.0 | 0 |
+| eager.verify_to_draft | 7.0 | 0.031 | 0.026 | 0.0 | 0 |
+| verify.prep | 3.0 | 0.011 | 0.011 | 0.0 | 0 |
+| eager.draft_prep | 4.0 | 0.009 | 0.009 | 0.0 | 0 |
+| fwd.glue | 4.0 | 0.008 | 0.008 | 0.0 | 0 |
+| draft.misc | 5.0 | 0.006 | 0.006 | 0.0 | 0 |
+
+MoE: NVFP4 44 visits 66.00 ms (1500 us/visit) -> union u = 73.7 experts/visit at 220 GB/s; MXFP8 4 visits 9.77 ms (2442 us/visit) -> u = 65.4 at 220 GB/s (MXFP8 CuTe kernel rate not measured in isolation: its u is indicative only)
+Attention: excl 6.77 ms; KV floor at ASSUMED mean ctx 400 tok: 0.63 GB = 2.62 ms at 240 GB/s -> measured / floor = 2.6x
+
+## Validation (per step)
+expected counts: ALL OK (prologues=48, moe_nvfp4=88, moe_mxfp8=8, wo=48, router=48, lmhead=1, qkvr_visits=48, wproj_calls=16, draft_layer_gemms=12, draft_head=1, draft_rnn_proj=7, draft_fold=7)
+other counters: {'qkvr_cublas_visits': 48.0, 'qkvr_calls_1': 48.0, 'ctxkv': 3.0}
+per-step |sum(excl) - busy| max = 0.0000 us

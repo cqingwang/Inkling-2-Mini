@@ -1,0 +1,59 @@
+KBRUN start 2026-11-21T14:37:30Z memavail=116GiB
+resnorm T=8192
+  resnorm attn local N=3 T=8192                bit-equal  99.993 %  max 26 ulp | err/max stock 2.14e-03 fused 2.14e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+    time stock   1317.2 us  fused    856.0 us  saved   461.2 us
+  resnorm attn global N=3 Q=3 T=8192           bit-equal  99.991 %  max 676 ulp | err/max stock 2.03e-03 fused 2.03e-03 | mean stock 9.90e-04 fused 9.90e-04  ok
+    time stock   2978.6 us  fused   1291.0 us  saved  1687.6 us
+  resnorm mlp N=4 +addend T=8192               bit-equal  99.991 %  max 82 ulp | err/max stock 2.00e-03 fused 2.00e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+    time stock   1633.1 us  fused   1484.7 us  saved   148.4 us
+  resnorm mlp boundary N=5 T=8192              bit-equal  99.990 %  max 628 ulp | err/max stock 3.22e-03 fused 3.22e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+    time stock   1635.2 us  fused   1734.4 us  saved   -99.3 us
+resnorm T=4097
+  resnorm attn local N=3 T=4097                bit-equal  99.993 %  max 229 ulp | err/max stock 3.29e-03 fused 3.29e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+  resnorm attn global N=3 Q=3 T=4097           bit-equal  99.991 %  max 25887 ulp | err/max stock 2.54e-03 fused 2.54e-03 | mean stock 9.90e-04 fused 9.90e-04  ok
+  resnorm mlp N=4 +addend T=4097               bit-equal  99.991 %  max 66 ulp | err/max stock 2.03e-03 fused 2.03e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+  resnorm mlp boundary N=5 T=4097              bit-equal  99.990 %  max 18 ulp | err/max stock 3.32e-03 fused 3.32e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+resnorm T=4096
+  resnorm attn local N=3 T=4096                bit-equal  99.993 %  max 60 ulp | err/max stock 2.17e-03 fused 2.17e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+  resnorm attn global N=3 Q=3 T=4096           bit-equal  99.991 %  max 26074 ulp | err/max stock 3.13e-03 fused 3.13e-03 | mean stock 9.91e-04 fused 9.91e-04  ok
+  resnorm mlp N=4 +addend T=4096               bit-equal  99.991 %  max 37 ulp | err/max stock 2.24e-03 fused 2.24e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+  resnorm mlp boundary N=5 T=4096              bit-equal  99.991 %  max 296 ulp | err/max stock 2.83e-03 fused 2.83e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+resnorm T=1025
+  resnorm attn local N=3 T=1025                bit-equal  99.992 %  max 9 ulp | err/max stock 2.41e-03 fused 2.41e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+  resnorm attn global N=3 Q=3 T=1025           bit-equal  99.992 %  max 8 ulp | err/max stock 3.57e-03 fused 3.57e-03 | mean stock 9.92e-04 fused 9.92e-04  ok
+  resnorm mlp N=4 +addend T=1025               bit-equal  99.991 %  max 196 ulp | err/max stock 2.85e-03 fused 2.85e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+  resnorm mlp boundary N=5 T=1025              bit-equal  99.989 %  max 3 ulp | err/max stock 2.36e-03 fused 2.36e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+resnorm T=513
+  resnorm attn local N=3 T=513                 bit-equal  99.991 %  max 39 ulp | err/max stock 2.13e-03 fused 2.13e-03 | mean stock 1.54e-03 fused 1.54e-03  ok
+  resnorm attn global N=3 Q=3 T=513            bit-equal  99.992 %  max 25857 ulp | err/max stock 1.95e-03 fused 1.95e-03 | mean stock 9.91e-04 fused 9.91e-04  ok
+  resnorm mlp N=4 +addend T=513                bit-equal  99.991 %  max 17 ulp | err/max stock 2.45e-03 fused 2.45e-03 | mean stock 1.11e-03 fused 1.11e-03  ok
+  resnorm mlp boundary N=5 T=513               bit-equal  99.989 %  max 19 ulp | err/max stock 3.20e-03 fused 3.20e-03 | mean stock 1.75e-03 fused 1.75e-03  ok
+loopmix T=8192
+Traceback (most recent call last):
+  File "/work/inkling_pfuse/tools/gpu_check_pfuse.py", line 422, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/work/inkling_pfuse/tools/gpu_check_pfuse.py", line 408, in main
+    section_loop(W, tokens, timeit, a.ref_rows)
+  File "/work/inkling_pfuse/tools/gpu_check_pfuse.py", line 258, in section_loop
+    ys, yf = stock(), fused()
+                      ^^^^^^^
+  File "/work/inkling_pfuse/tools/gpu_check_pfuse.py", line 252, in fused
+    out = mix.loop_mix(src, addend, q, True, bank, bq, down, gain, forget, norm_weights=ws, eps_norm=1e-6,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/inkling_pfuse/mix.py", line 145, in loop_mix
+    k["mix"][(triton.cdiv(tokens, MIX_BM),)](
+  File "/opt/sglang/lib/python3.12/site-packages/triton/runtime/jit.py", line 374, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sglang/lib/python3.12/site-packages/triton/runtime/jit.py", line 778, in run
+    launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sglang/lib/python3.12/site-packages/triton/compiler/compiler.py", line 496, in launch_metadata
+    self._init_handles()
+  File "/opt/sglang/lib/python3.12/site-packages/triton/compiler/compiler.py", line 468, in _init_handles
+    raise_(OutOfResources(self.metadata.shared, max_shared, "shared memory"))
+  File "/opt/sglang/lib/python3.12/site-packages/triton/compiler/compiler.py", line 460, in raise_
+    raise err
+triton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 112640, Hardware limit: 101376. Reducing block sizes or `num_stages` may help.
+KBRUN end 2026-11-21T14:38:02Z rc=1 memavail=117GiB

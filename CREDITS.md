@@ -25,6 +25,17 @@
   [Picom-code/pico-dgx-ds4](https://github.com/Picom-code/pico-dgx-ds4) ("pico"): the exactly coded 12-bit BF16 GEMV
   (`bf16x` format and kernel) that `overlay/inkling_pico12/` builds and calls for the dense projections and the LM
   head; the sources are vendored unmodified in `overlay/inkling_pico12/third_party/pico/` with their licence.
+- **Andy Shu's `bf16x` reader** is also copied (MIT, with its notice) into `overlay/inkling_wide/csrc/bf16x_format.cuh`,
+  which reads pico12's coded weights in the 17-256-row GEMM, and `overlay/inkling_cert/` compiles pico's head GEMV
+  body from the vendored copy for the exact pass of the certified LM head.
+- **Tri Dao et al., FlashAttention-2** (algorithm): the online-softmax tiling of the fused relative-bias prefill
+  attention in `overlay/inkling_attn/`.
+- **SGLang Inkling2 kernels**: the split-KV relative-bias verify kernel that `overlay/inkling_vattn/` routes every batch
+  size to (and copies, with the bias computed per key tile, above 32 rows), and the fused loop-controller kernels of
+  sgl-project/sglang PR #51926, already in the image.
+- **Alexey Fateev / Project Maya**, [maya-inkling-mini](https://github.com/alesha-pro/maya-inkling-mini) (MIT): launch
+  and "bytes in flight" notes on Inkling's small per-visit kernels that framed our L2-warming screen (not adopted, see
+  docs/experiments.md).
 - **Christopher Owen, spark-ds41f** (Apache-2.0): the packed-BF16 vocabulary projection (b12x patch 0012) whose format
   we ported to Triton in a screen (not adopted, see docs/experiments.md).
 - **FlashInfer** (CUTLASS / CuTe DSL grouped GEMMs, the GEMVs) and **CUTLASS**: the kernels the MoE tile choice
@@ -34,7 +45,7 @@
   numbers and the long-context table; its frozen prompt set also feeds the decode table.
 
 Our own earlier recipes contributed ideas reused here: the verify cap with dead-row expert remap (DeepSeek-V4.1
-recipe), the batch-aware pay-for-rows rule (GLM-5.3-Flash recipe), FP8 / low-bit draft heads (DeepSeek-V4.1), and
-our spark-tools and speedbench for measurement.
+recipe), the batch-aware pay-for-rows rule and the certified greedy LM head (GLM-5.3-Flash recipe), FP8 / low-bit
+draft heads (DeepSeek-V4.1), and our spark-tools and speedbench for measurement.
 
 Every lever adopted from someone else's work gets a line here and an entry in the Credit column of the README.

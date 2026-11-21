@@ -1,0 +1,63 @@
+KBRUN start 2026-11-21T14:35:17Z memavail=117GiB
+emulation OK
+device NVIDIA GB10 cap (12, 1) torch 2.14.1+cu130
+extension reused in 0.0 s
+== correct
+proj: real layer 0 (16, 1024) absmax 1.133
+proj: real layer 5 (16, 1024) absmax 1.734
+  chunk8192 prefix0                  swa    rows   430  out err ours 5.149e-03 stock 5.149e-03 | lse ours 1.647e-03 stock 1.646e-03 | ours-stock out 2.773e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk8192 prefix0                  global rows   440  out err ours 3.437e-03 stock 3.437e-03 | lse ours 5.722e-06 stock 1.526e-05 | ours-stock out 2.462e-03 lse 1.335e-05 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk8192 prefix8192               swa    rows   431  out err ours 3.678e-03 stock 3.682e-03 | lse ours 2.375e-04 stock 2.384e-04 | ours-stock out 2.766e-03 lse 2.861e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk8192 prefix8192               global rows   433  out err ours 2.463e-03 stock 2.452e-03 | lse ours 7.057e-05 stock 7.153e-05 | ours-stock out 1.419e-03 lse 2.480e-05 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk8192 prefix32768              swa    rows   433  out err ours 2.609e-03 stock 2.606e-03 | lse ours 4.005e-05 stock 4.005e-05 | ours-stock out 2.505e-03 lse 2.861e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk8192 prefix32768              global rows   435  out err ours 5.686e-03 stock 5.735e-03 | lse ours 1.698e-03 stock 1.698e-03 | ours-stock out 1.762e-03 lse 7.439e-05 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk2048 prefix0                  swa    rows   380  out err ours 3.633e-03 stock 3.634e-03 | lse ours 3.815e-06 stock 3.815e-06 | ours-stock out 5.454e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  chunk2048 prefix0                  global rows   388  out err ours 3.870e-03 stock 3.869e-03 | lse ours 9.251e-05 stock 9.251e-05 | ours-stock out 2.776e-03 lse 3.815e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  mixed 5 req + empty slots          swa    rows  1160  out err ours 3.732e-03 stock 3.732e-03 | lse ours 2.766e-05 stock 2.670e-05 | ours-stock out 2.344e-03 lse 3.815e-06 | nan 0/0 unwritten 0 variants bit-equal True  CLOSE
+  mixed 5 req + empty slots          global rows  1140  out err ours 3.548e-03 stock 3.548e-03 | lse ours 4.101e-05 stock 4.101e-05 | ours-stock out 2.223e-03 lse 7.629e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  tiny rows                          swa    rows    86  out err ours 3.653e-03 stock 3.653e-03 | lse ours 1.907e-06 stock 2.861e-06 | ours-stock out 3.552e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+  tiny rows                          global rows    86  out err ours 3.141e-03 stock 3.141e-03 | lse ours 1.907e-06 stock 2.861e-06 | ours-stock out 2.558e-03 lse 1.907e-06 | nan 0/0 unwritten 0 variants bit-equal True  PASS
+== correct done in 4 s
+== graph
+proj: real layer 0 (16, 1024) absmax 1.133
+  graph swa    split [(3000, 2000), (2000, 100), (1000, 7000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph swa    split [(5999, 1), (1, 9000), (0, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph swa    split [(6000, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph swa    split [(2500, 300), (0, 0), (900, 4000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(3000, 2000), (2000, 100), (1000, 7000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(5999, 1), (1, 9000), (0, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(6000, 0)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+  graph global split [(2500, 300), (0, 0), (900, 4000)]: replay == eager True, rows past cu[-1] untouched True, covered rows written True
+== graph done in 0 s
+== patch
+proj: real layer 0 (16, 1024) absmax 1.133
+  patch swa    wrapper == direct True  kernel calls 1
+[inkling_attn pid=80] a marked call is outside the kernel's coverage; running stock FA4 for it
+  patch fallback == stock True (fallbacks 1)
+  patch: marker outside visit raised as intended (inkling_attn: an r-shaped rel_bias (width 16) reached FA4 ou...)
+  patch global wrapper == direct True  kernel calls 2
+  patch fallback == stock True (fallbacks 1)
+  patch: marker outside visit raised as intended (inkling_attn: an r-shaped rel_bias (width 16) reached FA4 ou...)
+  RelLogitsProj dispatch (bias_layout first): visit -> r True, no visit -> einsum True
+  RelLogitsProj dispatch (inkling_attn first): visit -> r True, no visit -> einsum True
+== patch done in 6 s
+== bench
+proj: real layer 0 (16, 1024) absmax 1.133
+proj: real layer 5 (16, 1024) absmax 1.734
+  swa    chunk 2048  prefix 0      stock    2336.3 us (  8.3 TF)  bias_layout    1560.6 us ( 12.4 TF)  ours     427.4 us ( 45.2 TF)  einsum 500.8 us  ours/stock x5.47  ours/bias_layout x3.65
+  global chunk 2048  prefix 0      stock    2460.2 us ( 10.5 TF)  bias_layout    1683.6 us ( 15.3 TF)  ours     519.7 us ( 49.6 TF)  einsum 501.8 us  ours/stock x4.73  ours/bias_layout x3.24
+  swa    chunk 2048  prefix 8192   stock    2452.5 us ( 10.5 TF)  bias_layout    1680.0 us ( 15.3 TF)  ours     524.3 us ( 49.2 TF)  einsum 501.7 us  ours/stock x4.68  ours/bias_layout x3.20
+  global chunk 2048  prefix 8192   stock    6735.0 us ( 34.4 TF)  bias_layout    5880.8 us ( 39.4 TF)  ours    3298.4 us ( 70.3 TF)  einsum 498.4 us  ours/stock x2.04  ours/bias_layout x1.78
+  swa    chunk 2048  prefix 32768  stock    2465.3 us ( 10.5 TF)  bias_layout    1672.2 us ( 15.4 TF)  ours     520.3 us ( 49.5 TF)  einsum 496.7 us  ours/stock x4.74  ours/bias_layout x3.21
+  global chunk 2048  prefix 32768  stock   19752.6 us ( 43.1 TF)  bias_layout   18934.3 us ( 44.9 TF)  ours   12063.3 us ( 70.5 TF)  einsum 503.9 us  ours/stock x1.64  ours/bias_layout x1.57
+  swa    chunk 8192  prefix 0      stock    9658.5 us ( 10.0 TF)  bias_layout    6245.4 us ( 15.5 TF)  ours    1846.3 us ( 52.3 TF)  einsum 2042.9 us  ours/stock x5.23  ours/bias_layout x3.38
+  global chunk 8192  prefix 0      stock   16780.2 us ( 24.6 TF)  bias_layout   13336.1 us ( 30.9 TF)  ours    6258.8 us ( 65.9 TF)  einsum 2103.9 us  ours/stock x2.68  ours/bias_layout x2.13
+  swa    chunk 8192  prefix 8192   stock    9830.4 us ( 10.5 TF)  bias_layout    6419.5 us ( 16.1 TF)  ours    1933.3 us ( 53.3 TF)  einsum 2024.5 us  ours/stock x5.08  ours/bias_layout x3.32
+  global chunk 8192  prefix 8192   stock   33886.7 us ( 36.5 TF)  bias_layout   30263.8 us ( 40.9 TF)  ours   17916.4 us ( 69.0 TF)  einsum 2022.4 us  ours/stock x1.89  ours/bias_layout x1.69
+  swa    chunk 8192  prefix 32768  stock    9815.7 us ( 10.5 TF)  bias_layout    6419.4 us ( 16.1 TF)  ours    1966.2 us ( 52.4 TF)  einsum 2020.5 us  ours/stock x4.99  ours/bias_layout x3.26
+  global chunk 8192  prefix 32768  stock   86358.4 us ( 43.0 TF)  bias_layout   82526.2 us ( 45.0 TF)  ours   53135.0 us ( 69.8 TF)  einsum 2020.4 us  ours/stock x1.63  ours/bias_layout x1.55
+  swa    chunk 8192  prefix 122880 stock    9826.4 us ( 10.5 TF)  bias_layout    6428.3 us ( 16.0 TF)  ours    1972.7 us ( 52.3 TF)  einsum 2019.5 us  ours/stock x4.98  ours/bias_layout x3.26
+  global chunk 8192  prefix 122880 stock  279139.9 us ( 45.8 TF)  bias_layout  275093.1 us ( 46.5 TF)  ours  179439.6 us ( 71.2 TF)  einsum 2022.8 us  ours/stock x1.56  ours/bias_layout x1.53
+== bench done in 30 s
+total 40 s; failed sections: none
+KBRUN end 2026-11-21T14:36:04Z rc=0 memavail=117GiB

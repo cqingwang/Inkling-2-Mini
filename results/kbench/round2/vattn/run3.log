@@ -1,0 +1,124 @@
+KBRUN start 2026-11-21T14:42:47Z memavail=117GiB
+[inkling_vattn pid=57] enabled cap,bias max_tokens=384 bias_min_tokens=33
+PASS install ('cap', 'bias')
+PASS cap 384
+PASS prologue wrapped 
+PASS partials wrapped 
+PASS prologue q/k/v/windows bs1 
+PASS passthrough <=32 rows bs1 
+PASS pending consumed bs1 
+  bitwise ours==stock: True
+PASS attn bs1 ctx300 swa ours-vs-stock 0 (BF16 outputs, |out|max 0.21)
+PASS prologue q/k/v/windows bs1 
+PASS passthrough <=32 rows bs1 
+PASS pending consumed bs1 
+  bitwise ours==stock: True
+PASS attn bs1 ctx300 global ours-vs-stock 0 (BF16 outputs, |out|max 0.21)
+PASS prologue q/k/v/windows bs4 
+PASS passthrough <=32 rows bs4 
+PASS pending consumed bs4 
+  bitwise ours==stock: True
+PASS attn bs4 ctx1500 swa ours-vs-stock 0 (BF16 outputs, |out|max 0.13)
+PASS prologue q/k/v/windows bs4 
+PASS passthrough <=32 rows bs4 
+PASS pending consumed bs4 
+  bitwise ours==stock: True
+PASS attn bs4 ctx1500 global ours-vs-stock 0 (BF16 outputs, |out|max 0.10)
+PASS prologue q/k/v/windows bs8 
+PASS rel shape bs8 (64, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs8 maxdiff 0 pad 0.0
+PASS pending bs8 
+PASS pending consumed bs8 
+  bitwise ours==stock: False
+PASS attn bs8 ctx1024 swa ours-vs-stock 0.000488 (BF16 outputs, |out|max 0.16)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs8 
+PASS rel shape bs8 (64, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs8 maxdiff 0 pad 0.0
+PASS pending bs8 
+PASS pending consumed bs8 
+  bitwise ours==stock: False
+PASS attn bs8 ctx1024 global ours-vs-stock 0.000488 (BF16 outputs, |out|max 0.16)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs24 
+PASS rel shape bs24 (192, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs24 maxdiff 0 pad 0.0
+PASS pending bs24 
+PASS pending consumed bs24 
+  bitwise ours==stock: False
+PASS attn bs24 ctx700 swa ours-vs-stock 0.000977 (BF16 outputs, |out|max 0.20)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs24 
+PASS rel shape bs24 (192, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs24 maxdiff 0 pad 0.0
+PASS pending bs24 
+PASS pending consumed bs24 
+  bitwise ours==stock: False
+PASS attn bs24 ctx700 global ours-vs-stock 0.000977 (BF16 outputs, |out|max 0.20)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs48 
+PASS rel shape bs48 (384, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs48 maxdiff 0 pad 0.0
+PASS pending bs48 
+PASS pending consumed bs48 
+  bitwise ours==stock: False
+PASS attn bs48 ctx2000 swa ours-vs-stock 0.000488 (BF16 outputs, |out|max 0.17)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs48 
+PASS rel shape bs48 (384, 24, 128)
+PASS rel = BF16(r.proj) bitwise bs48 maxdiff 0 pad 0.0
+PASS pending bs48 
+PASS pending consumed bs48 
+  bitwise ours==stock: False
+PASS attn bs48 ctx2000 global ours-vs-stock 0.000488 (BF16 outputs, |out|max 0.10)
+PASS orphan marker raises 
+PASS prologue q/k/v/windows bs2 
+PASS passthrough <=32 rows bs2 
+PASS pending consumed bs2 
+  bitwise ours==stock: True
+PASS attn bs2 ctx40000 swa ours-vs-stock 0 (BF16 outputs, |out|max 0.15)
+PASS prologue q/k/v/windows bs2 
+PASS passthrough <=32 rows bs2 
+PASS pending consumed bs2 
+  bitwise ours==stock: True
+PASS attn bs2 ctx40000 global ours-vs-stock 0 (BF16 outputs, |out|max 0.02)
+PASS interleaved A,B,A,B 0.000488 0.000488
+PASS graph replay 0 maxdiff 0
+PASS graph replay 1 maxdiff 0
+PASS graph replay 2 maxdiff 0
+[inkling_vattn pid=57] verify visit inside a CUDA-graph capture before any eager one; bias lever stays stock there
+PASS capture-first fallback eye_in_capture=1 maxdiff 0
+STATS {'verify_inkernel': 13, 'passthrough': 7, 'eye_in_capture': 1}
+RESULT ALL PASS
+[inkling_vattn pid=1] enabled cap,bias max_tokens=384 bias_min_tokens=33
+{"bs": 1, "ctx": 700, "local": true, "kv_MB": 2.87, "stock": 51.2, "stock_GBs": 56.0, "compact": 28.7, "compact_GBs": 100.0, "cap": 29.5, "cap_GBs": 97.3, "bias": 29.7, "bias_GBs": 96.7, "pro_stock": 8.2, "pro_compact": 8.2, "pro_bias": 8.2, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 1, "ctx": 700, "local": false, "kv_MB": 2.87, "stock": 50.1, "stock_GBs": 57.2, "compact": 28.7, "compact_GBs": 100.0, "cap": 28.7, "cap_GBs": 100.0, "bias": 29.7, "bias_GBs": 96.6, "pro_stock": 8.2, "pro_compact": 8.2, "pro_bias": 8.2, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 1, "ctx": 1500, "local": true, "kv_MB": 4.22, "stock": 59.4, "stock_GBs": 71.1, "compact": 34.0, "compact_GBs": 124.0, "cap": 34.1, "cap_GBs": 123.9, "bias": 34.2, "bias_GBs": 123.4, "pro_stock": 8.2, "pro_compact": 8.2, "pro_bias": 8.2, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 1, "ctx": 1500, "local": false, "kv_MB": 6.14, "stock": 62.4, "stock_GBs": 98.4, "compact": 43.0, "compact_GBs": 142.9, "cap": 43.0, "cap_GBs": 142.9, "bias": 43.0, "bias_GBs": 142.9, "pro_stock": 8.2, "pro_compact": 8.2, "pro_bias": 8.2, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 4, "ctx": 700, "local": true, "kv_MB": 10.17, "stock": 89.4, "stock_GBs": 113.7, "compact": 62.8, "compact_GBs": 161.8, "cap": 62.8, "cap_GBs": 161.8, "bias": 63.3, "bias_GBs": 160.6, "pro_stock": 10.6, "pro_compact": 10.2, "pro_bias": 10.2, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 4, "ctx": 700, "local": false, "kv_MB": 10.17, "stock": 110.4, "stock_GBs": 92.1, "compact": 63.3, "compact_GBs": 160.7, "cap": 63.5, "cap_GBs": 160.1, "bias": 63.5, "bias_GBs": 160.2, "pro_stock": 10.5, "pro_compact": 10.2, "pro_bias": 10.2, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 4, "ctx": 1500, "local": true, "kv_MB": 16.89, "stock": 132.1, "stock_GBs": 127.9, "compact": 91.1, "compact_GBs": 185.4, "cap": 91.1, "cap_GBs": 185.3, "bias": 91.1, "bias_GBs": 185.3, "pro_stock": 10.5, "pro_compact": 10.2, "pro_bias": 10.2, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 4, "ctx": 1500, "local": false, "kv_MB": 23.27, "stock": 173.0, "stock_GBs": 134.5, "compact": 122.9, "compact_GBs": 189.4, "cap": 125.1, "cap_GBs": 186.1, "bias": 122.9, "bias_GBs": 189.4, "pro_stock": 10.7, "pro_compact": 10.2, "pro_bias": 10.2, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 8, "ctx": 700, "local": true, "kv_MB": 20.32, "stock": 185.3, "stock_GBs": 109.6, "compact": 129.0, "compact_GBs": 157.5, "cap": 123.9, "cap_GBs": 164.0, "bias": 117.7, "bias_GBs": 172.6, "pro_stock": 16.4, "pro_compact": 14.3, "pro_bias": 14.3, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 8, "ctx": 700, "local": false, "kv_MB": 20.32, "stock": 214.0, "stock_GBs": 94.9, "compact": 127.1, "compact_GBs": 159.8, "cap": 122.3, "cap_GBs": 166.1, "bias": 116.7, "bias_GBs": 174.1, "pro_stock": 16.4, "pro_compact": 14.3, "pro_bias": 14.3, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 8, "ctx": 1500, "local": true, "kv_MB": 33.78, "stock": 295.1, "stock_GBs": 114.5, "compact": 190.5, "compact_GBs": 177.4, "cap": 190.6, "cap_GBs": 177.2, "bias": 192.5, "bias_GBs": 175.5, "pro_stock": 16.4, "pro_compact": 14.4, "pro_bias": 14.3, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 8, "ctx": 1500, "local": false, "kv_MB": 46.53, "stock": 331.8, "stock_GBs": 140.2, "compact": 256.8, "compact_GBs": 181.2, "cap": 257.1, "cap_GBs": 181.0, "bias": 237.6, "bias_GBs": 195.9, "pro_stock": 16.4, "pro_compact": 14.5, "pro_bias": 14.3, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 16, "ctx": 700, "local": true, "kv_MB": 40.57, "stock": 372.6, "stock_GBs": 108.9, "compact": 254.0, "compact_GBs": 159.7, "cap": 255.0, "cap_GBs": 159.1, "bias": 234.5, "bias_GBs": 173.0, "pro_stock": 33.1, "pro_compact": 26.7, "pro_bias": 18.7, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 16, "ctx": 700, "local": false, "kv_MB": 40.57, "stock": 419.3, "stock_GBs": 96.7, "compact": 257.1, "compact_GBs": 157.8, "cap": 258.0, "cap_GBs": 157.2, "bias": 234.5, "bias_GBs": 173.0, "pro_stock": 32.8, "pro_compact": 26.6, "pro_bias": 20.4, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 16, "ctx": 1500, "local": true, "kv_MB": 67.57, "stock": 566.1, "stock_GBs": 119.4, "compact": 374.8, "compact_GBs": 180.3, "cap": 374.8, "cap_GBs": 180.3, "bias": 373.8, "bias_GBs": 180.7, "pro_stock": 31.7, "pro_compact": 24.9, "pro_bias": 20.3, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 16, "ctx": 1500, "local": false, "kv_MB": 93.0, "stock": 673.8, "stock_GBs": 138.0, "compact": 489.5, "compact_GBs": 190.0, "cap": 487.4, "cap_GBs": 190.8, "bias": 470.4, "bias_GBs": 197.7, "pro_stock": 32.8, "pro_compact": 26.6, "pro_bias": 18.9, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 24, "ctx": 700, "local": true, "kv_MB": 60.75, "stock": 557.0, "stock_GBs": 109.1, "compact": 392.2, "compact_GBs": 154.9, "cap": 393.2, "cap_GBs": 154.5, "bias": 345.3, "bias_GBs": 175.9, "pro_stock": 61.6, "pro_compact": 47.1, "pro_bias": 26.7, "max_diff_bias_vs_stock": 0.001953125, "max_diff_cap_vs_stock": 0.001953125}
+{"bs": 24, "ctx": 700, "local": false, "kv_MB": 60.75, "stock": 555.4, "stock_GBs": 109.4, "compact": 393.2, "compact_GBs": 154.5, "cap": 395.3, "cap_GBs": 153.7, "bias": 347.3, "bias_GBs": 174.9, "pro_stock": 60.4, "pro_compact": 46.1, "pro_bias": 26.8, "max_diff_bias_vs_stock": 0.001953125, "max_diff_cap_vs_stock": 0.001953125}
+{"bs": 24, "ctx": 1500, "local": true, "kv_MB": 101.35, "stock": 844.9, "stock_GBs": 120.0, "compact": 581.9, "compact_GBs": 174.2, "cap": 583.7, "cap_GBs": 173.6, "bias": 536.7, "bias_GBs": 188.8, "pro_stock": 60.7, "pro_compact": 47.1, "pro_bias": 26.6, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 24, "ctx": 1500, "local": false, "kv_MB": 139.4, "stock": 900.1, "stock_GBs": 154.9, "compact": 754.5, "compact_GBs": 184.7, "cap": 750.6, "cap_GBs": 185.7, "bias": 682.2, "bias_GBs": 204.3, "pro_stock": 60.7, "pro_compact": 45.3, "pro_bias": 26.6, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 48, "ctx": 700, "local": true, "kv_MB": 120.91, "stock": 1146.9, "stock_GBs": 105.4, "compact": 781.3, "compact_GBs": 154.8, "cap": 782.2, "cap_GBs": 154.6, "bias": 671.7, "bias_GBs": 180.0, "pro_stock": 157.7, "pro_compact": 123.9, "pro_bias": 56.4, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 48, "ctx": 700, "local": false, "kv_MB": 120.91, "stock": 1148.9, "stock_GBs": 105.2, "compact": 778.4, "compact_GBs": 155.3, "cap": 782.3, "cap_GBs": 154.6, "bias": 676.8, "bias_GBs": 178.6, "pro_stock": 156.7, "pro_compact": 123.7, "pro_bias": 55.3, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 48, "ctx": 1500, "local": true, "kv_MB": 202.7, "stock": 1778.8, "stock_GBs": 114.0, "compact": 1151.0, "compact_GBs": 176.1, "cap": 1153.0, "cap_GBs": 175.8, "bias": 1047.6, "bias_GBs": 193.5, "pro_stock": 158.0, "pro_compact": 123.9, "pro_bias": 59.4, "max_diff_bias_vs_stock": 0.0009765625, "max_diff_cap_vs_stock": 0.0009765625}
+{"bs": 48, "ctx": 1500, "local": false, "kv_MB": 278.2, "stock": 1857.5, "stock_GBs": 149.8, "compact": 1473.5, "compact_GBs": 188.8, "cap": 1469.3, "cap_GBs": 189.3, "bias": 1358.8, "bias_GBs": 204.7, "pro_stock": 158.8, "pro_compact": 123.9, "pro_bias": 57.3, "max_diff_bias_vs_stock": 0.00048828125, "max_diff_cap_vs_stock": 0.00048828125}
+{"bs": 1, "ctx": 32768, "local": false, "kv_MB": 134.22, "stock": 626.7, "stock_GBs": 214.2, "compact": 605.0, "compact_GBs": 221.9, "cap": 603.1, "cap_GBs": 222.5, "bias": 604.0, "bias_GBs": 222.2, "pro_stock": 8.2, "pro_compact": 8.2, "pro_bias": 8.2, "max_diff_bias_vs_stock": 6.103515625e-05, "max_diff_cap_vs_stock": 6.103515625e-05}
+{"bs": 1, "ctx": 131072, "local": false, "kv_MB": 536.87, "stock": 2367.5, "stock_GBs": 226.8, "compact": 2303.0, "compact_GBs": 233.1, "cap": 2307.1, "cap_GBs": 232.7, "bias": 2300.9, "bias_GBs": 233.3, "pro_stock": 8.2, "pro_compact": 8.2, "pro_bias": 8.2, "max_diff_bias_vs_stock": 6.103515625e-05, "max_diff_cap_vs_stock": 6.103515625e-05}
+{"bs": 4, "ctx": 32768, "local": false, "kv_MB": 535.57, "stock": 2406.3, "stock_GBs": 222.6, "compact": 2317.3, "compact_GBs": 231.1, "cap": 2319.3, "cap_GBs": 230.9, "bias": 2318.3, "bias_GBs": 231.0, "pro_stock": 10.5, "pro_compact": 10.2, "pro_bias": 10.2, "max_diff_bias_vs_stock": 0.0001220703125, "max_diff_cap_vs_stock": 0.0001220703125}
+{"bs": 4, "ctx": 131072, "local": false, "kv_MB": 2146.18, "stock": 9355.1, "stock_GBs": 229.4, "compact": 9138.5, "compact_GBs": 234.8, "cap": 9141.2, "cap_GBs": 234.8, "bias": 9145.3, "bias_GBs": 234.7, "pro_stock": 10.4, "pro_compact": 10.2, "pro_bias": 10.2, "max_diff_bias_vs_stock": 6.103515625e-05, "max_diff_cap_vs_stock": 6.103515625e-05}
+{"bs": 8, "ctx": 32768, "local": false, "kv_MB": 1071.12, "stock": 4801.4, "stock_GBs": 223.1, "compact": 4604.9, "compact_GBs": 232.6, "cap": 4608.0, "cap_GBs": 232.4, "bias": 4598.1, "bias_GBs": 232.9, "pro_stock": 16.4, "pro_compact": 14.3, "pro_bias": 12.8, "max_diff_bias_vs_stock": 0.0001220703125, "max_diff_cap_vs_stock": 0.0001220703125}
+DONE
+KBRUN end 2026-11-21T14:43:23Z rc=0 memavail=117GiB

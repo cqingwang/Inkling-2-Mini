@@ -1,0 +1,82 @@
+## Measured per-class time (excl ms per step; analyze2.py groups) [M]
+| group | c1 | c4 | c8 | c24 |
+|---|---:|---:|---:|---:|
+| MoE grouped GEMM | 16.49 | 52.97 | 75.77 | 98.75 |
+| MoE glue (route/remap/quant/args/combine) | 1.00 | 1.71 | 2.38 | 5.63 |
+| dense qkvr | 7.00 | 9.44 | 10.42 | 12.24 |
+| dense wo | 2.45 | 3.50 | 4.40 | 4.45 |
+| router + global conv wproj | 0.34 | 0.43 | 0.41 | 0.58 |
+| target LM head | 2.86 | 4.19 | 4.34 | 4.99 |
+| logits softcap+argmax | 0.02 | 0.21 | 0.61 | 1.99 |
+| attention SWA (40 visits) | 1.00 | 1.87 | 5.55 | 17.16 |
+| attention global (8 visits) | 0.21 | 0.38 | 1.22 | 3.39 |
+| small: norms/attn-res/sconv/controllers | 1.89 | 2.72 | 3.60 | 8.24 |
+| fwd glue (copies/act in layer stack) | 0.06 | 0.01 | 0.01 | 0.03 |
+| verify prep + accept/commit (graph) | 0.06 | 0.06 | 0.06 | 0.07 |
+| draft layers (3) | 1.77 | 2.25 | 2.96 | 3.45 |
+| draft vocab: head (FP8) | 1.96 | 2.01 | 2.09 | 6.16 |
+| draft vocab: Markov fold (FP8) x7 | 1.50 | 1.57 | 1.67 | 1.81 |
+| draft rnn + sample + misc | 0.44 | 0.40 | 0.47 | 1.50 |
+| draft ctx K/V (in verify graph) | 0.15 | 0.19 | 0.23 | 0.22 |
+| eager kernels between graphs | 0.23 | 1.04 | 0.28 | 0.72 |
+| memcpy/memset | 0.01 | 0.01 | 0.04 | 0.01 |
+| GPU idle | 0.47 | 0.38 | 0.55 | 0.38 |
+| **wall period** | **39.90** | **85.34** | **117.05** | **171.78** |
+
+## Round-2 overlay projection (ms per step)
+| | c1 | c4 | c8 | c24 |
+|---|---:|---:|---:|---:|
+| measured step T0 [M] | 39.90 | 85.34 | 117.05 | 171.78 |
+| dense+head measured [M] | 12.31 | 17.13 | 19.15 | 21.68 |
+|   -> wide packed @220 [P] (c1: pico, unchanged) | 12.31 | 12.33 | 12.33 | 12.33 |
+| attention core+bias+epi measured [M] | 0.80 | 1.58 | 5.90 | 16.88 |
+|   KV floor GB at assumed ctx [A] | 0.11 | 0.35 | 0.63 | 1.89 |
+|   -> compact verify attention 1.2x floor [P] | 0.54 | 1.58 | 3.15 | 9.44 |
+| draft vocab (FP8 head + fold) measured [M] | 3.46 | 3.58 | 3.76 | 7.97 |
+|   -> hot vocab 48K [P] | 0.85 | 0.88 | 0.92 | 1.95 |
+| **best round-2 overlay step T_ov** | 37.03 | 77.83 | 104.63 | 148.97 |
+| overlay throughput vs measured (incl. policy, hot-vocab acceptance) | 1.061x | 1.096x | 1.151x | 1.198x |
+
+### tier 1: cross-op fusion inside the 48-visit core (ms per step removed)
+| item | c1 | c4 | c8 | c24 |
+|---|---:|---:|---:|---:|
+| norms | 0.38 | 0.29 | 0.33 | 0.81 |
+| attn-res mix | 0.49 | 0.89 | 1.17 | 2.65 |
+| short conv | 0.18 | 0.43 | 0.62 | 1.16 |
+| controllers (above 113 MB weight floor) | 0.36 | 0.63 | 1.00 | 3.15 |
+| MoE glue (route/remap/quant/args/combine) | 1.00 | 1.71 | 2.38 | 5.63 |
+| router + conv wproj (above weight floor) | 0.21 | 0.30 | 0.29 | 0.45 |
+| attention prologue + KV store (above KV-write floor) | 0.40 | 0.64 | 0.82 | 3.52 |
+| layer-stack copies/act glue | 0.06 | 0.01 | 0.01 | 0.03 |
+| idle inside graphs | 0.31 | 0.22 | 0.48 | 0.31 |
+| **sum** | **3.40** | **5.12** | **7.10** | **17.71** |
+
+### tier 2: + launches/glue outside the core (generous) (ms per step removed)
+| item | c1 | c4 | c8 | c24 |
+|---|---:|---:|---:|---:|
+| visit chaining (M0 probe 7 us/visit) | 0.34 | 0.34 | 0.34 | 0.34 |
+| logits softcap+argmax (head epilogue) | 0.02 | 0.21 | 0.61 | 1.99 |
+| verify prep + accept/commit (graph) | 0.06 | 0.06 | 0.06 | 0.07 |
+| draft ctx K/V (above weight floor) | 0.08 | 0.13 | 0.17 | 0.16 |
+| draft small kernels (norms/attn/rnn/sample/prep) | 0.34 | 0.37 | 0.52 | 2.00 |
+| eager kernels + memcpy between graphs | 0.24 | 1.05 | 0.32 | 0.73 |
+| idle between graphs | 0.16 | 0.16 | 0.06 | 0.07 |
+| **sum** | **1.24** | **2.32** | **2.08** | **5.37** |
+
+### tier 3: + every stream at 240 GB/s (NOT native-specific) (ms per step removed)
+| item | c1 | c4 | c8 | c24 |
+|---|---:|---:|---:|---:|
+| MoE grouped GEMM 209 -> 240 GB/s | 2.13 | 6.84 | 9.79 | 12.76 |
+| dense + head at peak instead of the wide/pico rate | 0.16 | 1.03 | 1.03 | 1.03 |
+| attention at 1.0x KV floor | 0.09 | 0.11 | 0.52 | 1.57 |
+| draft layers + hot vocab at peak | 0.58 | 1.01 | 1.69 | 1.76 |
+| **sum** | **2.96** | **8.99** | **13.02** | **17.11** |
+
+## Best-case native speedup vs the best round-2 overlay (same policy, acceptance, context)
+| | c1 | c4 | c8 | c24 | geomean c4/c8/c24 |
+|---|---:|---:|---:|---:|---:|
+| tier 1 removed | 1.101 | 1.070 | 1.073 | 1.135 | 1.092 |
+| tiers 1+2 removed (gate input) | 1.143 | 1.106 | 1.096 | 1.183 | 1.128 |
+| tiers 1+2+3 (ceiling) | 1.258 | 1.268 | 1.269 | 1.369 | 1.301 |
+
+GATE: geomean c4/c8/c24 with all boundary-specific overhead removed = 1.128x -> KILL (< 1.20x)

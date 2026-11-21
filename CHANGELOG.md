@@ -1,6 +1,27 @@
 # Changelog
 
-## Unreleased
+## v2 (2026-11-21)
+
+Five new overlay packages, a new verify-width rule and a larger KV pool; all levers exact (same weights, same target
+distribution). Median of both boxes, `bench/full.sh`, against v1:
+
+- speedbench full c1 58.1 (v1 55.8, +4 %); decode table prose c4 / c8 / c16 99.7 / 149.1 / 212.1 (90.1 / 121.5 /
+  190.6: +11 / +23 / +11 %), code c4 / c8 / c16 +10 / +11 / +7 %; thinking c1 / c8 / c24 65.8 / 211.1 / 402.2
+  (62.8 / 193.8 / 372.8: +5 / +9 / +8 %); cold prefill 1K / 8K / 32K / 128K 2,821 / 5,317 / 5,060 / 3,761 tok/s
+  (+13 / +25 / +28 / +34 %); KV pool 1.19-1.21M global-layer tokens (794K, +52 %) with 17.5-17.9 GiB lowest
+  MemAvailable; quality guard 30/30, sanity 11/11, needles 120K / 240K PASS.
+- `inkling_vcap`: `policy:` mode, a calibrated left-to-right verify-width rule (per-position survival tables from 36K
+  logged request-steps, one price for all batch sizes); default `policy:.../r2-theta004.json,bsmax=16`.
+- `inkling_cert` (new): certified greedy LM-head argmax (6-bit screen + exact pico GEMV on the candidate tiles).
+- `inkling_wide` (new): packed 12-bit GEMM for 17-256-row verify batches, decode / verify forwards only.
+- `inkling_vattn` (new): verify attention on the split-KV relative-bias kernel up to 48 requests, bias in-kernel.
+- `inkling_attn` (new): fused relative-bias prefill attention (sliding-window and global layers).
+- `inkling_pfuse` (new): prefill glue fusion (loop-message mixes, attention-residual mix + norm, short conv + residual).
+- `--mem-fraction-static` 0.62 -> 0.84 (worst case with thinking c24 and a 240K-token prompt measured at 0.72-0.86).
+- Rejected: L2 prefetch / warm kernels before the small per-visit kernels, a native layer-stack backend (1.13x upper
+  bound), the verify policy above 16 requests. Details: docs/experiments.md "Round 2 (v2)".
+
+## v1 (2026-11-21)
 
 - 2026-11-21: first release. SGLang `lmsysorg/sglang:inkling-2-mini` (`sha256:efac853b…`) with the cookbook's DGX
   Spark DSpark cell (`--mem-fraction-static 0.62`, 262K context, text only) plus five import-time overlays

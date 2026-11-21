@@ -1,0 +1,45 @@
+KBRUN start 2026-11-21T16:57:39Z memavail=117GiB
+wide8 tile head8:row M=128 bn=128 w=4 st=3 failed: OutOfResources(131584, 101376, 'shared memory')
+wide8 tile head8:row M=128 bn=128 w=8 st=3 failed: OutOfResources(131072, 101376, 'shared memory')
+wide8 tile head8:row M=128 bn=64 warps=8 stages=3 us=2413.6 bits_vs_ref=IDENTICAL regs=144 spills=0 ref_us=4109.3 speedup=1.70
+wide8 tile head8:row M=128 bn=64 warps=4 stages=2 us=2495.5 bits_vs_ref=IDENTICAL regs=255 spills=0 ref_us=4109.3 speedup=1.65
+wide8 tile head8:row M=128 bn=128 warps=8 stages=2 us=2510.9 bits_vs_ref=IDENTICAL regs=254 spills=2 ref_us=4109.3 speedup=1.64
+wide8 tile head8:row M=128 bn=64 warps=8 stages=2 us=2518.2 bits_vs_ref=IDENTICAL regs=128 spills=6 ref_us=4109.3 speedup=1.63
+wide8 tile head8:row M=128 bn=64 warps=4 stages=3 us=2665.1 bits_vs_ref=IDENTICAL regs=255 spills=8 ref_us=4109.3 speedup=1.54
+wide8 tile head8:row M=128 bn=64 warps=4 stages=1 us=2923.7 bits_vs_ref=IDENTICAL regs=255 spills=14 ref_us=4109.3 speedup=1.41
+wide8 tile head8:row M=192 bn=128 w=4 st=3 failed: OutOfResources(131584, 101376, 'shared memory')
+wide8 tile head8:row M=192 bn=128 w=8 st=3 failed: OutOfResources(131072, 101376, 'shared memory')
+wide8 tile head8:row M=192 bn=64 warps=4 stages=2 us=3401.2 bits_vs_ref=IDENTICAL regs=255 spills=0 ref_us=6157.4 speedup=1.81
+wide8 tile head8:row M=192 bn=64 warps=8 stages=2 us=3445.8 bits_vs_ref=IDENTICAL regs=128 spills=6 ref_us=6157.4 speedup=1.79
+wide8 tile head8:row M=192 bn=64 warps=8 stages=3 us=3519.7 bits_vs_ref=IDENTICAL regs=144 spills=0 ref_us=6157.4 speedup=1.75
+wide8 tile head8:row M=192 bn=64 warps=4 stages=3 us=3957.7 bits_vs_ref=IDENTICAL regs=255 spills=8 ref_us=6157.4 speedup=1.56
+wide8 tile head8:row M=192 bn=128 warps=8 stages=2 us=3962.9 bits_vs_ref=IDENTICAL regs=254 spills=2 ref_us=6157.4 speedup=1.55
+wide8 tile head8:row M=192 bn=64 warps=4 stages=1 us=4172.3 bits_vs_ref=IDENTICAL regs=255 spills=14 ref_us=6157.4 speedup=1.48
+wide8 tile head8:row M=384 bn=128 w=4 st=3 failed: OutOfResources(131584, 101376, 'shared memory')
+wide8 tile head8:row M=384 bn=128 w=8 st=3 failed: OutOfResources(131072, 101376, 'shared memory')
+wide8 tile head8:row M=384 bn=64 warps=4 stages=2 us=6723.5 bits_vs_ref=IDENTICAL regs=255 spills=0 ref_us=12297.7 speedup=1.83
+wide8 tile head8:row M=384 bn=64 warps=8 stages=2 us=6808.1 bits_vs_ref=IDENTICAL regs=128 spills=6 ref_us=12297.7 speedup=1.81
+wide8 tile head8:row M=384 bn=64 warps=8 stages=3 us=6930.6 bits_vs_ref=IDENTICAL regs=144 spills=0 ref_us=12297.7 speedup=1.77
+wide8 tile head8:row M=384 bn=128 warps=8 stages=2 us=7096.4 bits_vs_ref=IDENTICAL regs=254 spills=2 ref_us=12297.7 speedup=1.73
+wide8 tile head8:row M=384 bn=64 warps=4 stages=3 us=7860.4 bits_vs_ref=IDENTICAL regs=255 spills=8 ref_us=12297.7 speedup=1.56
+wide8 tile head8:row M=384 bn=64 warps=4 stages=1 us=8152.6 bits_vs_ref=IDENTICAL regs=255 spills=14 ref_us=12297.7 speedup=1.51
+wide8 tile fold8:row M=128 bn=64 warps=8 stages=3 us=461.2 bits_vs_ref=IDENTICAL regs=128 spills=0 ref_us=677.9 speedup=1.47
+wide8 tile fold8:row M=128 bn=64 warps=8 stages=1 us=464.9 bits_vs_ref=IDENTICAL regs=128 spills=0 ref_us=677.9 speedup=1.46
+wide8 tile fold8:row M=128 bn=128 warps=4 stages=1 us=465.9 bits_vs_ref=IDENTICAL regs=250 spills=0 ref_us=677.9 speedup=1.45
+wide8 tile fold8:row M=128 bn=64 warps=4 stages=2 us=468.4 bits_vs_ref=IDENTICAL regs=190 spills=0 ref_us=677.9 speedup=1.45
+wide8 tile fold8:row M=128 bn=128 warps=4 stages=2 us=471.0 bits_vs_ref=IDENTICAL regs=255 spills=16 ref_us=677.9 speedup=1.44
+wide8 tile fold8:row M=128 bn=32 warps=4 stages=2 us=477.2 bits_vs_ref=IDENTICAL regs=144 spills=0 ref_us=677.9 speedup=1.42
+wide8 tile fold8:row M=192 bn=64 warps=8 stages=3 us=600.0 bits_vs_ref=IDENTICAL regs=128 spills=0 ref_us=1031.7 speedup=1.72
+wide8 tile fold8:row M=192 bn=128 warps=4 stages=1 us=601.2 bits_vs_ref=IDENTICAL regs=250 spills=0 ref_us=1031.7 speedup=1.72
+wide8 tile fold8:row M=192 bn=64 warps=8 stages=1 us=603.3 bits_vs_ref=IDENTICAL regs=128 spills=0 ref_us=1031.7 speedup=1.71
+wide8 tile fold8:row M=192 bn=128 warps=4 stages=2 us=604.2 bits_vs_ref=IDENTICAL regs=255 spills=16 ref_us=1031.7 speedup=1.71
+wide8 tile fold8:row M=192 bn=64 warps=4 stages=2 us=606.8 bits_vs_ref=IDENTICAL regs=190 spills=0 ref_us=1031.7 speedup=1.70
+wide8 tile fold8:row M=192 bn=64 warps=4 stages=3 us=637.5 bits_vs_ref=IDENTICAL regs=168 spills=0 ref_us=1031.7 speedup=1.62
+wide8 tile fold8:row M=384 bn=64 warps=8 stages=3 us=1003.1 bits_vs_ref=IDENTICAL regs=128 spills=0 ref_us=2067.0 speedup=2.06
+wide8 tile fold8:row M=384 bn=64 warps=8 stages=1 us=1011.3 bits_vs_ref=IDENTICAL regs=128 spills=0 ref_us=2067.0 speedup=2.04
+wide8 tile fold8:row M=384 bn=64 warps=4 stages=2 us=1012.4 bits_vs_ref=IDENTICAL regs=190 spills=0 ref_us=2067.0 speedup=2.04
+wide8 tile fold8:row M=384 bn=128 warps=4 stages=2 us=1012.8 bits_vs_ref=IDENTICAL regs=255 spills=16 ref_us=2067.0 speedup=2.04
+wide8 tile fold8:row M=384 bn=128 warps=4 stages=1 us=1022.0 bits_vs_ref=IDENTICAL regs=250 spills=0 ref_us=2067.0 speedup=2.02
+wide8 tile fold8:row M=384 bn=64 warps=4 stages=3 us=1068.1 bits_vs_ref=IDENTICAL regs=168 spills=0 ref_us=2067.0 speedup=1.94
+wide8 tile sweep done
+KBRUN end 2026-11-21T16:58:09Z rc=0 memavail=117GiB

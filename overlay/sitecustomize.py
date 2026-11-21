@@ -25,6 +25,21 @@ try:
     if _on("INKLING_PREFILL"):  # last: its _project_sources wrapper (large M only) goes outermost
         import inkling_prefill
         inkling_prefill.install()
+    if _on("INKLING_PFUSE"):  # prefill glue fusion: Inkling2DecoderLayer._forward, extend only
+        import inkling_pfuse
+        inkling_pfuse.install()
+    if _on("INKLING_WIDE"):  # after pico12 (reads its packs) and prefill: outermost _project_sources for 17..256 rows
+        import inkling_wide
+        inkling_wide.install()
+    if _on("INKLING_CERT_HEAD"):  # after pico12 and wide: outermost lm-head wrapper (<= 16 rows), reads pico's coded head
+        import inkling_cert
+        inkling_cert.install()
+    if _on("INKLING_ATTN"):  # fused relative-bias prefill attention (falls back to the stock FA4 path per call)
+        import inkling_attn
+        inkling_attn.install()
+    if _on("INKLING_VATTN"):  # target-verify attention: split-KV relative-bias kernel for all batch sizes
+        import inkling_vattn
+        inkling_vattn.install()
 except BaseException as exc:  # noqa: BLE001
     sys.stderr.write("[inkling-overlay pid=%d] FATAL at startup: %r\n" % (os.getpid(), exc))
     sys.stderr.flush()

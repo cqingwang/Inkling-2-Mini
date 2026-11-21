@@ -1,0 +1,80 @@
+## Lever cross-check at 8K (ms per chunk)
+qkvr_split + partial_bf16: predicted 220 [B+A], measured 237 [E]
+bias_layout + quant_once: predicted 184 + 51 = 235 [D], measured 240 [E] (PFO3 4,253 tok/s)
+per-visit bytes: einsum out 403 MB, sheared 503 MB -> shear 4.04 ms, presheared write 2.25 ms at 224 GB/s
+
+## 8K cold prefill, shipped: 1.92 s (4,266 tok/s) [E]; 1 chunk(s); per chunk 1920 ms
+| component | ms total | ms / chunk | share |
+|---|---:|---:|---:|
+| MoE grouped GEMMs (NVFP4 x44 + MXFP8 x4) [B] | 317 | 317 | 16.5 % |
+| MoE glue [B - lever estimates] | 211 | 211 | 11.0 % |
+| dense GEMMs: qkvr 20 single + 28 split, wo, dyn-conv, draft ctx K/V [B] | 250 | 250 | 13.0 % |
+| attention mainloop without bias (SWA x40 + global x8) [B] | 119 | 119 | 6.2 % |
+| rel-bias left: presheared write x48 [D] | 108 | 108 | 5.6 % |
+| rel-bias left: SWA mainloop penalty x40 [B-D] | 75 | 75 | 3.9 % |
+| rel-bias left: global mainloop penalty x8 [B-D] | 36 | 36 | 1.9 % |
+| fixed per request (host, first chunk) [D] | 60 | | 3.1 % |
+| elementwise remainder (attn-res, norms, clips, convs, KV store, gate_sink, controllers, aux) [D closing term] | 744 | 744 | 38.7 % |
+MoE glue split (ms total): router + topk + sort metadata 19, routed quantize (quant_once on NVFP4) 38, swiglu-quantize 78, combine (partial_bf16) 76
+remainder vs its byte model: 90.8 us/token measured-derived vs 48.9 modelled (1.86x)
+| ceiling | saves s | TTFT s | tok/s | speedup |
+|---|---:|---:|---:|---:|
+| (a1) fused rel-bias attention, SWA only (in-kernel bias at bias-free FA4 rate +8 % MMA) | 0.16 | 1.76 | 4,651 | 1.09x |
+| (a2) (a1) + global layers | 0.21 | 1.71 | 4,788 | 1.12x |
+| (b1) MoE glue into GEMM prologue/epilogues (quant, swiglu-quant, combine) | 0.19 | 1.73 | 4,741 | 1.11x |
+| (b2) elementwise remainder down to its byte model at 224 GB/s | 0.34 | 1.58 | 5,194 | 1.22x |
+| (b3) elementwise remainder fused to half its byte model | 0.54 | 1.38 | 5,949 | 1.39x |
+| (a2)+(b1)+(b2) | 0.74 | 1.18 | 6,968 | 1.63x |
+| (a2)+(b1)+(b3) | 0.95 | 0.98 | 8,400 | 1.97x |
+| ideal: tensor kernels only (MoE GEMMs, dense, bias-free attention +8 %) + fixed | 1.16 | 0.76 | 10,832 | 2.54x |
+
+## 32K cold prefill, shipped: 8.31 s (3,941 tok/s) [E]; 4 chunk(s); per chunk 2079 ms
+| component | ms total | ms / chunk | share |
+|---|---:|---:|---:|
+| MoE grouped GEMMs (NVFP4 x44 + MXFP8 x4) [B] | 1269 | 317 | 15.3 % |
+| MoE glue [B - lever estimates] | 844 | 211 | 10.2 % |
+| dense GEMMs: qkvr 20 single + 28 split, wo, dyn-conv, draft ctx K/V [B] | 1000 | 250 | 12.0 % |
+| attention mainloop without bias (SWA x40 + global x8) [B] | 1048 | 262 | 12.6 % |
+| rel-bias left: presheared write x48 [D] | 431 | 108 | 5.2 % |
+| rel-bias left: SWA mainloop penalty x40 [B-D] | 316 | 79 | 3.8 % |
+| rel-bias left: global mainloop penalty x8 [B-D] | 399 | 100 | 4.8 % |
+| fixed per request (host, first chunk) [D] | 60 | | 0.7 % |
+| elementwise remainder (attn-res, norms, clips, convs, KV store, gate_sink, controllers, aux) [D closing term] | 2947 | 737 | 35.4 % |
+MoE glue split (ms total): router + topk + sort metadata 75, routed quantize (quant_once on NVFP4) 153, swiglu-quantize 311, combine (partial_bf16) 306
+remainder vs its byte model: 89.9 us/token measured-derived vs 48.9 modelled (1.84x)
+| ceiling | saves s | TTFT s | tok/s | speedup |
+|---|---:|---:|---:|---:|
+| (a1) fused rel-bias attention, SWA only (in-kernel bias at bias-free FA4 rate +8 % MMA) | 0.65 | 7.66 | 4,277 | 1.09x |
+| (a2) (a1) + global layers | 1.06 | 7.25 | 4,518 | 1.15x |
+| (b1) MoE glue into GEMM prologue/epilogues (quant, swiglu-quant, combine) | 0.77 | 7.55 | 4,343 | 1.10x |
+| (b2) elementwise remainder down to its byte model at 224 GB/s | 1.34 | 6.97 | 4,701 | 1.19x |
+| (b3) elementwise remainder fused to half its byte model | 2.15 | 6.17 | 5,312 | 1.35x |
+| (a2)+(b1)+(b2) | 3.18 | 5.14 | 6,377 | 1.62x |
+| (a2)+(b1)+(b3) | 3.98 | 4.34 | 7,555 | 1.92x |
+| ideal: tensor kernels only (MoE GEMMs, dense, bias-free attention +8 %) + fixed | 4.85 | 3.46 | 9,467 | 2.40x |
+
+## 128K cold prefill, shipped: 46.86 s (2,797 tok/s) [E]; 16 chunk(s); per chunk 2929 ms
+| component | ms total | ms / chunk | share |
+|---|---:|---:|---:|
+| MoE grouped GEMMs (NVFP4 x44 + MXFP8 x4) [B] | 5078 | 317 | 10.8 % |
+| MoE glue [B - lever estimates] | 3377 | 211 | 7.2 % |
+| dense GEMMs: qkvr 20 single + 28 split, wo, dyn-conv, draft ctx K/V [B] | 4000 | 250 | 8.5 % |
+| attention mainloop without bias (SWA x40 + global x8) [B] | 13241 | 828 | 28.3 % |
+| rel-bias left: presheared write x48 [D] | 1726 | 108 | 3.7 % |
+| rel-bias left: SWA mainloop penalty x40 [B-D] | 1278 | 80 | 2.7 % |
+| rel-bias left: global mainloop penalty x8 [B-D] | 5926 | 370 | 12.6 % |
+| fixed per request (host, first chunk) [D] | 60 | | 0.1 % |
+| elementwise remainder (attn-res, norms, clips, convs, KV store, gate_sink, controllers, aux) [D closing term] | 12176 | 761 | 26.0 % |
+MoE glue split (ms total): router + topk + sort metadata 299, routed quantize (quant_once on NVFP4) 612, swiglu-quantize 1243, combine (partial_bf16) 1223
+remainder vs its byte model: 92.9 us/token measured-derived vs 48.9 modelled (1.90x)
+| ceiling | saves s | TTFT s | tok/s | speedup |
+|---|---:|---:|---:|---:|
+| (a1) fused rel-bias attention, SWA only (in-kernel bias at bias-free FA4 rate +8 % MMA) | 2.62 | 44.24 | 2,963 | 1.06x |
+| (a2) (a1) + global layers | 7.87 | 38.99 | 3,362 | 1.20x |
+| (b1) MoE glue into GEMM prologue/epilogues (quant, swiglu-quant, combine) | 3.08 | 43.78 | 2,994 | 1.07x |
+| (b2) elementwise remainder down to its byte model at 224 GB/s | 5.77 | 41.10 | 3,189 | 1.14x |
+| (b3) elementwise remainder fused to half its byte model | 8.97 | 37.89 | 3,459 | 1.24x |
+| (a2)+(b1)+(b2) | 16.71 | 30.15 | 4,348 | 1.55x |
+| (a2)+(b1)+(b3) | 19.92 | 26.94 | 4,865 | 1.74x |
+| ideal: tensor kernels only (MoE GEMMs, dense, bias-free attention +8 %) + fixed | 23.42 | 23.44 | 5,592 | 2.00x |
+

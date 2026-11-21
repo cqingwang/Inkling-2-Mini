@@ -8,6 +8,11 @@ Third-party code vendored in this repository:
   carried in github.com/Picom-code/pico-dgx-ds4), MIT licence, Copyright (c) 2026
   Andy Shu; full text in overlay/inkling_pico12/third_party/pico/LICENSE. Unmodified except a two-line header
   naming the origin.
+- overlay/inkling_wide/csrc/bf16x_format.cuh: the `bf16x` reader (layout description, bf16x_raw_off, mad_imm, bf16x_dec,
+  ldg_bf16x) copied from the same pico gemv16.cu (commit f2117916), MIT licence, Copyright (c) 2026 Andy Shu; full
+  text in overlay/inkling_wide/third_party/pico/LICENSE.
+- overlay/inkling_cert/csrc/cert_ext.cu compiles kernels/gemv16.cu from overlay/inkling_pico12/third_party/pico/ (above)
+  into its own extension; no further copy.
 
 The serving engines run from their published container images, pinned by digest in scripts/launch.sh:
 - SGLang (sgl-project/sglang), lmsysorg/sglang:inkling-2-mini, Apache-2.0.

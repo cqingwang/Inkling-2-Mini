@@ -217,3 +217,120 @@ The shipped configuration (`scripts/launch.sh` defaults) ran `bench/full.sh` onc
 Where the remaining c1 time goes after the overlays (from the screens): the dense BF16 projections and LM head
 (now 12-bit packed), the routed experts of the verified rows, and the draft. Doubling c1 speed would need
 more accepted tokens per step (a better or longer-trained draft) or a lossy weight format; neither is in this recipe.
+
+## Round 2 (v2)
+
+Same boxes, same image, same harness. Every lever below was screened alone against a control booted the same day on
+the same box (`results/screen-r2/`, one line per arm in `summary.jsonl`); the stack was then confirmed with
+`bench/full.sh` on both boxes (`results/V2-s05/`, `results/V2-s06/`). Kernel checks, microbenchmarks and analysis
+scripts are in `results/kbench/round2/<lever>/`.
+
+### Where the time goes with the round-1 stack
+
+Torch profile of the shipped round-1 stack (greedy prose, 40 steps each; `results/kbench/round2/residual/` has the
+corrected analyser `analyze2.py` and per-class tables, every kernel attributed, GPU idle 0.4-0.6 ms per step):
+
+| ms per step | c1 | c4 | c8 | c24 |
+|---|---:|---:|---:|---:|
+| step | 39.9 | 85.3 | 117.1 | 171.8 |
+| routed experts (grouped GEMMs) | 16.5 | 53.0 | 75.8 | 98.8 |
+| dense qkvr / wo (pico at <= 16 rows, cuBLAS above) | 9.5 | 12.9 | 14.8 | 16.7 |
+| target LM head | 2.9 | 4.4 | 5.0 | 7.0 |
+| verify attention (SWA + global) | 1.2 | 2.3 | 6.8 | 20.6 |
+| draft (layers, FP8 head, FP8 fold) | 5.2 | 5.8 | 6.7 | 11.4 |
+| norms, attn-res, short conv, loop controllers, MoE glue | 2.9 | 4.4 | 6.0 | 13.9 |
+
+Measured expert unions (stock engine with the read-only counter, 36K logged request-steps,
+`results/screen-r2/R2SL-s06/`): per MoE visit U(1) / U(4) / U(8) rows per request = 32.8 / 56.7 / 68.8 at 8 requests
+and 51.4 / 79.0 / 91.2 at 16 requests, far from the 128 experts. The round-1 rule verified all 8 rows from 5 requests
+up because the union was assumed saturated; it is not.
+
+### Decode levers (screens on Spark_05, same day)
+
+Controls: C0a and C0b (round-1 stack, booted before and after the arms) agree within 1-3 % except the sampled thinking
+cells (+-5 %).
+
+| arm | sbquick c1 | thinking c4 / c8 / c24 | prose c4 / c8 / c16 | code c4 / c8 / c16 |
+|---|---:|---|---|---|
+| C0a control | 54.93 | 126.0 / 196.2 / 374.3 | 92.1 / 121.7 / 195.3 | 103.1 / 148.7 / 225.2 |
+| C0b control | 54.97 | 131.4 / 197.8 / 373.4 | 91.8 / 120.2 / 192.1 | 102.8 / 143.6 / 224.7 |
+| V1a policy theta 0.04 | 55.58 | 130.8 / 200.3 / 346.1 | 96.9 / 137.4 / 205.3 | 105.4 / 157.0 / 228.6 |
+| V1b policy theta 0.04 (repeat) | 55.46 | 133.6 / 188.9 / 360.3 | 96.1 / 135.6 / 202.8 | 105.0 / 152.4 / 230.2 |
+| V2a cost:1=0.30,24=0.25 | 55.01 | 133.8 / 191.0 / 359.2 | 94.3 / 134.3 / 202.2 | 107.0 / 152.1 / 233.5 |
+| V3a policy, bsmax=12 | 55.55 | 143.5 / 196.9 / 372.2 | 96.4 / 138.8 / 192.1 | - / 154.7 / 231.3 |
+| CERT certified greedy head | 56.70 (56.65) | - | 90.2 / 122.9 / 194.5 | 107.1 / 146.2 / 227.9 |
+| VAT verify attention | 55.07 | - / 195.9 / 398.0 | 92.1 / 125.8 / 204.0 | 102.8 / 142.7 / 235.2 |
+| WID wide GEMM (all forwards) | 54.41 | - / 213.5 / 367.0 | 95.8 / 126.4 / 197.3 | 106.9 / 145.3 / 227.9 |
+
+- **Verify policy** (`inkling_vcap` `policy:` mode). Offline replay on the logged steps (`results/kbench/round2/policy/`)
+  priced a calibrated left-to-right rule with one price for all batch sizes at +0.5 / +2 / +5 / +6 % at 1 / 4 / 8 / 16
+  requests. Live: greedy decode +5 / +13 / +5 % at c4 / c8 / c16, thinking c4 / c8 +4 / +2 % on average; at 24
+  thinking requests both policy runs were below both controls (346 / 360 vs 374 / 373), the bsmax=12 run equal
+  (372). Shipped with `bsmax=16`, which keeps the c16 greedy gain and verifies all rows above 16 requests.
+- **Certified head**. Serving check mode first (`R2CHK`): 5,670 certified steps, 45,584 rows, 0 mismatches against
+  the full head; 216 candidate tiles of 12,564 per step on average. Then the A/B: +3.1 % at c1, nothing above 16 rows
+  (not eligible).
+- **Verify attention**. Above 32 verify rows the stock path padded q and the bias to 4 heads per KV group, sheared the
+  bias to [t, 32, 1280] and ran FA4; the split-KV kernel used at <= 4 requests has no batch-size dependence. The cap
+  alone (32 -> 384 rows) gives most of the gain, the in-kernel bias the rest (visit 1.4-1.7x faster at 8-48
+  requests). Long-context c1-c4 verify is already at the DRAM floor (222-235 GB/s at 32K-128K).
+- **Wide GEMM**. In this screen it also took 17-256-row prefill chunks of short prompts (the c1 text changed:
+  2.304 tokens per step vs 2.272 in every other arm); it ships restricted to decode / verify forwards
+  (`INKLING_WIDE_SCOPE=verify`), confirmed in the full runs (c1 decode unchanged).
+
+### Prefill levers (Spark_05, same day, speedbench longctx, cold)
+
+| arm | 1K | 8K | 32K | 128K | guard / sanity / needles |
+|---|---:|---:|---:|---:|---|
+| C0b control (round-1 prefill levers) | 2,522 | 4,265 | 3,972 | 2,805 | - |
+| ATT fused relative-bias attention | 2,694 | 4,887 | 4,669 | 3,535 | 30/30, 11/11, 120K + 240K PASS |
+| PFA attention + glue fusion | 2,881 | 5,487 | 5,179 | 3,818 | 30/30, 11/11, 120K + 240K PASS |
+
+The 240K needle's prefill took 89 s with ATT vs 133 s on the control. Decode tok/s at 32K / 128K moved in these arms
+(68 / 45 control, 56-62 / 39-43 with the levers), but the time per verify step did not (32K 54-56 ms, 128K 66-69 ms in
+all three): the two decode documents produce different text when the prefill numerics change, and the accepted tokens
+per step range from 2.2 to 5.3 between documents. Prefill budget per 8K chunk before these levers (rebuilt with the
+measured 164 TFLOP/s NVFP4 rate, `results/kbench/round2/residual/out/prefill.txt`): elementwise remainder 744 ms
+(loop-message mixes 233, attention-residual mixes 143, norms 74, ...), routed-expert GEMMs 317, dense 250, MoE glue 211,
+relative bias 219, attention main loop 119.
+
+### KV pool (Spark_06, MemAvailable logged every 5 s from container start)
+
+Worst case per setting: thinking load c24 (48 x 2,048 tokens) together with a cold 240,104-token needle prompt, then
+40 min of 28 concurrent mixed requests.
+
+| `MEM_FRACTION` | global-KV tokens | MemAvailable after start | lowest | needle 240K |
+|---:|---:|---:|---:|---|
+| 0.62 (round 1) | 794K | ~40 GiB | 39.1 GiB (full run) | PASS |
+| 0.72 | 985,088 | 29.4 GiB | 26.9 GiB | PASS |
+| 0.80 | 1,132,800 | 22.1 GiB | 18.5 GiB | PASS |
+| 0.86 | 1,257,856 | 15.6 GiB | 12.1 GiB | PASS |
+
+0.84 is the default: 1.19-1.21M tokens and 17.5-17.9 GiB lowest during the full runs, ~14 GiB expected in the worst
+case above. The start-up peak is not lower than the steady state at any setting.
+
+### Not adopted in round 2
+
+- Loop-controller / small-kernel launch fusion and L2 warming: SGLang PR #51926 (fused loop controllers) is already in
+  the image. An overlay that issues `prefetch.L2` for the next projection's weights (exact, bit-identical outputs) saves
+  nothing: GB10 drops most of these instructions (an 8 MB read takes 45 us cold, ~40 us after an L2 prefetch, 14 us
+  after a normal read). A side-stream read-and-discard warm before the consumer moves the same DRAM bytes and contends
+  with its tail: -0.13 ms per step at c1, 0 at c24.
+- A native layer-stack backend (SGLang keeps the API, scheduler and KV; the backend owns the 48-visit core): after
+  crediting the round-2 overlay levers, removing every boundary-specific cost (cross-op fusion to the weight-byte floor,
+  launch chaining, eager glue) gives at most 1.13x geometric mean at c4 / c8 / c24 (1.14x at c1), below the 1.20x we
+  require before building it (`results/kbench/round2/residual/out/budget.txt`).
+- The verify policy above 16 requests (above).
+- Long-context decode beyond the DRAM floor: the remaining lever is an FP8 KV cache (~+18-20 % at 128K by bytes), which
+  changes the numerics and is outside this recipe's exact default.
+
+### Confirmation (both boxes, `bench/full.sh`)
+
+| | round 1 (06 / 05) | v2 (05 / 06) |
+|---|---|---|
+| speedbench full, all 73 | 55.51 / 56.06 | 58.19 / 58.10 |
+| decode table prose c1 / c4 / c8 / c16 | 47.3 / 90.6 / 120.3 / 188.9 ; 47.8 / 89.6 / 122.8 / 192.3 | 47.5 / 98.7 / 148.1 / 213.2 ; 47.5 / 100.6 / 150.2 / 211.0 |
+| thinking c1 / c8 / c24 | 63.9 / 192.8 / 371.8 ; 61.8 / 194.8 / 373.8 | 63.5 / 210.7 / 406.7 ; 68.2 / 211.5 / 397.7 |
+| cold prefill 1K / 8K / 32K / 128K | 2,510 / 4,256 / 3,903 / 2,759 ; 2,474 / 4,275 / 3,979 / 2,836 | 2,833 / 5,393 / 5,115 / 3,785 ; 2,809 / 5,241 / 5,004 / 3,737 |
+| KV pool / MemAvailable lowest | 793,728 / 39.1-39.3 GiB | 1,206,016 ; 1,187,840 / 17.5-17.9 GiB |
+| quality guard / sanity / needles 120K + 240K | 30/30 / 11/11 / PASS | 30/30 / 11/11 / PASS on both |

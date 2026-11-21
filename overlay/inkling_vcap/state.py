@@ -73,6 +73,8 @@ class VcapState:
         self._union_slots: dict[int, int] = {}
         self._union_acc: Optional[torch.Tensor] = None
         self._union_names: list[str] = []
+        # policy: mode device tensors (table [2, gamma, nb], edges, row_cost, u1)
+        self._pol = None
 
     # ------------------------------------------------------------------ setup
     def allocate(self, *, stride: int, capacity: int, device, live_lens=None) -> None:
@@ -91,6 +93,14 @@ class VcapState:
         # Identity until the first planned step (graph capture records against it).
         self.src_index = self.layout.rows.clone()
         self._acc = torch.zeros(3, dtype=torch.int64, device=device)
+        pf = None if self.config is None else self.config.policy_file
+        if pf is not None:
+            self._pol = {
+                "table": torch.tensor(pf.calib, dtype=torch.float32, device=device),
+                "edges": torch.tensor(pf.edges, dtype=torch.float32, device=device),
+                "row_cost": torch.tensor(pf.row_cost, dtype=torch.float32, device=device),
+                "u1": torch.tensor(pf.u1, dtype=torch.float32, device=device),
+            }
         if self.config is not None and self.config.union:
             # [slot, (sum distinct, visits)]; slots = MoE modules, 64 is plenty.
             self._union_acc = torch.zeros((64, 2), dtype=torch.float64, device=device)
@@ -138,10 +148,20 @@ class VcapState:
                 # j (context + earlier drafts), never of the token d_j it verifies.
                 use_max=True,
             )
-            lens = logic.live_lens_from_probs(
-                probs, threshold=pol.threshold, min_len=cfg.min_len,
-                max_len=cfg.resolved_max(stride),
-            )
+            if cfg.kind == "policy":
+                lens = logic.calibrated_live_lens(
+                    probs, self._sampled_rows(block, bs, probs.device),
+                    table=self._pol["table"], edges=self._pol["edges"],
+                    row_cost=self._pol["row_cost"], theta=pol.threshold,
+                    min_len=cfg.min_len, max_len=cfg.resolved_max(stride),
+                    u1=self._pol["u1"], pool=pol.pool,
+                    rounds=cfg.policy_file.rounds if pol.pool > 0 else 0,
+                )
+            else:
+                lens = logic.live_lens_from_probs(
+                    probs, threshold=pol.threshold, min_len=cfg.min_len,
+                    max_len=cfg.resolved_max(stride),
+                )
             self.live_lens[:bs].copy_(lens)
             if bs != prev_bs:
                 self.live_lens[bs:].zero_()
@@ -154,6 +174,18 @@ class VcapState:
         self._epi_state = epi_state
         self.step_planned = True
         self.planned_bs = bs
+
+    @staticmethod
+    def _sampled_rows(block, bs: int, device) -> torch.Tensor:
+        """[bs] bool: the request samples (its draft max-probabilities are at its
+        temperature, so it uses the sampled calibration table). Same rule as
+        draft_token_probs: greedy_mask wins; without one, every row is at its
+        temperature when temperatures exist (sampled), else at temperature 1."""
+        mask = getattr(block, "greedy_mask", None)
+        if mask is None:
+            temps = getattr(block, "temperatures", None)
+            return torch.full((bs,), temps is not None, dtype=torch.bool, device=device)
+        return ~mask.reshape(-1)[:bs].to(device=device, dtype=torch.bool)
 
     def cutoff_for(self, n: int) -> Optional[_Cutoff]:
         if not (self.enabled and self.capping) or n > self.capacity:
