@@ -1,0 +1,55 @@
+{
+ "prompts": 46479,
+ "drops": {
+  "dup": 3673,
+  "think_load_shape": 6,
+  "speedbench_neardup": 2
+ },
+ "speedbench_neardup_examples": [
+  "What is the capital city of the United States?",
+  "What is the capital city of Malaysia?"
+ ],
+ "speedbench_texts_indexed": 203,
+ "by_source": {
+  "wildchat": 8826,
+  "oasst2": 5196,
+  "hermes": 5096,
+  "selfoss": 4263,
+  "ultrachat": 3955,
+  "magicoder": 3500,
+  "gsm8k": 2774,
+  "dolly": 2638,
+  "math": 2598,
+  "cnn": 2500,
+  "aya": 2453,
+  "wiki": 1892,
+  "mgsm": 540,
+  "oasst2ja": 248
+ },
+ "by_category": {
+  "chat": "21653 (46.6 %)",
+  "code": "7358 (15.8 %)",
+  "math": "5912 (12.7 %)",
+  "agentic": "4145 (8.9 %)",
+  "structured": "3968 (8.5 %)",
+  "summary": "3443 (7.4 %)"
+ },
+ "by_language": {
+  "en": "36118 (77.7 %)",
+  "pl": "2014 (4.3 %)",
+  "es": "1400 (3.0 %)",
+  "zh": "1388 (3.0 %)",
+  "de": "1255 (2.7 %)",
+  "ja": "1155 (2.5 %)",
+  "fr": "925 (2.0 %)",
+  "ru": "915 (2.0 %)",
+  "pt": "448 (1.0 %)",
+  "it": "424 (0.9 %)",
+  "uk": "217 (0.5 %)",
+  "ko": "160 (0.3 %)",
+  "ca": "60 (0.1 %)"
+ },
+ "multilingual_share": 0.22291787689063877,
+ "multi_turn": 3207,
+ "with_tools": 4145
+}

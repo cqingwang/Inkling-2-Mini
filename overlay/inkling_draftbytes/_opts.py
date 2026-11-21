@@ -8,6 +8,11 @@ Comma list, any order, default empty (= the overlay does nothing):
   head8[:MODE]   draft base logits from an FP8 copy of the LM head (default row)
   draftmx8[:MODE] FP8 copies of the three draft layers' linears (default mx)
   hotvocab:N     draft proposes only from the first N ids of INKLING_DRAFT_HOTVOCAB_FILE
+  wide8          this package's FP8 / BF16 kernels run one CTA per output tile for all 64-row blocks (mode 2:
+                 one W load per K tile per CTA up to 384 rows; mode 1 / beyond 384: one per row block, L2-hit
+                 after the first) instead of a CTA per 64-row block (which re-reads W from DRAM per block);
+                 same per-element math (gated bit for bit on the GPU). Applies to whatever head8 / fold8 /
+                 foldk / hotvocab / draftmx8 / gemv route through them.
 
 MODE: row = one fp32 scale per output row; gN = one fp32 scale per N inputs of a
 row (N a power of two >= 16); mx = MXFP8, one power-of-two (e8m0) scale per 32.
@@ -66,6 +71,13 @@ class Options:
     draftmx8: Optional[QuantMode] = None
     hotvocab: int = 0
     hotvocab_file: Optional[str] = None
+    wide8: bool = False
+    # wide8 launches (more than one 64-row block), from the GB10 sweep of 2026-11-21 (tools/gpu_check_wide8.py
+    # --tile-sweep; every configuration bit-identical to the default kernel): mode 1, BN 64, 8 warps, 3 stages
+    wide8_mode: int = 1  # 1: row blocks outer (W tile re-read from L2); 2: K outer, <= 6 blocks (spills; slower)
+    wide8_stages: int = 3  # Triton num_stages (0: Triton's default)
+    wide8_bn: int = 64
+    wide8_warps: int = 8
     raw: str = ""
     # Tunables (env, read once).
     gemv_max_m: int = 16
@@ -106,6 +118,8 @@ class Options:
             parts.append(f"draftmx8:{self.draftmx8.label}")
         if self.hotvocab:
             parts.append(f"hotvocab:{self.hotvocab}")
+        if self.wide8:
+            parts.append(f"wide8(mode {self.wide8_mode})")
         return ",".join(parts) or "off"
 
 
@@ -139,6 +153,8 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
             kw["head8"] = parse_mode(arg, "row")
         elif name == "draftmx8":
             kw["draftmx8"] = parse_mode(arg, "mx")
+        elif name == "wide8":
+            kw["wide8"] = True
         elif name == "hotvocab":
             if arg is None or not arg.isdigit() or int(arg) <= 0:
                 raise OptionError("hotvocab needs a positive size, e.g. hotvocab:32768")
@@ -157,6 +173,16 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
     kw["linear_bn"] = _int_env("INKLING_DRAFT_LINEAR_BN", 32)
     kw["linear_bk"] = _int_env("INKLING_DRAFT_LINEAR_BK", 256)
     kw["num_warps"] = _int_env("INKLING_DRAFT_NUM_WARPS", 4)
+    kw["wide8_mode"] = _int_env("INKLING_DRAFT_WIDE8_MODE", 1)
+    kw["wide8_stages"] = _int_env("INKLING_DRAFT_WIDE8_STAGES", 3)
+    kw["wide8_bn"] = _int_env("INKLING_DRAFT_WIDE8_BN", 64)
+    kw["wide8_warps"] = _int_env("INKLING_DRAFT_WIDE8_WARPS", 8)
+    if kw["wide8_bn"] not in (16, 32, 64, 128) or kw["wide8_warps"] not in (1, 2, 4, 8, 16):
+        raise OptionError("INKLING_DRAFT_WIDE8_BN must be 16..128 (power of two), _WARPS 1..16 (power of two)")
+    if kw["wide8_mode"] not in (1, 2):
+        raise OptionError(f"INKLING_DRAFT_WIDE8_MODE must be 1 or 2, got {kw['wide8_mode']}")
+    if not 0 <= kw["wide8_stages"] <= 6:
+        raise OptionError(f"INKLING_DRAFT_WIDE8_STAGES must be in [0, 6], got {kw['wide8_stages']}")
     for name in ("fold_bn", "fold_bk", "linear_bn", "linear_bk"):
         v = kw[name]
         if v < 16 or v & (v - 1):

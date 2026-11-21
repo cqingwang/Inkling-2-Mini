@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.1 (2026-11-21)
+
+Hot-vocabulary draft. Median of both boxes, `bench/full.sh` (`results/V21-s05/`, `results/V21-s06/`), against v2:
+speedbench full c1 61.7 (58.1, +6 %), prose 51.7 (48.5), multilingual 42.3 (39.4); decode prose c1 / c4 / c16 51.0 /
+103.2 / 216.7 (47.5 / 99.7 / 212.1), code c1 60.2 (56.7), json c8 / c16 173.6 / 265.6 (164.6 / 251.8); thinking c1 /
+c8 / c24 67.8 / 220.8 / 405.4 (65.8 / 211.1 / 402.2); prefill and memory unchanged within run noise (1K / 8K / 32K /
+128K 2,914 / 5,293 / 4,995 / 3,726 tok/s; 1.20M KV tokens, 17.5-17.8 GiB lowest MemAvailable); quality guard 30/30,
+sanity 11/11, needles PASS on both boxes.
+
+- `inkling_draftbytes`: default `hotvocab:65536` with the shipped list
+  `overlay/inkling_draftbytes/hotvocab/inkling2-mini-hot-r2.json` (ranked on 1.95M tokens of the model's own outputs,
+  `tools/hotvocab/`), and `wide8` (FP8 draft GEMMs read their weight once above 64 rows; bit-identical).
+- Same-day A/B on both boxes: speedbench quick +6.0 / +6.1 %, greedy texts byte-identical 30/30.
+- Rejected: KV page size 16 (flat decode; the fused prefill attention needs page 128).
+
 ## v2 (2026-11-21)
 
 Five new overlay packages, a new verify-width rule and a larger KV pool; all levers exact (same weights, same target

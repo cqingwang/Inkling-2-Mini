@@ -13,7 +13,8 @@ import torch
 
 from .quant import W8Pack, linear_ref
 
-_cfg = {"fold_bn": 64, "fold_bk": 128, "linear_bn": 32, "linear_bk": 256, "num_warps": 4}
+_cfg = {"fold_bn": 64, "fold_bk": 128, "linear_bn": 32, "linear_bk": 256, "num_warps": 4, "rows": 0, "stages": 0,
+        "wide_bn": 64, "wide_warps": 8}
 
 
 def configure(opts) -> None:
@@ -23,7 +24,20 @@ def configure(opts) -> None:
         linear_bn=opts.linear_bn,
         linear_bk=opts.linear_bk,
         num_warps=opts.num_warps,
+        rows=opts.wide8_mode if getattr(opts, "wide8", False) else 0,
+        stages=getattr(opts, "wide8_stages", 0),
+        wide_bn=getattr(opts, "wide8_bn", 64),
+        wide_warps=getattr(opts, "wide8_warps", 8),
     )
+
+
+def _wide_kw(m: int = 0):
+    """wide8: the row mode, stage count and tile for a launch of m rows; {} when off or when m fits one 64-row
+    block (then the launch is exactly the default one)."""
+    if not _cfg["rows"] or m <= 64:
+        return {}
+    return {"rows": _cfg["rows"], "num_stages": _cfg["stages"] or None, "bn": _cfg["wide_bn"],
+            "num_warps": _cfg["wide_warps"]}
 
 
 def _triton():
@@ -55,15 +69,14 @@ def w8_linear(
         x2 = x2.contiguous()
     out = torch.empty((x2.shape[0], pack.n), dtype=out_dtype, device=x2.device)
     if x2.shape[0]:
-        _triton().w8_mm(
-            x2,
-            pack,
-            bias,
-            out,
+        kw = dict(
             bn=bn or (_cfg["fold_bn"] if narrow_k else _cfg["linear_bn"]),
             bk=bk or (_cfg["fold_bk"] if narrow_k else _cfg["linear_bk"]),
             num_warps=num_warps or _cfg["num_warps"],
         )
+        if bn is None and num_warps is None:
+            kw.update(_wide_kw(x2.shape[0]))
+        _triton().w8_mm(x2, pack, bias, out, **kw)
     return out.view(*lead, pack.n)
 
 
@@ -118,11 +131,12 @@ def hot_step(
     if latent.stride(-1) != 1:
         latent = latent.contiguous()
     if latent.shape[0]:
+        kw = dict(bn=bn or _cfg["fold_bn"], bk=bk or _cfg["fold_bk"], num_warps=num_warps or _cfg["num_warps"])
+        if bn is None and num_warps is None:
+            kw.update(_wide_kw(latent.shape[0]))
         _triton().hot_step(
             latent, pack, fold_bias, base, ids32, out,
-            softcap=softcap, vocab_limit=vocab_limit,
-            bn=bn or _cfg["fold_bn"], bk=bk or _cfg["fold_bk"],
-            num_warps=num_warps or _cfg["num_warps"],
+            softcap=softcap, vocab_limit=vocab_limit, **kw,
         )
     return out
 

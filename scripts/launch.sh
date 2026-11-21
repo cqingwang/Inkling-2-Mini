@@ -33,7 +33,8 @@ MEM_FRACTION=${MEM_FRACTION:-0.84}
 OVERLAY=${OVERLAY:-1}
 OVERLAY_DIR=${OVERLAY_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/overlay}
 VERIFY_CAP=${VERIFY_CAP:-policy:/opt/inkling-overlay/inkling_vcap/policies/r2-theta004.json,bsmax=16}  # verify-width policy (off = stock)
-DRAFT_BYTES=${DRAFT_BYTES:-gemv,fold8,head8,draftmx8}       # draft-side byte cuts (empty = stock)
+DRAFT_BYTES=${DRAFT_BYTES:-gemv,fold8,head8,draftmx8,hotvocab:65536,wide8}  # draft-side byte cuts (empty = stock)
+HOTVOCAB_FILE=${HOTVOCAB_FILE:-/opt/inkling-overlay/inkling_draftbytes/hotvocab/inkling2-mini-hot-r2.json}  # ranked draft vocabulary
 KERNELS=${KERNELS:-moe_tiles,qkvr_gemv}                     # target-side kernel choices (empty = stock)
 PREFILL=${PREFILL:-qkvr_split,bias_layout,quant_once,partial_bf16}  # exact prefill levers (empty = stock)
 PICO12=${PICO12:-dense,lmhead}                              # pico packed 12-bit BF16 GEMVs (empty = stock)
@@ -95,7 +96,7 @@ if [[ $ENGINE == sglang ]]; then
     [[ -f $OVERLAY_DIR/sitecustomize.py ]] || { echo "OVERLAY=1 but no overlay at $OVERLAY_DIR" >&2; exit 1; }
     ov=(-v "$OVERLAY_DIR":/opt/inkling-overlay:ro -e PYTHONPATH=/opt/inkling-overlay
         -e INKLING_VERIFY_CAP="$VERIFY_CAP" -e INKLING_VERIFY_CAP_LOG_EVERY="${VERIFY_CAP_LOG_EVERY:-0}"
-        -e INKLING_DRAFT_BYTES="$DRAFT_BYTES" -e INKLING_KERNELS="$KERNELS" -e INKLING_MOE_TILES="$MOE_TILES"
+        -e INKLING_DRAFT_BYTES="$DRAFT_BYTES" -e INKLING_DRAFT_HOTVOCAB_FILE="$HOTVOCAB_FILE" -e INKLING_KERNELS="$KERNELS" -e INKLING_MOE_TILES="$MOE_TILES"
         -e INKLING_PICO12="$PICO12" -e INKLING_PREFILL="$PREFILL" -e INKLING_PREFILL_QKVR_OUT=strided
         -e INKLING_CERT_HEAD="$CERT_HEAD" -e INKLING_WIDE="$WIDE" -e INKLING_WIDE_SCOPE="$WIDE_SCOPE"
         -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE")

@@ -334,3 +334,37 @@ case above. The start-up peak is not lower than the steady state at any setting.
 | cold prefill 1K / 8K / 32K / 128K | 2,510 / 4,256 / 3,903 / 2,759 ; 2,474 / 4,275 / 3,979 / 2,836 | 2,833 / 5,393 / 5,115 / 3,785 ; 2,809 / 5,241 / 5,004 / 3,737 |
 | KV pool / MemAvailable lowest | 793,728 / 39.1-39.3 GiB | 1,206,016 ; 1,187,840 / 17.5-17.9 GiB |
 | quality guard / sanity / needles 120K + 240K | 30/30 / 11/11 / PASS | 30/30 / 11/11 / PASS on both |
+
+## v2.1: hot-vocabulary draft
+
+The draft's vocabulary-sized reads (draft LM head in FP8 and seven Markov fold rows per step) cost 3.5-8 ms per step
+at every batch size in the v2 profile. `hotvocab:N` (round-1 code in `inkling_draftbytes`) restricts the draft to the
+first N ids of a ranked list; every target token outside the list is a forced rejection at that position, so the list
+must cover the model's real output.
+
+Corpus (`tools/hotvocab/`): 46,479 prompts from 14 open datasets (chat 47 %, code 16 %, math 13 %, tool use 9 %,
+structured output 9 %, summaries 7 %; 22 % non-English), speedbench prompts excluded by n-gram containment; 2,311 of
+them generated on the recipe's own server (28 concurrent, mixed effort and temperature, exact output token ids):
+1.95M tokens. Held-out coverage (split by prompt, `results/kbench/round2/hotvocab/cov19m.txt`):
+
+| N | 32K | 48K | 64K | 96K |
+|---|---:|---:|---:|---:|
+| all held-out | 94.4 | 97.5 | 98.8 | 99.8 |
+| English / Polish / German / Chinese | 96.0 / 90.9 / 86.0 / 91.5 | 98.3 / 96.6 / 92.9 / 96.8 | 99.3 / 98.6 / 96.9 / 98.7 | 99.9 / 99.8 / 99.6 / 99.7 |
+| speedbench greedy texts (never ranked on) | 98.0 | 99.1 | 99.6 | 99.8 |
+
+The modelled c1 optimum is flat between 48K and 80K (+5.4 % at 64K); 64K was screened. Same-day A/B
+(`results/screen-r2/V21H-*`, `V2C-*`; v2 + `hotvocab:65536,wide8` vs v2):
+
+| box | sbquick | prose c1 / c4 / c8 / c16 | thinking c1 / c4 / c8 / c24 | greedy texts identical |
+|---|---|---|---|---|
+| Spark_05 | 61.08 vs 57.64 | 51.0 / 103.2 / 150.5 / 219.3 vs 47.7 / 100.2 / 145.6 / 216.2 | 68.2 / 157.1 / 220.5 / 408.4 vs 62.3 / 146.9 / 212.4 / 388.8 | 30 / 30 |
+| Spark_06 | 60.70 vs 57.20 | 50.6 / 102.2 / 149.5 / 218.1 vs 47.4 / 101.2 / 150.4 / 212.7 | 66.8 / 143.3 / 214.7 / 399.7 vs 65.5 / 143.0 / 205.9 / 292.1 (control c24 outlier) | 30 / 30 |
+
+Speedbench quick c1 step 37.5 vs 39.8 ms at equal tokens per step (2.14 median in both; multilingual 1.74 vs 1.73).
+`wide8` (in the same arm) only changes calls above 64 rows (c9+ draft head) and is bit-identical to the previous
+kernel. Confirmed with `bench/full.sh` on both boxes (CHANGELOG v2.1).
+
+KV page size 16 (thefullctx measured +19 % decode at 15.6K context on their stack), on v2, Spark_06: speedbench quick
+57.05 vs 57.20, thinking c8 211.6, decode at 32K / 128K 66.0 / 42.5 (no gain), cold prefill 8K 4,210 vs ~5,300 (the
+fused prefill attention covers page 128 only and falls back). Not adopted.

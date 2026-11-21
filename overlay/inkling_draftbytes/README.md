@@ -16,6 +16,7 @@ touched. Nothing here has run on a GPU yet. The CPU tests pass (23/23).
 | `head8[:row\|gN\|mx]` | FP8 copy of the LM head for the draft base logits, own kernel. It is the fallback if `--speculative-dspark-lm-head-dtype mxfp8` (FlashInfer cute-dsl) does not run on sm_121. It stands down when that flag is set. | 926 -> 464 MB | -2.1 ms | +464 MB |
 | `draftmx8[:mx\|row]` | MXFP8 (default) copies of every BF16 linear in the 3 draft layers (qkv 5120x2304, o 2304x3072, gate_up 18432x2304, down 2304x9216, kv_proj_ctx 2048x2304), made in memory after load. Rows <= `INKLING_DRAFT_W8_MAX_M` (64) use the FP8 kernel. Larger batches use the stock BF16 path. | ~524 -> ~270 MB | -1.1 ms | +270 MB (BF16 kept) |
 | `hotvocab:N` | The draft proposes only from the first N ids of `INKLING_DRAFT_HOTVOCAB_FILE`, which must be frequency-ranked (see `build_hotvocab.py`). The base logits read N LM-head rows, and the fold reads N fold rows. Stacks with `fold8`, `head8` and `gemv`. | N=32768: 1647 -> ~210 MB with fold8 (~135 MB with head8 too) | -6.3 to -6.9 ms, minus the acceptance lost to misses | +151 MB (N=32K, BF16 head rows) + 8-17 MB |
+| `wide8` | For calls of more than 64 rows (batched verify / draft blocks, e.g. the head at c24: 192 rows), this package's kernels run one CTA per output tile over ALL 64-row blocks (row blocks outer, `_acc_tile` unchanged; the CTA's W tile is re-read from L2) with a wider tile (BN 64, 8 warps, 3 stages), instead of one CTA per 64-row block re-reading W from DRAM. Calls of <= 64 rows launch exactly as before. Output bit-identical to the default kernel (gated on the GPU for head8 row/mx, fold8, the BF16 head, the hot step). | head at 192 rows: 3 x 464 MB -> 464 MB from DRAM | head8:row 192 rows 6.16 -> 3.52 ms, 384 rows 12.3 -> 6.9 ms; fold8 192 rows 1.03 -> 0.60 ms | 0 |
 
 Byte math at 220 GB/s: LM head 201024x2304x2 = 926 MB; fold 201024x256x2 = 103 MB,
 read 7 times = 720 MB; draft linears 165 MB per layer x 3. The ms figures are the
@@ -29,6 +30,11 @@ with no change to the proposal vocabulary. Acceptance must be measured.
 Tunables (env): `INKLING_DRAFT_FOLD_BN` (64), `INKLING_DRAFT_FOLD_BK` (128),
 `INKLING_DRAFT_LINEAR_BN` (32), `INKLING_DRAFT_LINEAR_BK` (256),
 `INKLING_DRAFT_NUM_WARPS` (4). Set them from the `bench_draft.py` sweeps.
+`wide8` tunables: `INKLING_DRAFT_WIDE8_MODE` (1; 2 = K outer with up to 6 row-block accumulators in registers,
+also bit-identical but spills and is slower), `INKLING_DRAFT_WIDE8_BN` (64), `INKLING_DRAFT_WIDE8_WARPS` (8),
+`INKLING_DRAFT_WIDE8_STAGES` (3), from `tools/gpu_check_wide8.py --tile-sweep` (2026-11-21, GB10: every
+configuration bit-identical to the default kernel). Check: `tools/gpu_check_wide8.py --ref <pre-wide8 _triton.py>`
+(modes, graph replay, hot step) and `--ops` (the package's dispatch, wide8 off vs on).
 
 ## Patch points
 

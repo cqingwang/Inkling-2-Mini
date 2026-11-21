@@ -36,6 +36,15 @@
 - **Alexey Fateev / Project Maya**, [maya-inkling-mini](https://github.com/alesha-pro/maya-inkling-mini) (MIT): launch
   and "bytes in flight" notes on Inkling's small per-visit kernels that framed our L2-warming screen (not adopted, see
   docs/experiments.md).
+- **FR-Spec** (Zhao et al., ACL 2025, frequency-ranked draft vocabulary) and SGLang's EAGLE `--speculative-token-map`:
+  the idea behind the hot-vocabulary draft. The prompt corpus that ranks the shipped list comes from allenai/WildChat-1M
+  (ODC-BY), OpenAssistant/oasst2 (Apache-2.0), NousResearch/hermes-function-calling-v1 (Apache-2.0),
+  bigcode/self-oss-instruct-sc2-exec-filter-50k (ODC-BY), HuggingFaceH4/ultrachat_200k (MIT),
+  ise-uiuc/Magicoder-OSS-Instruct-75K (MIT), openai/gsm8k (MIT), databricks/databricks-dolly-15k (CC-BY-SA-3.0),
+  EleutherAI/hendrycks_math (MIT), abisee/cnn_dailymail (Apache-2.0), CohereLabs/aya_dataset (Apache-2.0),
+  wikimedia/wikipedia (CC-BY-SA-4.0), juletxara/mgsm (CC-BY-SA-4.0) and llm-jp/oasst2-33k-ja (Apache-2.0); only token
+  frequencies of the model's own outputs are shipped, no prompt text.
+- **thefullctx**: the KV page-size 16 measurement we screened (not adopted here).
 - **Christopher Owen, spark-ds41f** (Apache-2.0): the packed-BF16 vocabulary projection (b12x patch 0012) whose format
   we ported to Triton in a screen (not adopted, see docs/experiments.md).
 - **FlashInfer** (CUTLASS / CuTe DSL grouped GEMMs, the GEMVs) and **CUTLASS**: the kernels the MoE tile choice
