@@ -1,0 +1,2 @@
+{"label":"F1-vllm-base-s06","ready_utc":"2026-11-21T06:58:46Z","startup_s":332,"memavail_after_ready_gib":20.0,"kv":"(EngineCore pid=129) INFO 11-21 06:58:39 [kv_cache_utils.py:1134] GPU KV cache size: 1,347,015 tokens, Maximum concurrency for 262,144 tokens per request: 5.14x"}
+{"label":"F1-vllm-base-s06","memavail_after_bench_gib":18.7}

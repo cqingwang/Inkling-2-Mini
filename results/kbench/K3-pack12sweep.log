@@ -1,0 +1,25 @@
+device NVIDIA GB10 sm_121 SMs=48; torch 2.14.1+cu130
+triton 3.8.0
+qkvr synth 8600x2304: [8600x2304] exponents 110..124, 6406 exceptions (0.0323 %, max 7/row), 12.035 bits/weight; packed 28.4 MiB vs bf16 37.8 MiB; triton==torch packer bytes: True; unpack exact: True
+  qkvr synth 8600x2304         M= 1    sm12x Triton    240.4 us  164.9 GB/s | gemv12    220.9 us  135.0 GB/s | x1.088 | bit-id all=0 clean-rows=0 (99.97 %) maxdiff=0.000244 err gemv12/stock=0.0143/0.0143 batchinv=1 graph=True
+  qkvr synth 8600x2304         M= 8    sm12x Triton    241.6 us  164.1 GB/s | gemv12    221.9 us  134.5 GB/s | x1.089 | bit-id all=0 clean-rows=0 (99.99 %) maxdiff=0.000977 err gemv12/stock=0.0155/0.0155 batchinv=1 graph=True
+  qkvr synth 8600x2304         M=24          cuBLAS    255.7 us  155.4 GB/s | gemv12    207.6 us  144.1 GB/s | x1.232 | bit-id all=0 clean-rows=0 (99.99 %) maxdiff=0.00781 err gemv12/stock=0.019/0.019 batchinv=1 graph=True | sm12x-Triton@M=24 241.3 us x1.163
+  sweep qkvr synth 8600x2304 M=1: default 16,256,4,6,1 221.1 us; best 16,256,2,4,1 211.6 us (140.9 GB/s); top5 16,256,2,4,1=210.7, 16,256,4,4,0=210.7, 16,256,2,4,0=211.7, 16,256,4,4,1=212.1, 16,256,2,3,0=212.7
+  sweep qkvr synth 8600x2304 M=8: default 16,256,4,6,1 222.0 us; best 16,256,4,4,0 212.1 us (140.7 GB/s); top5 16,256,4,4,0=210.7, 16,256,4,4,1=211.1, 16,256,2,4,0=211.7, 16,256,2,4,1=211.7, 16,256,2,3,1=212.2
+  sweep qkvr synth 8600x2304 M=24: default 16,256,4,4,1 206.5 us; best 16,256,4,4,1 206.7 us (144.7 GB/s); top5 16,256,4,4,1=206.5, 16,256,4,4,0=206.6, 16,256,4,3,1=206.6, 16,256,4,3,0=207.6, 16,128,4,4,0=209.6
+wo synth 2304x3072: [2304x3072] exponents 110..124, 2305 exceptions (0.0326 %, max 7/row), 12.031 bits/weight; packed 10.2 MiB vs bf16 13.5 MiB; triton==torch packer bytes: True; unpack exact: True
+  wo synth 2304x3072           M= 1    sm12x Triton    123.1 us  115.1 GB/s | gemv12    119.5 us   89.1 GB/s | x1.030 | bit-id all=1 clean-rows=1 (100.00 %) maxdiff=0 err gemv12/stock=0.0155/0.0155 batchinv=1 graph=True
+  wo synth 2304x3072           M= 8    sm12x Triton    123.6 us  114.9 GB/s | gemv12    119.5 us   89.5 GB/s | x1.034 | bit-id all=0 clean-rows=0 (99.99 %) maxdiff=4.77e-07 err gemv12/stock=0.0249/0.0249 batchinv=1 graph=True
+  wo synth 2304x3072           M=24          cuBLAS    128.7 us  111.1 GB/s | gemv12    112.4 us   96.1 GB/s | x1.146 | bit-id all=0 clean-rows=0 (99.88 %) maxdiff=0.0156 err gemv12/stock=0.0215/0.0215 batchinv=1 graph=True | sm12x-Triton@M=24 122.6 us x1.091
+  sweep wo synth 2304x3072 M=1: default 16,256,4,6,1 119.5 us; best 16,256,4,2,0 109.2 us (97.5 GB/s); top5 16,256,4,2,0=108.3, 16,256,2,2,0=108.8, 16,256,2,2,1=108.8, 16,256,4,2,1=108.8, 16,256,8,2,0=110.8
+  sweep wo synth 2304x3072 M=8: default 16,256,4,6,1 119.5 us; best 16,256,2,2,1 109.2 us (97.9 GB/s); top5 16,256,2,2,1=109.3, 16,256,4,2,1=109.7, 16,256,2,2,0=109.8, 16,256,4,2,0=110.3, 16,256,8,2,1=110.9
+  sweep wo synth 2304x3072 M=24: default 16,256,4,4,1 113.3 us; best 16,256,4,2,0 108.2 us (99.7 GB/s); top5 16,256,4,2,0=107.2, 16,256,4,2,1=108.2, 16,256,8,2,0=109.8, 16,256,8,2,1=110.2, 16,128,4,3,0=110.3
+lmhead synth 201024x2304: [201024x2304] exponents 110..124, 110132 exceptions (0.0238 %, max 157/row), 12.029 bits/weight; packed 664.2 MiB vs bf16 883.4 MiB; triton==torch packer bytes: True; unpack exact: True
+  lmhead synth 201024x2304     M= 1       b12x SIMT   3875.6 us  239.0 GB/s | gemv12   3557.1 us  195.8 GB/s | x1.090 | bit-id all=0 clean-rows=0 (0.68 %) maxdiff=4.2e-05 err gemv12/stock=2.53e-05/1.43e-06 batchinv=1 graph=True
+  lmhead synth 201024x2304     M= 8    sm12x Triton   4021.5 us  230.4 GB/s | gemv12   3584.7 us  194.3 GB/s | x1.122 | bit-id all=0 clean-rows=0 (11.92 %) maxdiff=2.77e-05 err gemv12/stock=3.53e-05/4.05e-05 batchinv=1 graph=True
+  lmhead synth 201024x2304     M=24 cuBLAS fp32-out   4558.1 us  203.3 GB/s | gemv12   3157.2 us  220.6 GB/s | x1.444 | bit-id all=0 clean-rows=0 (11.93 %) maxdiff=2.43e-05 err gemv12/stock=3.91e-05/3.81e-05 batchinv=1 graph=True | sm12x-Triton@M=24 4059.3 us x1.286
+  sweep lmhead synth 201024x2304 M=1: default 16,256,4,6,1 3552.0 us; best 32,256,4,4,0 3024.6 us (230.3 GB/s); top5 32,256,4,4,0=3026.6, 16,256,2,4,0=3029.2, 16,256,2,4,1=3030.3, 32,256,4,4,1=3031.5, 16,256,8,4,0=3054.8
+  sweep lmhead synth 201024x2304 M=8: default 16,256,4,6,1 3585.2 us; best 16,256,2,4,1 3078.5 us (226.2 GB/s); top5 16,256,2,4,1=3076.2, 16,256,2,4,0=3076.3, 32,256,4,4,0=3079.9, 32,256,4,4,1=3088.1, 16,256,4,4,0=3103.9
+  sweep lmhead synth 201024x2304 M=24: default 16,256,4,4,1 3159.2 us; best 16,256,4,4,1 3156.7 us (220.7 GB/s); top5 16,256,4,4,1=3161.3, 16,256,4,4,0=3170.5, 16,256,2,3,1=3182.7, 16,256,2,3,0=3185.3, 16,256,4,3,1=3209.9
+KILL CRITERION qkvr M=8: speedup x1.089 -> KILL (< 1.15)
+INKLING_PACK12_TUNE="8600,2304,16=16,256,4,4,0;8600,2304,32=16,256,4,4,1;2304,3072,16=16,256,2,2,1;2304,3072,32=16,256,4,2,0;201024,2304,16=16,256,2,4,1;201024,2304,32=16,256,4,4,1"

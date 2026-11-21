@@ -1,0 +1,2 @@
+{"label":"V4U-fixed4-union","ready_utc":"2026-11-21T09:09:35Z","startup_s":257,"memavail_after_ready_gib":39.5,"kv":"[2026-11-21 09:09:28 PID107] max_total_num_tokens=841984, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=39.82 GB"}
+{"label":"V4U-fixed4-union","memavail_after_bench_gib":39.2}

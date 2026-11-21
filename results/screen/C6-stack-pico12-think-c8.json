@@ -1,0 +1,1 @@
+{"label": "C6-stack-pico12-think-c8", "started": "2026-11-21T12:34:41+01:00", "concurrency": 8, "requests": 16, "failed": 0, "max_tokens": 2048, "temperature": 0.8, "effort": "high", "wall_s": 153.27, "completion_tokens": 30000, "aggregate_tok_s": 195.7, "per_request_decode_tok_s_median": 27.8, "ttft_median_s": 0.61, "length_finishes": 12}

@@ -1,0 +1,19 @@
+pico12 memguard MemAvailable_GiB=118.1 need_GiB=12.0
+pico12 device=NVIDIA GB10 cc=12.1 sms=48 torch=2.14.1+cu130 cuda=13.0
+pico12 ext built in 28.4 s at /root/.cache/inkling-pico12/227377f9786ac9d5 max_rows=16
+pico12 shape random qkvr [8600x2304] raw_MB=39.63 packed_MB=30.83 packed/raw=0.7780 raw_tiles=1561/77400 mt=1 undecodable_pieces=0 PASS
+pico12 bits random qkvr M=1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.881 PASS
+pico12 vs_stock random qkvr M=1 max_abs_packed_vs_stock=3.906e-03 differing=12/8600 err_vs_fp64 packed=2.752e-02 stock=2.752e-02
+Traceback (most recent call last):
+  File "/opt/inkling-overlay/tools/gpu_check_pico12.py", line 413, in <module>
+    main()
+  File "/opt/inkling-overlay/tools/gpu_check_pico12.py", line 242, in main
+    t_p = timeit(lambda: ops.gemv(x, pack, y))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-overlay/tools/gpu_check_pico12.py", line 127, in timeit
+    torch.sum(flush, out=sink)  # evicts L2 (24 MB on GB10): weights come from DRAM
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: sum() received an invalid combination of arguments - got (Tensor, out=Tensor), but expected one of:
+ * (Tensor input, *, torch.dtype dtype = None)
+ * (Tensor input, tuple of ints dim, bool keepdim = False, *, torch.dtype dtype = None, Tensor out = None)
+

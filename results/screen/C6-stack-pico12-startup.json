@@ -1,0 +1,2 @@
+{"label":"C6-stack-pico12","ready_utc":"2026-11-21T11:30:52Z","startup_s":247,"memavail_after_ready_gib":39.2,"kv":"[2026-11-21 11:30:47 PID106] max_total_num_tokens=797440, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=39.60 GB"}
+{"label":"C6-stack-pico12","memavail_after_bench_gib":39.0}

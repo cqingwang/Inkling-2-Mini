@@ -1,0 +1,2 @@
+{"label":"S2-sglang-nvmega","ready_utc":"2026-11-21T06:45:22Z","startup_s":237,"memavail_after_ready_gib":39.9,"kv":"[2026-11-21 06:45:16 PID107] max_total_num_tokens=845952, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=39.37 GB"}
+{"label":"S2-sglang-nvmega","memavail_after_bench_gib":39.4}

@@ -1,0 +1,285 @@
+device: NVIDIA GB10 sm_121 SMs=48 L2=24 MiB  torch 2.14.1+cu130  flashinfer 0.7.4
+--- group_gemm_nvfp4_nt_groupwise
+signature: flashinfer.gemm.gemm_base.group_gemm_nvfp4_nt_groupwise(a: torch.Tensor, b: torch.Tensor, a_scale: torch.Tensor, b_scale: torch.Tensor, m_indptr: torch.Tensor, alpha: Optional[torch.Tensor] = None, tile_m: int = 128, tile_n: int = 128, tile_k: int = 128, swap_ab: bool = True, out: Optional[torch.Tensor] = None, out_dtype: Optional[torch.dtype] = None) -> torch.Tensor
+  src| tile_m: int = 128,
+  src| tile_n: int = 128,
+  src| tile_k: int = 128,
+  src| swap_ab: bool = True,
+  src| tile_m: int
+  src| tile_n: int
+  src| tile_k: int
+  src| swap_ab : bool
+  src| tile_m,
+  src| tile_n,
+  src| tile_k,
+  src| swap_ab,
+isolated sweep: 16 configs x 2 GEMMs x 6 scenarios
+  swap_ab=1,tile_n=32,tile_k=128: ok
+  swap_ab=1,tile_n=32,tile_k=256: ok
+  swap_ab=1,tile_n=64,tile_k=128: ok
+  swap_ab=1,tile_n=64,tile_k=256: ok
+  swap_ab=1,tile_n=128,tile_k=128: ok
+  swap_ab=1,tile_n=128,tile_k=256: ok
+  swap_ab=1,tile_n=256,tile_k=128: ok
+  swap_ab=1,tile_n=256,tile_k=256: ok
+  swap_ab=0,tile_n=32,tile_k=128: ok
+  swap_ab=0,tile_n=32,tile_k=256: ok
+  swap_ab=0,tile_n=64,tile_k=128: ok
+  swap_ab=0,tile_n=64,tile_k=256: ok
+  swap_ab=0,tile_n=128,tile_k=128: ok
+  swap_ab=0,tile_n=128,tile_k=256: ok
+  swap_ab=0,tile_n=256,tile_k=128: ok
+  swap_ab=0,tile_n=256,tile_k=256: ok
+
+NVFP4: configs rejected / failed:
+  swap_ab=1,tile_n=256,tile_k=128: ValueError: tile_n must be one of 32, 64, 128, but got 256
+  swap_ab=1,tile_n=256,tile_k=256: ValueError: tile_n must be one of 32, 64, 128, but got 256
+  swap_ab=0,tile_n=256,tile_k=128: ValueError: tile_n must be one of 32, 64, 128, but got 256
+  swap_ab=0,tile_n=256,tile_k=256: ValueError: tile_n must be one of 32, 64, 128, but got 256
+
+NVFP4 w13 N=2304 K=2304 tokens=1 distinct=8 rows=8
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            113.7    111.6    114.7   210.6   210.2    1.073  yes
+  swap_ab=1,tile_n=64,tile_k=256            114.8    112.8    115.8   208.5   208.1    1.062  yes
+  swap_ab=1,tile_n=128,tile_k=256           116.7    114.7    117.9   205.0   204.6    1.045  yes
+  swap_ab=0,tile_n=128,tile_k=256           117.8    114.7    118.9   203.3   202.9    1.036  yes
+  swap_ab=1,tile_n=32,tile_k=128            122.0    120.0    123.0   196.3   195.9    1.000  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128            122.9    120.8    123.9   194.8   194.4    0.992  yes
+  swap_ab=1,tile_n=128,tile_k=128           125.0    123.0    127.0   191.5   191.1    0.976  yes
+  swap_ab=0,tile_n=128,tile_k=128           125.0    122.9    126.2   191.4   191.1    0.975  yes
+  swap_ab=0,tile_n=64,tile_k=256            166.0    164.6    168.0   144.2   143.9    0.735  yes
+  swap_ab=0,tile_n=64,tile_k=128            176.1    174.0    178.2   135.9   135.6    0.692  yes
+  swap_ab=0,tile_n=32,tile_k=256            342.1    337.9    344.2    70.0    69.8    0.357  yes
+  swap_ab=0,tile_n=32,tile_k=128            360.5    354.3    362.6    66.4    66.3    0.338  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=8 distinct=20 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            270.4    268.3    272.4   222.2   220.8    1.064  yes
+  swap_ab=1,tile_n=64,tile_k=256            272.4    269.3    277.5   220.6   219.2    1.057  yes
+  swap_ab=0,tile_n=64,tile_k=256            272.5    268.3    276.5   220.5   219.1    1.056  yes
+  swap_ab=1,tile_n=128,tile_k=256           274.4    271.4    277.5   219.0   217.6    1.049  yes
+  swap_ab=0,tile_n=128,tile_k=256           275.5    272.4    278.5   218.2   216.8    1.045  yes
+  swap_ab=1,tile_n=32,tile_k=128            287.8    285.7    290.9   208.8   207.5    1.000  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128            289.9    286.8    292.9   207.3   206.0    0.993  yes
+  swap_ab=0,tile_n=128,tile_k=128           292.9    287.8    298.0   205.2   203.9    0.983  yes
+  swap_ab=0,tile_n=64,tile_k=128            295.9    288.9    302.1   203.1   201.8    0.973  yes
+  swap_ab=1,tile_n=128,tile_k=128           295.9    290.8    302.1   203.1   201.8    0.973  yes
+  swap_ab=0,tile_n=32,tile_k=128            440.4    415.9    461.0   136.5   135.6    0.654  yes
+  swap_ab=0,tile_n=32,tile_k=256            455.7    434.2    464.9   131.9   131.1    0.632  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=8 distinct=27 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            363.6    360.4    366.7   222.8   221.7    1.070  yes
+  swap_ab=1,tile_n=64,tile_k=256            364.7    360.6    367.6   222.1   221.1    1.067  yes
+  swap_ab=1,tile_n=128,tile_k=256           370.9    364.6    375.9   218.4   217.4    1.049  yes
+  swap_ab=0,tile_n=128,tile_k=256           373.7    366.7    377.0   216.8   215.7    1.041  yes
+  swap_ab=1,tile_n=32,tile_k=128            389.1    385.0    392.2   208.2   207.2    1.000  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128            390.1    385.0    393.3   207.6   206.6    0.997  yes
+  swap_ab=1,tile_n=128,tile_k=128           391.3    386.0    397.3   207.0   206.0    0.994  yes
+  swap_ab=0,tile_n=128,tile_k=128           394.2    387.2    398.4   205.5   204.5    0.987  yes
+  swap_ab=0,tile_n=64,tile_k=256            395.3    385.0    400.4   204.9   204.0    0.984  yes
+  swap_ab=0,tile_n=64,tile_k=128            431.7    419.0    440.4   187.6   186.8    0.901  yes
+  swap_ab=0,tile_n=32,tile_k=128            606.2    584.0    624.9   133.6   133.0    0.642  yes
+  swap_ab=0,tile_n=32,tile_k=256            639.1    609.4    659.6   126.7   126.2    0.609  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=8 distinct=40 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            532.5    528.4    536.6   225.0   224.3    1.069  yes
+  swap_ab=1,tile_n=64,tile_k=256            533.6    529.4    536.7   224.6   223.9    1.067  yes
+  swap_ab=1,tile_n=128,tile_k=256           536.7    530.4    540.8   223.3   222.6    1.061  yes
+  swap_ab=0,tile_n=128,tile_k=256           538.8    533.5    543.7   222.4   221.7    1.057  yes
+  swap_ab=1,tile_n=64,tile_k=128            568.9    564.3    575.7   210.6   209.9    1.001  yes
+  swap_ab=1,tile_n=32,tile_k=128            569.3    564.2    574.5   210.4   209.8    1.000  yes *stock
+  swap_ab=1,tile_n=128,tile_k=128           572.5    566.5    578.6   209.3   208.6    0.994  yes
+  swap_ab=0,tile_n=128,tile_k=128           575.5    569.4    583.8   208.2   207.5    0.989  yes
+  swap_ab=0,tile_n=64,tile_k=256            578.6    566.3    590.0   207.1   206.4    0.984  yes
+  swap_ab=0,tile_n=64,tile_k=128            628.9    606.2    643.1   190.5   189.9    0.905  yes
+  swap_ab=0,tile_n=32,tile_k=256            950.3    899.1    999.6   126.1   125.7    0.599  yes
+  swap_ab=0,tile_n=32,tile_k=128            972.3    917.7   1009.7   123.2   122.8    0.586  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=64 distinct=100 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=64,tile_k=256           1325.1   1317.0   1331.2   227.6   225.3    1.076  yes
+  swap_ab=1,tile_n=32,tile_k=256           1328.8   1320.1   1336.3   227.0   224.7    1.073  yes
+  swap_ab=1,tile_n=64,tile_k=256           1332.2   1322.2   1343.6   226.4   224.1    1.071  yes
+  swap_ab=1,tile_n=128,tile_k=256          1338.4   1328.2   1345.5   225.4   223.1    1.066  yes
+  swap_ab=0,tile_n=128,tile_k=256          1338.4   1328.1   1345.8   225.4   223.1    1.066  yes
+  swap_ab=1,tile_n=32,tile_k=128           1426.4   1415.2   1431.7   211.5   209.3    1.000  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128           1426.5   1419.3   1433.6   211.4   209.3    1.000  yes
+  swap_ab=1,tile_n=128,tile_k=128          1433.6   1421.5   1443.8   210.4   208.3    0.995  yes
+  swap_ab=0,tile_n=64,tile_k=128           1433.6   1417.5   1440.7   210.4   208.3    0.995  yes
+  swap_ab=0,tile_n=128,tile_k=128          1437.7   1422.3   1445.1   209.8   207.7    0.992  yes
+  swap_ab=0,tile_n=32,tile_k=128           1682.5   1640.5   1705.1   179.3   177.5    0.848  yes
+  swap_ab=0,tile_n=32,tile_k=256           1684.6   1647.6   1712.1   179.0   177.2    0.847  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=64 distinct=128 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256           1687.8   1680.4   1693.9   228.2   226.5    1.076  yes
+  swap_ab=0,tile_n=64,tile_k=256           1688.6   1679.4   1697.0   228.1   226.3    1.076  yes
+  swap_ab=1,tile_n=64,tile_k=256           1695.8   1685.6   1702.9   227.2   225.4    1.071  yes
+  swap_ab=0,tile_n=128,tile_k=256          1702.9   1691.6   1709.2   226.2   224.4    1.067  yes
+  swap_ab=1,tile_n=128,tile_k=256          1703.0   1690.8   1711.1   226.2   224.4    1.067  yes
+  swap_ab=0,tile_n=64,tile_k=128           1796.2   1785.9   1802.5   214.5   212.8    1.011  yes
+  swap_ab=1,tile_n=32,tile_k=128           1816.6   1807.4   1821.9   212.1   210.4    1.000  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128           1818.6   1808.4   1826.0   211.8   210.2    0.999  yes
+  swap_ab=1,tile_n=128,tile_k=128          1825.8   1810.5   1833.2   211.0   209.3    0.995  yes
+  swap_ab=0,tile_n=128,tile_k=128          1826.9   1809.8   1836.0   210.9   209.2    0.994  yes
+  swap_ab=0,tile_n=32,tile_k=256           1994.8   1943.6   2031.6   193.1   191.6    0.911  yes
+  swap_ab=0,tile_n=32,tile_k=128           2043.5   1991.6   2079.8   188.5   187.0    0.889  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=1 distinct=8 rows=8
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256             60.4     59.3     61.5   198.4   197.7    1.017  yes
+  swap_ab=1,tile_n=64,tile_k=256             60.4     59.3     61.5   198.4   197.7    1.017  yes
+  swap_ab=1,tile_n=32,tile_k=128             61.4     60.4     62.5   195.1   194.4    1.000  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128             62.5     61.2     63.6   191.9   191.2    0.984  yes
+  swap_ab=1,tile_n=128,tile_k=256            63.6     62.4     65.5   188.3   187.7    0.965  yes
+  swap_ab=0,tile_n=128,tile_k=256            64.5     62.5     66.6   185.8   185.1    0.952  yes
+  swap_ab=0,tile_n=128,tile_k=128            65.6     63.6     66.8   182.8   182.2    0.937  yes
+  swap_ab=1,tile_n=128,tile_k=128            65.6     63.5     66.7   182.7   182.1    0.937  yes
+  swap_ab=0,tile_n=64,tile_k=128             96.3     94.0     96.4   124.5   124.1    0.638  yes
+  swap_ab=0,tile_n=64,tile_k=256            104.5    102.5    108.7   114.7   114.3    0.588  yes
+  swap_ab=0,tile_n=32,tile_k=128            188.4    186.2    192.1    63.6    63.4    0.326  yes
+  swap_ab=0,tile_n=32,tile_k=256            194.6    192.5    198.8    61.6    61.4    0.316  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=8 distinct=20 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            138.3    136.2    139.4   218.4   216.0    1.051  yes
+  swap_ab=1,tile_n=64,tile_k=256            139.4    137.2    141.4   216.7   214.3    1.043  yes
+  swap_ab=1,tile_n=64,tile_k=128            142.5    140.5    144.4   211.9   209.5    1.020  yes
+  swap_ab=0,tile_n=128,tile_k=256           144.4    140.3    146.7   209.1   206.8    1.007  yes
+  swap_ab=1,tile_n=32,tile_k=128            145.4    142.1    146.5   207.7   205.4    1.000  yes *stock
+  swap_ab=1,tile_n=128,tile_k=256           145.4    141.3    147.5   207.7   205.4    1.000  yes
+  swap_ab=1,tile_n=128,tile_k=128           147.5    145.4    148.6   204.7   202.5    0.986  yes
+  swap_ab=0,tile_n=128,tile_k=128           149.5    147.5    151.6   201.9   199.7    0.972  yes
+  swap_ab=0,tile_n=64,tile_k=128            170.0    165.9    176.2   177.6   175.6    0.855  yes
+  swap_ab=0,tile_n=64,tile_k=256            172.1    165.9    178.3   175.5   173.5    0.845  yes
+  swap_ab=0,tile_n=32,tile_k=128            307.3    288.9    321.6    98.3    97.2    0.473  yes
+  swap_ab=0,tile_n=32,tile_k=256            325.7    303.2    341.2    92.7    91.7    0.446  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=8 distinct=27 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=64,tile_k=256            186.4    182.3    188.5   218.1   216.3    1.033  yes
+  swap_ab=1,tile_n=32,tile_k=256            186.4    183.3    189.4   218.0   216.2    1.033  yes
+  swap_ab=1,tile_n=64,tile_k=128            191.5    188.4    193.6   212.3   210.5    1.006  yes
+  swap_ab=0,tile_n=128,tile_k=256           191.6    188.4    194.7   212.1   210.4    1.005  yes
+  swap_ab=1,tile_n=128,tile_k=256           192.5    187.4    195.6   211.1   209.4    1.000  yes
+  swap_ab=1,tile_n=32,tile_k=128            192.6    188.4    194.7   211.0   209.3    1.000  yes *stock
+  swap_ab=0,tile_n=128,tile_k=128           194.6    190.5    196.7   208.8   207.1    0.990  yes
+  swap_ab=1,tile_n=128,tile_k=128           196.7    192.6    198.8   206.6   204.9    0.979  yes
+  swap_ab=0,tile_n=64,tile_k=128            211.0    206.8    215.2   192.6   191.0    0.913  yes
+  swap_ab=0,tile_n=64,tile_k=256            254.0    243.8    262.2   160.0   158.7    0.758  yes
+  swap_ab=0,tile_n=32,tile_k=128            386.0    360.5    407.6   105.3   104.4    0.499  yes
+  swap_ab=0,tile_n=32,tile_k=256            491.7    454.7    510.1    82.7    82.0    0.392  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=8 distinct=40 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            268.4    265.2    271.4   223.7   222.5    1.038  yes
+  swap_ab=1,tile_n=64,tile_k=256            270.4    266.3    273.4   222.1   220.8    1.030  yes
+  swap_ab=0,tile_n=128,tile_k=256           273.5    269.4    276.5   219.6   218.4    1.019  yes
+  swap_ab=1,tile_n=128,tile_k=256           275.5    270.3    278.5   218.0   216.8    1.011  yes
+  swap_ab=1,tile_n=32,tile_k=128            278.6    275.6    280.6   215.6   214.4    1.000  yes *stock
+  swap_ab=1,tile_n=64,tile_k=128            278.6    275.5    280.7   215.6   214.4    1.000  yes
+  swap_ab=1,tile_n=128,tile_k=128           282.7    279.5    285.8   212.4   211.2    0.985  yes
+  swap_ab=0,tile_n=128,tile_k=128           283.6    278.6    286.7   211.7   210.6    0.982  yes
+  swap_ab=0,tile_n=64,tile_k=128            324.2    311.3    331.8   185.2   184.2    0.859  yes
+  swap_ab=0,tile_n=64,tile_k=256            385.0    360.4    407.8   156.0   155.1    0.724  yes
+  swap_ab=0,tile_n=32,tile_k=128            692.2    649.4    721.0    86.8    86.3    0.402  yes
+  swap_ab=0,tile_n=32,tile_k=256            846.8    766.0    874.8    70.9    70.5    0.329  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=64 distinct=100 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            667.8    660.5    672.8   227.6   223.6    1.043  yes
+  swap_ab=1,tile_n=64,tile_k=256            670.7    661.5    674.8   226.6   222.6    1.038  yes
+  swap_ab=0,tile_n=128,tile_k=256           679.9    666.8    686.1   223.5   219.6    1.024  yes
+  swap_ab=1,tile_n=128,tile_k=256           684.0    672.8    689.2   222.2   218.3    1.018  yes
+  swap_ab=1,tile_n=64,tile_k=128            691.4    685.1    695.3   219.8   216.0    1.007  yes
+  swap_ab=0,tile_n=64,tile_k=256            692.4    685.1    699.4   219.5   215.6    1.006  yes
+  swap_ab=1,tile_n=32,tile_k=128            696.3    689.2    699.5   218.3   214.4    1.000  yes *stock
+  swap_ab=0,tile_n=128,tile_k=128           699.6    695.1    703.5   217.3   213.4    0.995  yes
+  swap_ab=1,tile_n=128,tile_k=128           700.5    693.4    704.5   217.0   213.1    0.994  yes
+  swap_ab=0,tile_n=64,tile_k=128            715.7    703.7    723.1   212.4   208.6    0.973  yes
+  swap_ab=0,tile_n=32,tile_k=128            889.1    859.2    921.6   171.0   167.9    0.783  yes
+  swap_ab=0,tile_n=32,tile_k=256           1011.8    972.6   1046.4   150.2   147.6    0.688  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=64 distinct=128 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=1,tile_n=32,tile_k=256            852.1    843.9    857.3   227.4   224.3    1.034  yes
+  swap_ab=1,tile_n=64,tile_k=256            857.1    844.0    863.1   226.1   223.0    1.028  yes
+  swap_ab=0,tile_n=128,tile_k=256           865.5    854.2    871.7   223.9   220.8    1.018  yes
+  swap_ab=1,tile_n=128,tile_k=256           866.5    856.2    873.6   223.7   220.5    1.017  yes
+  swap_ab=0,tile_n=64,tile_k=256            873.6    862.2    881.8   221.8   218.8    1.008  yes
+  swap_ab=1,tile_n=64,tile_k=128            880.6    873.5    884.9   220.1   217.0    1.000  yes
+  swap_ab=1,tile_n=32,tile_k=128            880.8    874.5    884.8   220.0   217.0    1.000  yes *stock
+  swap_ab=0,tile_n=128,tile_k=128           889.0    881.7    896.2   218.0   215.0    0.991  yes
+  swap_ab=1,tile_n=128,tile_k=128           889.1    881.7    896.1   218.0   214.9    0.991  yes
+  swap_ab=0,tile_n=64,tile_k=128            908.3    893.0    916.5   213.4   210.4    0.970  yes
+  swap_ab=0,tile_n=32,tile_k=128           1096.9   1063.0   1114.5   176.7   174.2    0.803  yes
+  swap_ab=0,tile_n=32,tile_k=256           1286.1   1247.3   1306.8   150.7   148.6    0.685  yes
+
+Best bit-exact NVFP4 config per token bucket:
+  tokens<=1 w13 (K=2304): best swap_ab=1,tile_n=32,tile_k=256 sum 113.7 us vs stock 122.0 us (saves 8.3 us summed over 1 scenario(s))
+  tokens<=1 w2 (K=1152): best swap_ab=1,tile_n=32,tile_k=256 sum 60.4 us vs stock 61.4 us (saves 1.0 us summed over 1 scenario(s))
+  tokens<=8 w13 (K=2304): best swap_ab=1,tile_n=32,tile_k=256 sum 1166.5 us vs stock 1246.3 us (saves 79.8 us summed over 3 scenario(s))
+  tokens<=8 w2 (K=1152): best swap_ab=1,tile_n=32,tile_k=256 sum 593.1 us vs stock 616.6 us (saves 23.5 us summed over 3 scenario(s))
+  tokens<=64 w13 (K=2304): best swap_ab=0,tile_n=64,tile_k=256 sum 3013.7 us vs stock 3243.1 us (saves 229.3 us summed over 2 scenario(s))
+  tokens<=64 w2 (K=1152): best swap_ab=1,tile_n=32,tile_k=256 sum 1519.9 us vs stock 1577.1 us (saves 57.2 us summed over 2 scenario(s))
+
+Suggested override (A/B end to end):
+  INKLING_KERNELS=moe_tiles INKLING_MOE_TILES='1@2304:swap_ab=1,tile_n=32,tile_k=256;1@1152:swap_ab=1,tile_n=32,tile_k=256;8@2304:swap_ab=1,tile_n=32,tile_k=256;8@1152:swap_ab=1,tile_n=32,tile_k=256;64@2304:swap_ab=0,tile_n=64,tile_k=256;64@1152:swap_ab=1,tile_n=32,tile_k=256'
+--- moe_gemm_mxfp8_nt_groupwise
+signature: flashinfer.grouped_mm.cute_sm120_mxfp8_groupwise.core.moe_gemm_mxfp8_nt_groupwise(a: torch.Tensor, b: torch.Tensor, a_scale: torch.Tensor, b_scale: torch.Tensor, m_indptr: torch.Tensor, scale_granularity_mnk: Tuple[int, int, int] = (1, 1, 128), scale_major_mode: Literal['MN'] = 'MN', backend: Literal['cute'] = 'cute', out: Optional[torch.Tensor] = None, out_dtype: Optional[torch.dtype] = None, is_gated: bool = False) -> torch.Tensor
+  src| Anything else raises ``ValueError``.
+  src| raise NotImplementedError(
+  src| raise NotImplementedError(
+MXFP8 non-data parameters: ['backend', 'is_gated']
+MXFP8: no tile tunables in this FlashInfer; timing the default only
+  mxfp8 default: done in 3.6s
+
+MXFP8 w13 N=2304 K=2304 tokens=1 distinct=8 rows=8
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   199.8    198.6    201.8   219.4   219.1    1.000  yes *stock
+
+MXFP8 w13 N=2304 K=2304 tokens=8 distinct=20 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   491.7    489.4    494.1   223.6   222.7    1.000  yes *stock
+
+MXFP8 w13 N=2304 K=2304 tokens=8 distinct=27 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   662.8    659.6    665.6   223.7   223.0    1.000  yes *stock
+
+MXFP8 w13 N=2304 K=2304 tokens=8 distinct=40 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   975.9    970.9    980.1   224.8   224.4    1.000  yes *stock
+
+MXFP8 w13 N=2304 K=2304 tokens=64 distinct=100 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                  2444.9   2438.4   2449.6   225.4   223.9    1.000  yes *stock
+
+MXFP8 w13 N=2304 K=2304 tokens=64 distinct=128 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                  3117.1   3103.7   3123.2   225.9   224.8    1.000  yes *stock
+
+MXFP8 w2 N=2304 K=1152 tokens=1 distinct=8 rows=8
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   114.8    111.7    116.8   191.2   190.8    1.000  yes *stock
+
+MXFP8 w2 N=2304 K=1152 tokens=8 distinct=20 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   252.9    243.7    257.0   217.9   216.4    1.000  yes *stock
+
+MXFP8 w2 N=2304 K=1152 tokens=8 distinct=27 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   339.0    329.9    344.4   219.1   218.0    1.000  yes *stock
+
+MXFP8 w2 N=2304 K=1152 tokens=8 distinct=40 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                   482.3    475.1    485.6   227.8   227.0    1.000  yes *stock
+
+MXFP8 w2 N=2304 K=1152 tokens=64 distinct=100 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                  1182.9   1170.7   1191.1   233.9   231.4    1.000  yes *stock
+
+MXFP8 w2 N=2304 K=1152 tokens=64 distinct=128 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  default                                  1505.3   1489.1   1516.6   234.7   232.8    1.000  yes *stock

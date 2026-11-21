@@ -1,0 +1,47 @@
+{
+ "url": "http://127.0.0.1:8000",
+ "results": [
+  {
+   "check": "effort none",
+   "pass": true,
+   "completion_tokens": 257,
+   "reasoning_chars": 532,
+   "prompt_tokens": 46,
+   "answer": "ible by exactly one: \\(142 + 90 - 2(12) = 208\\)\n\nAnswer: 208"
+  },
+  {
+   "check": "effort low",
+   "pass": true,
+   "completion_tokens": 223,
+   "reasoning_chars": 455,
+   "prompt_tokens": 48,
+   "answer": "y both: 12.  \nXOR count: 142 + 90 − 2·12 = 208.\n\nAnswer: 208"
+  },
+  {
+   "check": "effort medium",
+   "pass": true,
+   "completion_tokens": 274,
+   "reasoning_chars": 531,
+   "prompt_tokens": 48,
+   "answer": "/77⌋ = 12  \n\nXOR count: 142 + 90 − 2·12 = 208  \n\nAnswer: 208"
+  },
+  {
+   "check": "effort high",
+   "pass": true,
+   "completion_tokens": 286,
+   "reasoning_chars": 554,
+   "prompt_tokens": 48,
+   "answer": "visible by exactly one: 142 + 90 − 2·12 = 208  \n\nAnswer: 208"
+  },
+  {
+   "check": "effort: none <= high",
+   "pass": true,
+   "lengths": {
+    "none": 257,
+    "low": 223,
+    "medium": 274,
+    "high": 286
+   }
+  }
+ ]
+}

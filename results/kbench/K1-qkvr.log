@@ -1,0 +1,38 @@
+device: NVIDIA GB10 sm_121 SMs=48  torch 2.14.1+cu130  stock GEMV MAX_M=16
+
+  M   3M stock path |                       A vs stock | A vs per-src |  A vs fp64 stock vs fp64 | graph
+  1    3       gemv | max_abs 0.00e+00 rel 0.00e+00 diff     0 |    bit-equal | 7.80e-03   7.80e-03      | ok
+  2    6       gemv | max_abs 0.00e+00 rel 0.00e+00 diff     0 |    bit-equal | 7.80e-03   7.80e-03      | ok
+  4   12       gemv | max_abs 0.00e+00 rel 0.00e+00 diff     0 |    bit-equal | 7.81e-03   7.81e-03      | ok
+  8   24     cuBLAS | max_abs 0.00e+00 rel 0.00e+00 diff     0 |    bit-equal | 1.41e-02   1.41e-02      | ok
+ 16   48     cuBLAS | max_abs 0.00e+00 rel 0.00e+00 diff     0 |    bit-equal | 1.49e-02   1.49e-02      | ok
+ 32   96     cuBLAS | max_abs 0.00e+00 rel 0.00e+00 diff     0 |          n/a | 1.37e-02   1.37e-02      | ok
+ 64  192     cuBLAS | max_abs 0.00e+00 rel 0.00e+00 diff     0 |          n/a | 1.55e-02   1.55e-02      | ok
+
+Inkling2Attention._project_sources: patched vs stock (stub module)
+  M=  1 adjacent  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M=  1 separate  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M=  2 adjacent  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M=  2 separate  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M=  4 adjacent  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M=  4 separate  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M=  8 adjacent  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M=  8 separate  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M= 16 adjacent  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M= 16 separate  path=lever A  views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M= 32 adjacent  path=stock    views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M= 32 separate  path=stock    views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M= 64 adjacent  path=stock    views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+  M= 64 separate  path=stock    views same  mismatched elems per output [0, 0, 0, 0, 0, 0]  max_abs 0.00e+00
+
+Timings (median us, L2 flushed; weight 39.6 MB; GB/s = weight bytes / time)
+  M      stock(3M)     3x per-src       A 32/256/4       A 64/256/4       A 32/128/4       A 64/128/8       A 16/256/4
+Traceback (most recent call last):
+  File "/opt/inkling-kern/gpu_check_qkvr.py", line 245, in <module>
+    main()
+  File "/opt/inkling-kern/gpu_check_qkvr.py", line 207, in main
+    t_stock = timeit(lambda: stock_linear(stacked))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-kern/gpu_check_qkvr.py", line 100, in timeit
+    torch.sum(flush, dtype=torch.float32, out=sink)
+TypeError: sum() missing 1 required positional arguments: "dim"

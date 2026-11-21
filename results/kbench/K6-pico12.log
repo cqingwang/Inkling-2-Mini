@@ -1,0 +1,83 @@
+pico12 memguard MemAvailable_GiB=117.8 need_GiB=12.0
+pico12 device=NVIDIA GB10 cc=12.1 sms=48 torch=2.14.1+cu130 cuda=13.0
+pico12 ext built in 28.7 s at /root/.cache/inkling-pico12/227377f9786ac9d5 max_rows=16
+pico12 shape random qkvr [8600x2304] raw_MB=39.63 packed_MB=30.83 packed/raw=0.7780 raw_tiles=1561/77400 mt=1 undecodable_pieces=0 PASS
+pico12 bits random qkvr M=1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.881 PASS
+pico12 vs_stock random qkvr M=1 max_abs_packed_vs_stock=3.906e-03 differing=12/8600 err_vs_fp64 packed=2.752e-02 stock=2.752e-02
+pico12 time qkvr M=1 packed_us=130.0 (305 GB/s eff) pico_raw_us=170.0 stock_us=174.1 cublas_us=238.7 packed/stock=0.747
+pico12 bits random qkvr M=8 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.919 PASS
+pico12 vs_stock random qkvr M=8 max_abs_packed_vs_stock=1.562e-02 differing=89/68800 err_vs_fp64 packed=3.088e-02 stock=3.088e-02
+pico12 time qkvr M=8 packed_us=130.0 (305 GB/s eff) pico_raw_us=170.0 stock_us=174.2 cublas_us=178.2 packed/stock=0.747
+pico12 bits random qkvr M=16 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.914 PASS
+pico12 vs_stock random qkvr M=16 max_abs_packed_vs_stock=3.125e-02 differing=180/137600 err_vs_fp64 packed=3.099e-02 stock=3.099e-02
+pico12 time qkvr M=16 packed_us=139.4 (284 GB/s eff) pico_raw_us=185.4 stock_us=175.0 cublas_us=178.3 packed/stock=0.796
+pico12 stacked random kv_pack [3072:5120] packed_MB=7.33 (extra memory per layer)
+pico12 stacked random 3x4 kept_vs_per_source=IDENTICAL project_sources_views=STOCK project_sources_values=IDENTICAL graph_vs_eager=IDENTICAL PASS
+pico12 stacked_vs_stock random 3x4 stock=gemv max_abs_vs_stock=1.562e-02 err_vs_fp64 pico=2.839e-02 stock=2.839e-02 max_abs_vs_qkvr_gemv=1.562e-02 qkvr_gemv_err=2.839e-02
+pico12 time stacked 3x4 pico_us=138.3 stock_us=174.6 qkvr_gemv_us=174.2 pico/qkvr_gemv=0.794 pico/stock=0.792
+pico12 stacked random 3x8 kept_vs_per_source=IDENTICAL project_sources_views=STOCK project_sources_values=IDENTICAL graph_vs_eager=IDENTICAL PASS
+pico12 stacked_vs_stock random 3x8 stock=cuBLAS max_abs_vs_stock=1.562e-02 err_vs_fp64 pico=3.103e-02 stock=3.103e-02 max_abs_vs_qkvr_gemv=1.562e-02 qkvr_gemv_err=3.103e-02
+pico12 time stacked 3x8 pico_us=172.4 stock_us=186.4 qkvr_gemv_us=174.2 pico/qkvr_gemv=0.990 pico/stock=0.925
+pico12 stacked random 3x16 kept_vs_per_source=IDENTICAL project_sources_views=STOCK project_sources_values=IDENTICAL graph_vs_eager=IDENTICAL PASS
+pico12 stacked_vs_stock random 3x16 stock=cuBLAS max_abs_vs_stock=3.125e-02 err_vs_fp64 pico=3.098e-02 stock=3.098e-02 max_abs_vs_qkvr_gemv=3.125e-02 qkvr_gemv_err=3.098e-02
+pico12 time stacked 3x16 pico_us=219.1 stock_us=181.2 qkvr_gemv_us=175.2 pico/qkvr_gemv=1.251 pico/stock=1.209
+pico12 shape random wo [2304x3072] raw_MB=14.16 packed_MB=11.03 packed/raw=0.7792 raw_tiles=591/27648 mt=2 undecodable_pieces=0 PASS
+pico12 bits random wo M=1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.802 PASS
+pico12 vs_stock random wo M=1 max_abs_packed_vs_stock=1.562e-02 differing=5/2304 err_vs_fp64 packed=2.993e-02 stock=2.993e-02
+pico12 time wo M=1 packed_us=51.3 (276 GB/s eff) pico_raw_us=68.6 stock_us=64.5 cublas_us=90.2 packed/stock=0.796
+pico12 bits random wo M=8 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.883 PASS
+pico12 vs_stock random wo M=8 max_abs_packed_vs_stock=7.812e-03 differing=27/18432 err_vs_fp64 packed=3.085e-02 stock=3.085e-02
+pico12 time wo M=8 packed_us=52.4 (270 GB/s eff) pico_raw_us=70.7 stock_us=65.5 cublas_us=67.6 packed/stock=0.800
+pico12 bits random wo M=16 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.866 PASS
+pico12 vs_stock random wo M=16 max_abs_packed_vs_stock=3.125e-02 differing=66/36864 err_vs_fp64 packed=3.111e-02 stock=3.111e-02
+pico12 time wo M=16 packed_us=62.5 (227 GB/s eff) pico_raw_us=70.8 stock_us=65.6 cublas_us=67.6 packed/stock=0.952
+pico12 shape random head [201024x2304] raw_MB=926.32 packed_MB=721.27 packed/raw=0.7786 raw_tiles=37690/1809216 mt=2 undecodable_pieces=0 PASS
+pico12 bits random head M=1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.002 PASS
+pico12 vs_stock random head M=1 max_abs_packed_vs_stock=2.861e-06 differing=167366/201024 err_vs_fp64 packed=2.849e-06 stock=1.138e-06
+pico12 time head M=1 packed_us=2890.9 (320 GB/s eff) pico_raw_us=3739.7 stock_us=3851.3 cublas_us=5396.6 packed/stock=0.751
+pico12 bits random head M=8 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.002 PASS
+pico12 vs_stock random head M=8 max_abs_packed_vs_stock=3.624e-05 differing=1594444/1608192 err_vs_fp64 packed=3.045e-06 stock=3.768e-05
+pico12 time head M=8 packed_us=2902.0 (319 GB/s eff) pico_raw_us=3681.3 stock_us=3958.2 cublas_us=4047.0 packed/stock=0.733
+pico12 bits random head M=16 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.002 PASS
+pico12 vs_stock random head M=16 max_abs_packed_vs_stock=3.529e-05 differing=3189041/3216384 err_vs_fp64 packed=3.027e-06 stock=3.610e-05
+pico12 time head M=16 packed_us=3017.7 (307 GB/s eff) pico_raw_us=3735.7 stock_us=4005.1 cublas_us=4093.5 packed/stock=0.753
+pico12 real weights layer=0 qkvr=(8600, 2304) splits=[3072, 1024, 1024, 384, 3072, 24] wo=(2304, 3072) head=(201024, 2304)
+pico12 shape real(layer 0) qkvr [8600x2304] raw_MB=39.63 packed_MB=30.61 packed/raw=0.7725 raw_tiles=1135/77400 mt=1 undecodable_pieces=0 PASS
+pico12 bits real(layer 0) qkvr M=1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.887 PASS
+pico12 vs_stock real(layer 0) qkvr M=1 max_abs_packed_vs_stock=3.906e-03 differing=13/8600 err_vs_fp64 packed=1.184e-02 stock=1.184e-02
+pico12 bits real(layer 0) qkvr M=8 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.900 PASS
+pico12 vs_stock real(layer 0) qkvr M=8 max_abs_packed_vs_stock=1.562e-02 differing=89/68800 err_vs_fp64 packed=1.510e-02 stock=1.510e-02
+pico12 bits real(layer 0) qkvr M=16 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.919 PASS
+pico12 vs_stock real(layer 0) qkvr M=16 max_abs_packed_vs_stock=1.562e-02 differing=185/137600 err_vs_fp64 packed=1.559e-02 stock=1.559e-02
+pico12 stacked real(layer 0) kv_pack [3072:5120] packed_MB=7.30 (extra memory per layer)
+pico12 stacked real(layer 0) 3x4 kept_vs_per_source=IDENTICAL project_sources_views=STOCK project_sources_values=IDENTICAL graph_vs_eager=IDENTICAL PASS
+pico12 stacked_vs_stock real(layer 0) 3x4 stock=gemv max_abs_vs_stock=1.562e-02 err_vs_fp64 pico=1.461e-02 stock=1.461e-02 max_abs_vs_qkvr_gemv=1.562e-02 qkvr_gemv_err=1.461e-02
+pico12 stacked real(layer 0) 3x8 kept_vs_per_source=IDENTICAL project_sources_views=STOCK project_sources_values=IDENTICAL graph_vs_eager=IDENTICAL PASS
+pico12 stacked_vs_stock real(layer 0) 3x8 stock=cuBLAS max_abs_vs_stock=7.812e-03 err_vs_fp64 pico=1.559e-02 stock=1.559e-02 max_abs_vs_qkvr_gemv=7.812e-03 qkvr_gemv_err=1.559e-02
+pico12 stacked real(layer 0) 3x16 kept_vs_per_source=IDENTICAL project_sources_views=STOCK project_sources_values=IDENTICAL graph_vs_eager=IDENTICAL PASS
+pico12 stacked_vs_stock real(layer 0) 3x16 stock=cuBLAS max_abs_vs_stock=1.562e-02 err_vs_fp64 pico=1.558e-02 stock=1.558e-02 max_abs_vs_qkvr_gemv=1.562e-02 qkvr_gemv_err=1.558e-02
+pico12 shape real(layer 0) wo [2304x3072] raw_MB=14.16 packed_MB=10.94 packed/raw=0.7729 raw_tiles=416/27648 mt=2 undecodable_pieces=0 PASS
+pico12 bits real(layer 0) wo M=1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.852 PASS
+pico12 vs_stock real(layer 0) wo M=1 max_abs_packed_vs_stock=3.052e-05 differing=2/2304 err_vs_fp64 packed=1.290e-02 stock=1.290e-02
+pico12 bits real(layer 0) wo M=8 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.858 PASS
+pico12 vs_stock real(layer 0) wo M=8 max_abs_packed_vs_stock=1.562e-02 differing=28/18432 err_vs_fp64 packed=1.507e-02 stock=1.507e-02
+pico12 bits real(layer 0) wo M=16 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.863 PASS
+pico12 vs_stock real(layer 0) wo M=16 max_abs_packed_vs_stock=1.562e-02 differing=52/36864 err_vs_fp64 packed=1.523e-02 stock=1.523e-02
+pico12 shape real(layer 0) head [201024x2304] raw_MB=926.32 packed_MB=715.08 packed/raw=0.7720 raw_tiles=25591/1809216 mt=2 undecodable_pieces=0 PASS
+pico12 bits real(layer 0) head M=1 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.002 PASS
+pico12 vs_stock real(layer 0) head M=1 max_abs_packed_vs_stock=1.907e-06 differing=167209/201024 err_vs_fp64 packed=1.365e-06 stock=5.518e-07
+pico12 bits real(layer 0) head M=8 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.002 PASS
+pico12 vs_stock real(layer 0) head M=8 max_abs_packed_vs_stock=1.812e-05 differing=1594492/1608192 err_vs_fp64 packed=1.363e-06 stock=1.920e-05
+pico12 bits real(layer 0) head M=16 packed_vs_raw=IDENTICAL pdl_on_vs_off=IDENTICAL graph_vs_eager=IDENTICAL fp64_bound_worst=0.002 PASS
+pico12 vs_stock real(layer 0) head M=16 max_abs_packed_vs_stock=1.717e-05 differing=3188975/3216384 err_vs_fp64 packed=1.406e-06 stock=1.761e-05
+pico12 summary (random weights, us, L2 cold): name M packed pico_raw stock cublas  packed/stock
+pico12 summary qkvr  M= 1    130.0    170.0    174.1    238.7  0.747
+pico12 summary qkvr  M= 8    130.0    170.0    174.2    178.2  0.747
+pico12 summary qkvr  M=16    139.4    185.4    175.0    178.3  0.796
+pico12 summary wo    M= 1     51.3     68.6     64.5     90.2  0.796
+pico12 summary wo    M= 8     52.4     70.7     65.5     67.6  0.800
+pico12 summary wo    M=16     62.5     70.8     65.6     67.6  0.952
+pico12 summary head  M= 1   2890.9   3739.7   3851.3   5396.6  0.751
+pico12 summary head  M= 8   2902.0   3681.3   3958.2   4047.0  0.733
+pico12 summary head  M=16   3017.7   3735.7   4005.1   4093.5  0.753
+pico12 gpu_check result PASS (all gated checks passed)

@@ -1,0 +1,93 @@
+device NVIDIA GB10 sm_121 SMs=48  torch 2.14.1+cu130
+== 11:09:20 qkvr
+  qkvr: stock = sglang Inkling2Attention._project_sources
+  [FAIL] qkvr     layer 5 separate M=64                                k:DIFF 65 bytes, max_abs 0.00781; v:DIFF 63 bytes, max_abs 0.00781
+  [PASS] qkvr     layer 5 separate M=128                               bit-equal
+  [PASS] qkvr     layer 5 separate M=256                               bit-equal
+  [PASS] qkvr     layer 5 separate M=1000                              bit-equal
+  [PASS] qkvr     layer 5 separate M=1024                              bit-equal  stock    1377.2 us  lever     510.4 us  (+62.9 % time saved)
+  [PASS] qkvr     layer 5 separate M=4096                              bit-equal  stock    5341.7 us  lever    1969.3 us  (+63.1 % time saved)
+  [PASS] qkvr     layer 5 separate M=8192                              bit-equal  stock   10549.3 us  lever    3773.9 us  (+64.2 % time saved)
+  [FAIL] qkvr     layer 5 strided  M=64                                k:DIFF 61 bytes, max_abs 0.0156; v:DIFF 47 bytes, max_abs 0.00781
+  [PASS] qkvr     layer 5 strided  M=128                               bit-equal
+  [PASS] qkvr     layer 5 strided  M=256                               bit-equal
+  [PASS] qkvr     layer 5 strided  M=1000                              bit-equal
+  [PASS] qkvr     layer 5 strided  M=1024                              bit-equal  stock    1371.2 us  lever     513.0 us  (+62.6 % time saved)
+  [PASS] qkvr     layer 5 strided  M=4096                              bit-equal  stock    5339.7 us  lever    1973.8 us  (+63.0 % time saved)
+  [PASS] qkvr     layer 5 strided  M=8192                              bit-equal  stock   10549.3 us  lever    3793.9 us  (+64.0 % time saved)
+  [FAIL] qkvr     layer 6 separate M=64                                k:DIFF 67 bytes, max_abs 0.00781; v:DIFF 58 bytes, max_abs 0.00781
+  [PASS] qkvr     layer 6 separate M=128                               bit-equal
+  [PASS] qkvr     layer 6 separate M=256                               bit-equal
+  [PASS] qkvr     layer 6 separate M=1000                              bit-equal
+  [PASS] qkvr     layer 6 separate M=1024                              bit-equal  stock    1365.7 us  lever     517.8 us  (+62.1 % time saved)
+  [PASS] qkvr     layer 6 separate M=4096                              bit-equal  stock    5331.9 us  lever    1972.5 us  (+63.0 % time saved)
+  [PASS] qkvr     layer 6 separate M=8192                              bit-equal  stock   10541.5 us  lever    3777.1 us  (+64.2 % time saved)
+  [FAIL] qkvr     layer 6 strided  M=64                                k:DIFF 60 bytes, max_abs 0.00781; v:DIFF 68 bytes, max_abs 0.00781
+  [PASS] qkvr     layer 6 strided  M=128                               bit-equal
+  [PASS] qkvr     layer 6 strided  M=256                               bit-equal
+  [PASS] qkvr     layer 6 strided  M=1000                              bit-equal
+  [PASS] qkvr     layer 6 strided  M=1024                              bit-equal  stock    1368.2 us  lever     517.3 us  (+62.2 % time saved)
+  [PASS] qkvr     layer 6 strided  M=4096                              bit-equal  stock    5335.4 us  lever    1973.1 us  (+63.0 % time saved)
+  [PASS] qkvr     layer 6 strided  M=8192                              bit-equal  stock   10561.7 us  lever    3804.1 us  (+64.0 % time saved)
+== 11:09:31 partial
+  [PASS] partial  T=8 nvfp4-scaled                                     bit-equal  stock      21.3 us  lever      16.0 us  (+24.7 % time saved)
+  [PASS] partial  T=8 unscaled                                         bit-equal  stock      20.5 us  lever      15.2 us  (+25.9 % time saved)
+  [PASS] partial  T=64 nvfp4-scaled                                    bit-equal  stock      21.4 us  lever      16.2 us  (+24.0 % time saved)
+  [PASS] partial  T=64 unscaled                                        bit-equal  stock      19.7 us  lever      15.4 us  (+21.8 % time saved)
+  [PASS] partial  T=1024 nvfp4-scaled                                  bit-equal  stock     246.9 us  lever     186.5 us  (+24.5 % time saved)
+  [PASS] partial  T=1024 unscaled                                      bit-equal  stock     244.8 us  lever     189.4 us  (+22.6 % time saved)
+  [PASS] partial  T=8192 nvfp4-scaled                                  bit-equal  stock    2191.4 us  lever    1501.4 us  (+31.5 % time saved)
+  [PASS] partial  T=8192 unscaled                                      bit-equal  stock    2193.5 us  lever    1500.2 us  (+31.6 % time saved)
+== 11:09:32 quant
+  [FAIL] quant    section                                              ERROR RuntimeError: Failed at /sgl-workspace/sglang/python/sglang/kernels/jit/csrc/inkling2/route.cuh:223: CUDA error: invalid argument
+Traceback (most recent call last):
+  File "/opt/inkling-overlay/tools/gpu_check_prefill.py", line 533, in main
+    SECTIONS[s](torch, dev, ck, a)
+  File "/opt/inkling-overlay/tools/gpu_check_prefill.py", line 273, in sec_quant
+    _, dst2src, _, offsets = sort_route(torch, ids, wts)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-overlay/tools/gpu_check_prefill.py", line 208, in sort_route
+    src2dst, dst2src, gammas, _, offsets, *_ = route_metadata(flat, weights.flatten(), 0, E, E)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/kernels/ops/moe/inkling2_route.py", line 233, in route_metadata
+    _route_module().route_metadata(
+  File "python/tvm_ffi/cython/function.pxi", line 968, in tvm_ffi.core.Function.__call__
+RuntimeError: Failed at /sgl-workspace/sglang/python/sglang/kernels/jit/csrc/inkling2/route.cuh:223: CUDA error: invalid argument
+== 11:09:35 bias
+Traceback (most recent call last):
+  File "/opt/inkling-overlay/tools/gpu_check_prefill.py", line 533, in main
+    SECTIONS[s](torch, dev, ck, a)
+  File "/opt/inkling-overlay/tools/gpu_check_prefill.py", line 310, in sec_bias
+    kc = (torch.randn((pages_total, page, KVH, HD), device=dev, generator=g) * 0.5).to(torch.bfloat16)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.AcceleratorError: CUDA error: invalid argument
+Search for `cudaErrorInvalidValue' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+
+  [FAIL] bias     section                                              ERROR AcceleratorError: CUDA error: invalid argument
+Search for `cudaErrorInvalidValue' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+
+== 11:09:35 graphs
+  [PASS] graphs   qkvr_split M=1024                                    bit-equal
+  [PASS] graphs   partial_bf16 T=1024                                  bit-equal
+  [PASS] graphs   quant_once T=1024                                    bit-equal
+  [PASS] graphs   bias_layout + FA4 presheared T=1024 prefix 512       bit-equal
+== 11:09:36 install
+  [inkling_prefill pid=112] enabled qkvr_split(min_m=128,out=separate) bias_layout quant_once(min_t=256) partial_bf16
+  [inkling_prefill pid=112] applied bias_layout to sglang.kernels.ops.attention.flash_attention_v4_sm120
+  [inkling_prefill pid=112] applied quant_once to sglang.kernels.ops.moe.inkling2_experts_sm120
+  [inkling_prefill pid=112] applied bias_layout to sglang.srt.models.inkling_common.attn
+  [inkling_prefill pid=112] applied qkvr_split to sglang.srt.models.inkling_common.inkling2_attn
+  [inkling_prefill pid=112] applied bias_layout to sglang.srt.models.inkling_common.inkling2_attn
+  [inkling_prefill pid=112] applied partial_bf16 to sglang.srt.models.inkling_common.inkling2_moe
+  [PASS] install  INKLING_PREFILL=all on the real sglang               bit-equal (all 6 patches applied)
+
+37 / 43 checks bit-equal, 23 s
+  FAIL qkvr layer 5 separate M=64: k:DIFF 65 bytes, max_abs 0.00781; v:DIFF 63 bytes, max_abs 0.00781
+  FAIL qkvr layer 5 strided  M=64: k:DIFF 61 bytes, max_abs 0.0156; v:DIFF 47 bytes, max_abs 0.00781
+  FAIL qkvr layer 6 separate M=64: k:DIFF 67 bytes, max_abs 0.00781; v:DIFF 58 bytes, max_abs 0.00781
+  FAIL qkvr layer 6 strided  M=64: k:DIFF 60 bytes, max_abs 0.00781; v:DIFF 68 bytes, max_abs 0.00781
+  FAIL quant section: ERROR RuntimeError: Failed at /sgl-workspace/sglang/python/sglang/kernels/jit/csrc/inkling2/route.cuh:223: CUDA error: invalid argument
+  FAIL bias section: ERROR AcceleratorError: CUDA error: invalid argument
+Search for `cudaErrorInvalidValue' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+
+wrote /root/.cache/K5-gpu_check_prefill.json

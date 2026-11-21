@@ -1,0 +1,2 @@
+{"label":"C4-cost20-mx8","ready_utc":"2026-11-21T10:46:48Z","startup_s":232,"memavail_after_ready_gib":39.6,"kv":"[2026-11-21 10:46:46 PID106] max_total_num_tokens=827904, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=39.91 GB"}
+{"label":"C4-cost20-mx8","memavail_after_bench_gib":39.3}

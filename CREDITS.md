@@ -1,0 +1,40 @@
+# Credits
+
+- **Thinking Machines Lab** for Inkling-2-Mini, its NVFP4 / MXFP8 checkpoint and the bundled DSpark draft model
+  (`mtp.safetensors`) ([model card](https://huggingface.co/thinkingmachines/Inkling-2-Mini),
+  [announcement](https://thinkingmachines.ai/news/inkling-2-mini/), Apache-2.0).
+- **SGLang** project for the Inkling-2-Mini support, the `lmsysorg/sglang:inkling-2-mini` image and the
+  [Inkling-2-Mini cookbook](https://docs.sglang.io/cookbook/autoregressive/ThinkingMachines/Inkling-2-Mini), whose DGX
+  Spark DSpark cell (TP1/EP1, FA4, page 128, 8 draft tokens, the four `SGLANG_OPT_*` switches, `MAX_JOBS=4`, the
+  `inkling` / `inkling2` parsers) is the base of the default profile.
+- **vLLM** project for the Inkling-2-Mini support (vllm-project/vllm #69027, #69028, #69039 by Woosuk Kwon and
+  contributors), the `vllm/vllm-openai:inkling-2-mini` image and the
+  [vLLM recipe](https://recipes.vllm.ai/thinkingmachines/Inkling-2-Mini) behind the alternative profile.
+- **Tech2Wild (tonyd2wild)**, [Inkling-2-Mini-NVFP4-DGX-Spark](https://github.com/tonyd2wild/Inkling-2-Mini-NVFP4-DGX-Spark):
+  the first single-Spark vLLM recipe for this model. Reused here: the vLLM tier settings (`--gpu-memory-utilization 0.80`
+  at 262K context with tool calling on), the hybrid KV-pool block model and the FP8-KV long-context tier with its memory
+  budget (74 GiB of FP8 KV at 1M), the GB10 page-cache trap, and the advice to keep MemAvailable above ~6 GiB.
+- **thefullctx**, [inkling-2-mini-sglang-dgx-spark](https://github.com/thefullctx/inkling-2-mini-sglang-dgx-spark) and
+  [inkling-2-mini-vllm-dgx-spark](https://github.com/thefullctx/inkling-2-mini-vllm-dgx-spark): the first published
+  SGLang vs vLLM head-to-head on one Spark (vLLM slightly ahead on short c1 decode, SGLang ~2x on long prefill, faster
+  long-context decode and much lower memory use), which set the arms of our comparison.
+- **nick398** on the [NVIDIA developer forum thread](https://forums.developer.nvidia.com/t/inkling-2-mini/389745): the
+  first FP8-KV serving notes for this model (vLLM `--kv-cache-dtype fp8` on an RTX 5090: about half the KV memory per
+  token, described there as a quality trade-off).
+- **Andy Shu (@blaesus)**, [dsgb10](https://github.com/blaesus/dsgb10) (formerly dsgx10, MIT), as carried in
+  [Picom-code/pico-dgx-ds4](https://github.com/Picom-code/pico-dgx-ds4) ("pico"): the exactly coded 12-bit BF16 GEMV
+  (`bf16x` format and kernel) that `overlay/inkling_pico12/` builds and calls for the dense projections and the LM
+  head; the sources are vendored unmodified in `overlay/inkling_pico12/third_party/pico/` with their licence.
+- **Christopher Owen, spark-ds41f** (Apache-2.0): the packed-BF16 vocabulary projection (b12x patch 0012) whose format
+  we ported to Triton in a screen (not adopted, see docs/experiments.md).
+- **FlashInfer** (CUTLASS / CuTe DSL grouped GEMMs, the GEMVs) and **CUTLASS**: the kernels the MoE tile choice
+  and the GPU checks run on.
+- **NVIDIA** for the DGX Spark platform.
+- **speedbench** ([knapcio/speedbench](https://github.com/knapcio/speedbench)), our own benchmark, for the headline
+  numbers and the long-context table; its frozen prompt set also feeds the decode table.
+
+Our own earlier recipes contributed ideas reused here: the verify cap with dead-row expert remap (DeepSeek-V4.1
+recipe), the batch-aware pay-for-rows rule (GLM-5.3-Flash recipe), FP8 / low-bit draft heads (DeepSeek-V4.1), and
+our spark-tools and speedbench for measurement.
+
+Every lever adopted from someone else's work gets a line here and an entry in the Credit column of the README.

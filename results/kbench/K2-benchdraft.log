@@ -1,0 +1,1249 @@
+torch 2.14.1+cu130, NVIDIA GB10, cc (12, 1)
+
+== A: LM head 201024 x 2304 BF16 (926 MB)
+2026-11-21 08:52:46,341 - INFO - core.py:635 - flashinfer.jit: Building JIT module mxfp8_quantization_sm100; this can take several minutes on first use.
+  A stock torch.matmul                 M=1      5403.8 us    171.5 GB/s
+  A gemv sm12x (image)                 M=1      3876.1 us    239.1 GB/s
+  A own kernel bf16                    M=1      3869.1 us    239.5 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=2      3980.9 us    232.9 GB/s
+  A gemv sm12x (image)                 M=2      3874.5 us    239.3 GB/s
+  A own kernel bf16                    M=2      3875.0 us    239.3 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=4      3995.8 us    232.2 GB/s
+  A gemv sm12x (image)                 M=4      3887.8 us    238.7 GB/s
+  A own kernel bf16                    M=4      3888.1 us    238.7 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=7      4008.0 us    231.8 GB/s
+  A gemv sm12x (image)                 M=7      3905.8 us    237.9 GB/s
+  A own kernel bf16                    M=7      3903.8 us    238.0 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=8      4014.4 us    231.6 GB/s
+  A gemv sm12x (image)                 M=8      3910.1 us    237.7 GB/s
+  A own kernel bf16                    M=8      3908.8 us    237.8 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=14     4036.2 us    230.9 GB/s
+  A gemv sm12x (image)                 M=14     3934.3 us    236.9 GB/s
+  A own kernel bf16                    M=14     3937.2 us    236.7 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=16     4044.7 us    230.6 GB/s
+  A gemv sm12x (image)                 M=16     3942.3 us    236.6 GB/s
+  A own kernel bf16                    M=16     3942.0 us    236.6 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=21     4572.8 us    204.4 GB/s
+  A own kernel bf16                    M=21     3912.8 us    238.9 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=28     4976.3 us    188.4 GB/s
+  A own kernel bf16                    M=28     3922.9 us    239.0 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+  A stock torch.matmul                 M=56     4365.7 us    217.4 GB/s
+  A own kernel bf16                    M=56     4002.2 us    237.1 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: BackendSupportedError: mm_mxfp8 does not support backend 'cute-dsl' with capability 121)
+
+== B: Markov fold 201024 x 256 (103 MB BF16)
+  B stock torch.addmm                  M=1       462.0 us    224.5 GB/s
+  B foldk (own, BF16)                  M=1       439.7 us    235.9 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  B stock torch.addmm                  M=2       463.6 us    224.6 GB/s
+  B foldk (own, BF16)                  M=2       443.6 us    234.7 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  B stock torch.addmm                  M=3       470.3 us    222.3 GB/s
+  B foldk (own, BF16)                  M=3       444.7 us    235.1 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  B stock torch.addmm                  M=4       470.6 us    223.0 GB/s
+  B foldk (own, BF16)                  M=4       447.2 us    234.6 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  B stock torch.addmm                  M=5       475.4 us    221.6 GB/s
+  B foldk (own, BF16)                  M=5       449.5 us    234.4 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  B stock torch.addmm                  M=6       477.9 us    221.3 GB/s
+  B foldk (own, BF16)                  M=6       451.1 us    234.4 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  B stock torch.addmm                  M=7       480.7 us    220.8 GB/s
+  B foldk (own, BF16)                  M=7       451.8 us    234.9 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  B stock torch.addmm                  M=8       483.2 us    220.5 GB/s
+  B foldk (own, BF16)                  M=8       455.2 us    234.1 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+
+== C: per draft step, hot vocab vs stock (7 steps of fold, 1 base GEMM)
+  C stock base + 7 x addmm             M=1      7223.3 us    228.0 GB/s
+  C hot 16384 fold bf16                M=1       450.2 us    298.1 GB/s
+  C   one hot step 16384 bf16 (L2 warm) M=1         9.5 us    887.3 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C hot 32768 fold bf16                M=1       917.9 us    292.5 GB/s
+  C   one hot step 32768 bf16 (L2 warm) M=1        26.9 us    624.6 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C hot 65536 fold bf16                M=1      2356.4 us    227.8 GB/s
+  C   one hot step 65536 bf16 (L2 warm) M=1       149.1 us    225.1 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C stock base + 7 x addmm             M=2      7280.7 us    226.2 GB/s
+  C hot 16384 fold bf16                M=2       471.8 us    284.5 GB/s
+  C   one hot step 16384 bf16 (L2 warm) M=2         9.9 us    846.4 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C hot 32768 fold bf16                M=2       903.7 us    297.0 GB/s
+  C   one hot step 32768 bf16 (L2 warm) M=2        18.8 us    891.0 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C hot 65536 fold bf16                M=2      2370.5 us    226.5 GB/s
+  C   one hot step 65536 bf16 (L2 warm) M=2       142.3 us    235.9 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C stock base + 7 x addmm             M=4      8321.7 us    197.9 GB/s
+  C hot 16384 fold bf16                M=4       531.8 us    252.4 GB/s
+  C   one hot step 16384 bf16 (L2 warm) M=4        11.7 us    718.5 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C hot 32768 fold bf16                M=4       991.0 us    270.9 GB/s
+  C   one hot step 32768 bf16 (L2 warm) M=4        21.4 us    785.2 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+  C hot 65536 fold bf16                M=4      2582.2 us    207.9 GB/s
+  C   one hot step 65536 bf16 (L2 warm) M=4       162.8 us    206.1 GB/s
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+    (skipped: CompilationError: at 27:23:
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.constexpr,
+  )
+
+== D: draft layer linears (per layer; 3 layers in the draft)
+   stock = what UnquantizedLinearMethod picks by default on sm12x: the image's
+   sm12x GEMV at <= 16 rows (cuBLAS F.linear shown for reference)
+  D qkv_proj cuBLAS F.linear           M=8       109.0 us    217.5 GB/s
+  D qkv_proj stock sm12x GEMV          M=8       106.3 us    223.0 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D qkv_proj cuBLAS F.linear           M=16      109.4 us    217.8 GB/s
+  D qkv_proj stock sm12x GEMV          M=16      106.7 us    223.3 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D o_proj cuBLAS F.linear             M=8        62.4 us    228.4 GB/s
+  D o_proj stock sm12x GEMV            M=8        61.5 us    231.4 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D o_proj cuBLAS F.linear             M=16       63.3 us    226.2 GB/s
+  D o_proj stock sm12x GEMV            M=16       61.5 us    232.8 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D gate_up_proj cuBLAS F.linear       M=8       373.7 us    228.2 GB/s
+  D gate_up_proj stock sm12x GEMV      M=8       367.4 us    232.0 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D gate_up_proj cuBLAS F.linear       M=16      375.8 us    227.8 GB/s
+  D gate_up_proj stock sm12x GEMV      M=16      369.3 us    231.8 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D down_proj cuBLAS F.linear          M=8       193.6 us    220.3 GB/s
+  D down_proj stock sm12x GEMV         M=8       189.3 us    225.4 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D down_proj cuBLAS F.linear          M=16      193.8 us    221.0 GB/s
+  D down_proj stock sm12x GEMV         M=16      190.2 us    225.2 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D kv_proj_ctx cuBLAS F.linear        M=8        42.2 us    225.5 GB/s
+  D kv_proj_ctx stock sm12x GEMV       M=8        41.0 us    232.0 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+  D kv_proj_ctx cuBLAS F.linear        M=16       42.5 us    225.3 GB/s
+  D kv_proj_ctx stock sm12x GEMV       M=16       41.0 us    233.3 GB/s
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+    (skipped: CompilationError: at 21:23:
+    SY,
+    K: tl.constexpr,
+    G: tl.constexpr,
+    BK: tl.constexpr,
+    MP: tl.constexpr,
+    BN: tl.const)
+
+wrote /root/.cache/K2-benchdraft.json

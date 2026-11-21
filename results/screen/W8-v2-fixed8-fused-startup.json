@@ -1,0 +1,2 @@
+{"label":"W8-v2-fixed8-fused","ready_utc":"2026-11-21T09:34:05Z","startup_s":252,"memavail_after_ready_gib":39.5,"kv":"[2026-11-21 09:34:02 PID105] max_total_num_tokens=841472, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=39.87 GB"}
+{"label":"W8-v2-fixed8-fused","memavail_after_bench_gib":39.3}

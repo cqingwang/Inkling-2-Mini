@@ -1,0 +1,294 @@
+== 09:56:15 section env
+== 09:56:17 section bw
+== 09:56:19 section gemm
+  gemm peak probe 8192^3 (F.linear)                         M=8192   N=8192  K=8192    11862.1 us   92.7 TFLOP/s 
+  gemm qkvr local (1 source)                                M=1024   N=8600  K=2304      529.9 us   76.6 TFLOP/s 
+  gemm qkvr stacked 3 sources (serving: 28 of 48 visits)    M=3072   N=8600  K=2304     1381.6 us   88.1 TFLOP/s 
+  gemm qkvr column split M=1024: 549.4 us vs stacked 1381.6 us (73.9 useful TFLOP/s) bitwise q:bit-equal | k:bit-equal | v:bit-equal
+  gemm wo                                                   M=1024   N=2304  K=3072      175.2 us   82.7 TFLOP/s 
+  gemm router (torch.mm FP32 out)                           M=1024   N=128   K=2304       19.6 us   30.7 TFLOP/s 
+  gemm global dyn-conv weight_proj (32 x 2304)              M=1024   N=32    K=2304       16.6 us    9.1 TFLOP/s 
+  gemm DSpark draft ctx K/V (2048 x 2304)                   M=1024   N=2048  K=2304      136.3 us   70.9 TFLOP/s 
+  gemm rel-bias einsum M=1024: 267.4 us, 191 GB/s
+  gemm qkvr local (1 source)                                M=8192   N=8600  K=2304     3707.0 us   87.6 TFLOP/s 
+  gemm qkvr stacked 3 sources (serving: 28 of 48 visits)    M=24576  N=8600  K=2304    10600.6 us   91.9 TFLOP/s 
+  gemm qkvr column split M=8192: 3821.5 us vs stacked 10600.6 us (85.0 useful TFLOP/s) bitwise q:bit-equal | k:bit-equal | v:bit-equal
+  gemm wo                                                   M=8192   N=2304  K=3072     1386.9 us   83.6 TFLOP/s 
+  gemm router (torch.mm FP32 out)                           M=8192   N=128   K=2304      204.0 us   23.7 TFLOP/s 
+  gemm global dyn-conv weight_proj (32 x 2304)              M=8192   N=32    K=2304      179.8 us    6.7 TFLOP/s 
+  gemm DSpark draft ctx K/V (2048 x 2304)                   M=8192   N=2048  K=2304      875.1 us   88.3 TFLOP/s 
+  gemm rel-bias einsum M=8192: 2032.7 us, 201 GB/s
+  gemm qkvr local (1 source)                                M=16384  N=8600  K=2304     7169.8 us   90.6 TFLOP/s 
+  gemm qkvr stacked 3 sources (serving: 28 of 48 visits)    M=49152  N=8600  K=2304    20959.4 us   92.9 TFLOP/s 
+  gemm qkvr column split M=16384: 7242.8 us vs stacked 20959.4 us (89.6 useful TFLOP/s) bitwise q:bit-equal | k:bit-equal | v:bit-equal
+  gemm wo                                                   M=16384  N=2304  K=3072     2698.4 us   86.0 TFLOP/s 
+  gemm router (torch.mm FP32 out)                           M=16384  N=128   K=2304      406.6 us   23.8 TFLOP/s 
+  gemm global dyn-conv weight_proj (32 x 2304)              M=16384  N=32    K=2304      360.0 us    6.7 TFLOP/s 
+  gemm DSpark draft ctx K/V (2048 x 2304)                   M=16384  N=2048  K=2304     1701.7 us   90.9 TFLOP/s 
+  gemm rel-bias einsum M=16384: 4301.2 us, 190 GB/s
+  gemm qkvr chunk-size numerics: M=16384 bit-equal; M=24576 bit-equal
+  gemm wo chunk-size numerics: M=16384 bit-equal; M=24576 bit-equal
+  FP8 _scaled_mm unavailable: mat2 shape (2304x8600) must be divisible by 16
+== 09:56:23 section nvfp4
+  nvfp4 stock: ok (6s)
+  nvfp4 {"swap_ab": true, "tile_n": 32, "tile_k": 128}: ok (6s)
+  nvfp4 {"swap_ab": true, "tile_n": 32, "tile_k": 256}: ok (6s)
+  nvfp4 {"swap_ab": true, "tile_n": 64, "tile_k": 128}: ok (6s)
+  nvfp4 {"swap_ab": true, "tile_n": 64, "tile_k": 256}: ok (6s)
+  nvfp4 {"swap_ab": true, "tile_n": 128, "tile_k": 128}: ok (5s)
+  nvfp4 {"swap_ab": true, "tile_n": 128, "tile_k": 256}: ok (5s)
+  nvfp4 {"swap_ab": false, "tile_n": 32, "tile_k": 128}: ok (6s)
+  nvfp4 {"swap_ab": false, "tile_n": 32, "tile_k": 256}: ok (6s)
+  nvfp4 {"swap_ab": false, "tile_n": 64, "tile_k": 128}: ok (6s)
+  nvfp4 {"swap_ab": false, "tile_n": 64, "tile_k": 256}: ok (6s)
+  nvfp4 {"swap_ab": false, "tile_n": 128, "tile_k": 128}: ok (5s)
+  nvfp4 {"swap_ab": false, "tile_n": 128, "tile_k": 256}: ok (5s)
+== 09:57:38 section mxfp8
+== 09:57:44 section moe
+== 09:57:51 section attn
+  attn swa    chunk 1024  prefix 0      bias=1     0.82 ms    7.9 TFLOP/s
+  attn swa    chunk 1024  prefix 0      bias=0     0.16 ms   39.6 TFLOP/s
+  attn global chunk 1024  prefix 0      bias=1     0.82 ms    7.9 TFLOP/s
+  attn global chunk 1024  prefix 0      bias=0     0.16 ms   40.1 TFLOP/s
+  attn swa    chunk 8192  prefix 0      bias=1     7.67 ms   12.6 TFLOP/s
+  attn swa    chunk 8192  prefix 0      bias=0     1.76 ms   55.0 TFLOP/s
+  attn global chunk 8192  prefix 0      bias=1    14.70 ms   28.1 TFLOP/s
+  attn global chunk 8192  prefix 0      bias=0     6.13 ms   67.3 TFLOP/s
+  attn swa    chunk 8192  prefix 8192   bias=1     7.86 ms   13.1 TFLOP/s
+  attn swa    chunk 8192  prefix 8192   bias=0     1.83 ms   56.4 TFLOP/s
+  attn global chunk 8192  prefix 8192   bias=1    31.64 ms   39.1 TFLOP/s
+  attn global chunk 8192  prefix 8192   bias=0    17.66 ms   70.0 TFLOP/s
+  attn swa    chunk 8192  prefix 24576  bias=1     7.90 ms   13.0 TFLOP/s
+  attn swa    chunk 8192  prefix 24576  bias=0     1.83 ms   56.5 TFLOP/s
+  attn global chunk 8192  prefix 24576  bias=1    65.77 ms   43.9 TFLOP/s
+  attn global chunk 8192  prefix 24576  bias=0    41.46 ms   69.6 TFLOP/s
+  attn swa    chunk 8192  prefix 122880 bias=1     7.85 ms   13.1 TFLOP/s
+  attn swa    chunk 8192  prefix 122880 bias=0     1.83 ms   56.3 TFLOP/s
+  attn global chunk 8192  prefix 122880 bias=1   275.71 ms   46.4 TFLOP/s
+  attn global chunk 8192  prefix 122880 bias=0   182.52 ms   70.0 TFLOP/s
+
+================ REPORT ================
+device NVIDIA GB10 cc 12.1 SMs 48 L2 24 MiB torch 2.14.1+cu130 cuda 13.0 flashinfer 0.7.4 sglang 0.0.0.dev1+inkling2
+nvidia-smi: clocks.current.sm [MHz], clocks.max.sm [MHz], clocks.current.memory [MHz], power.draw [W], power.limit [W], temperature.gpu, clocks_event_reasons.active
+2177 MHz, 3003 MHz, [N/A], 9.51 W, [N/A], 54, 0x0000000000000000
+
+-- bandwidth
+  device copy 256 MiB bf16                           221.4 GB/s
+  elementwise fp32*bf16->bf16 (256 MiB-class)        224.1 GB/s
+  device copy 1024 MiB bf16                          224.3 GB/s
+
+-- cuBLAS BF16 / misc GEMM
+  peak probe 8192^3 (F.linear)                             M=8192     11862.1 us   92.7 TFLOP/s 
+  qkvr local (1 source)                                    M=1024       529.9 us   76.6 TFLOP/s 
+  qkvr stacked 3 sources (serving: 28 of 48 visits)        M=3072      1381.6 us   88.1 TFLOP/s 
+  qkvr column split (3 GEMMs, same outputs)                M=1024       549.4 us   73.9 TFLOP/s q:bit-equal | k:bit-equal | v:bit-equal
+  wo                                                       M=1024       175.2 us   82.7 TFLOP/s 
+  router (torch.mm FP32 out)                               M=1024        19.6 us   30.7 TFLOP/s 
+  global dyn-conv weight_proj (32 x 2304)                  M=1024        16.6 us    9.1 TFLOP/s 
+  DSpark draft ctx K/V (2048 x 2304)                       M=1024       136.3 us   70.9 TFLOP/s 
+  rel-bias einsum [t,24,16]x[16,1024]                      M=1024       267.4 us    191 GB/s
+  qkvr local (1 source)                                    M=8192      3707.0 us   87.6 TFLOP/s 
+  qkvr stacked 3 sources (serving: 28 of 48 visits)        M=24576    10600.6 us   91.9 TFLOP/s 
+  qkvr column split (3 GEMMs, same outputs)                M=8192      3821.5 us   85.0 TFLOP/s q:bit-equal | k:bit-equal | v:bit-equal
+  wo                                                       M=8192      1386.9 us   83.6 TFLOP/s 
+  router (torch.mm FP32 out)                               M=8192       204.0 us   23.7 TFLOP/s 
+  global dyn-conv weight_proj (32 x 2304)                  M=8192       179.8 us    6.7 TFLOP/s 
+  DSpark draft ctx K/V (2048 x 2304)                       M=8192       875.1 us   88.3 TFLOP/s 
+  rel-bias einsum [t,24,16]x[16,1024]                      M=8192      2032.7 us    201 GB/s
+  qkvr local (1 source)                                    M=16384     7169.8 us   90.6 TFLOP/s 
+  qkvr stacked 3 sources (serving: 28 of 48 visits)        M=49152    20959.4 us   92.9 TFLOP/s 
+  qkvr column split (3 GEMMs, same outputs)                M=16384     7242.8 us   89.6 TFLOP/s q:bit-equal | k:bit-equal | v:bit-equal
+  wo                                                       M=16384     2698.4 us   86.0 TFLOP/s 
+  router (torch.mm FP32 out)                               M=16384      406.6 us   23.8 TFLOP/s 
+  global dyn-conv weight_proj (32 x 2304)                  M=16384      360.0 us    6.7 TFLOP/s 
+  DSpark draft ctx K/V (2048 x 2304)                       M=16384     1701.7 us   90.9 TFLOP/s 
+  rel-bias einsum [t,24,16]x[16,1024]                      M=16384     4301.2 us    190 GB/s
+  qkvr: rows at M=16384 / 24576 vs M=8192                  M16384 bit-equal | M24576 bit-equal
+  wo: rows at M=16384 / 24576 vs M=8192                    M16384 bit-equal | M24576 bit-equal
+  LOSSY FP8 _scaled_mm: ERROR mat2 shape (2304x8600) must be divisible by 16
+
+-- NVFP4 grouped GEMM (useful TFLOP/s; w GB/s = touched expert weights / time)
+  w13 N=2304 K=2304 T=1024 skew: rows 8192 experts 128 rows/expert min 1 mean 64 max 343
+    swap_ab=1,tile_n=128,tile_k=256             1944.6 us   44.7 TFLOP/s    197 wGB/s x1.053 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             1945.3 us   44.7 TFLOP/s    196 wGB/s x1.053 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=256              1950.8 us   44.6 TFLOP/s    196 wGB/s x1.050 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=256              1969.7 us   44.2 TFLOP/s    194 wGB/s x1.040 vs stock  bit-equal
+    swap_ab=1,tile_n=32,tile_k=256              2048.1 us   42.5 TFLOP/s    187 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=32,tile_k=256              2053.8 us   42.3 TFLOP/s    186 wGB/s x0.997 vs stock  bit-equal  <- stock
+  w13 N=2304 K=2304 T=1024 uniform: rows 8192 experts 128 rows/expert min 45 mean 64 max 83
+    swap_ab=1,tile_n=32,tile_k=256              1932.2 us   45.0 TFLOP/s    198 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=64,tile_k=256              1932.2 us   45.0 TFLOP/s    198 wGB/s x1.000 vs stock  bit-equal
+    swap_ab=1,tile_n=32,tile_k=256              1933.5 us   45.0 TFLOP/s    198 wGB/s x0.999 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=64,tile_k=256              1934.0 us   45.0 TFLOP/s    198 wGB/s x0.999 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             1966.0 us   44.2 TFLOP/s    194 wGB/s x0.983 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             1975.4 us   44.0 TFLOP/s    193 wGB/s x0.978 vs stock  bit-equal
+  w13 N=2304 K=2304 T=4096 skew: rows 32768 experts 128 rows/expert min 6 mean 256 max 967
+    swap_ab=0,tile_n=128,tile_k=256             2739.8 us  127.0 TFLOP/s    140 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=256             2741.2 us  126.9 TFLOP/s    139 wGB/s x0.999 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=256             2843.2 us  122.4 TFLOP/s    134 wGB/s x0.964 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=128             2858.0 us  121.7 TFLOP/s    134 wGB/s x0.959 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             3000.2 us  116.0 TFLOP/s    127 wGB/s x0.913 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=256              3004.4 us  115.8 TFLOP/s    127 wGB/s x0.912 vs stock  bit-equal
+  w13 N=2304 K=2304 T=4096 uniform: rows 32768 experts 128 rows/expert min 220 mean 256 max 307
+    swap_ab=0,tile_n=128,tile_k=256             2639.1 us  131.8 TFLOP/s    145 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=256             2645.2 us  131.5 TFLOP/s    144 wGB/s x0.998 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=256             2695.7 us  129.1 TFLOP/s    142 wGB/s x0.979 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=128             2851.4 us  122.0 TFLOP/s    134 wGB/s x0.926 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             2862.6 us  121.5 TFLOP/s    134 wGB/s x0.922 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=256              2909.8 us  119.6 TFLOP/s    131 wGB/s x0.907 vs stock  bit-equal
+  w13 N=2304 K=2304 T=8192 skew: rows 65536 experts 128 rows/expert min 7 mean 512 max 1683
+    swap_ab=0,tile_n=128,tile_k=256             3962.0 us  175.6 TFLOP/s     96 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=256             3987.6 us  174.5 TFLOP/s     96 wGB/s x0.994 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=128             4024.0 us  172.9 TFLOP/s     95 wGB/s x0.985 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             4101.2 us  169.7 TFLOP/s     93 wGB/s x0.966 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             4207.8 us  165.4 TFLOP/s     91 wGB/s x0.942 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=256              4482.6 us  155.2 TFLOP/s     85 wGB/s x0.884 vs stock  bit-equal
+  w13 N=2304 K=2304 T=8192 uniform: rows 65536 experts 128 rows/expert min 425 mean 512 max 567
+    swap_ab=0,tile_n=128,tile_k=128             3736.3 us  186.2 TFLOP/s    102 wGB/s x1.003 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             3747.0 us  185.7 TFLOP/s    102 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=256             3754.3 us  185.3 TFLOP/s    102 wGB/s x0.998 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=256             3949.7 us  176.2 TFLOP/s     97 wGB/s x0.949 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             4024.3 us  172.9 TFLOP/s     95 wGB/s x0.931 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=256              4285.9 us  162.3 TFLOP/s     89 wGB/s x0.874 vs stock  bit-equal
+  w13 N=2304 K=2304 T=16384 skew: rows 131072 experts 128 rows/expert min 18 mean 1024 max 5515
+    swap_ab=1,tile_n=128,tile_k=256             6528.1 us  213.2 TFLOP/s     59 wGB/s x1.017 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             6572.6 us  211.7 TFLOP/s     58 wGB/s x1.010 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=128             6591.1 us  211.1 TFLOP/s     58 wGB/s x1.007 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             6637.1 us  209.7 TFLOP/s     58 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=256             6647.0 us  209.4 TFLOP/s     58 wGB/s x0.999 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=64,tile_k=256              7476.3 us  186.1 TFLOP/s     51 wGB/s x0.888 vs stock  bit-equal
+  w13 N=2304 K=2304 T=16384 uniform: rows 131072 experts 128 rows/expert min 948 mean 1024 max 1098
+    swap_ab=0,tile_n=128,tile_k=128             6363.8 us  218.7 TFLOP/s     60 wGB/s x1.019 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             6487.6 us  214.5 TFLOP/s     59 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=256             6506.6 us  213.9 TFLOP/s     59 wGB/s x0.997 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=256             6604.8 us  210.7 TFLOP/s     58 wGB/s x0.982 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             6715.4 us  207.2 TFLOP/s     57 wGB/s x0.966 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=256              7541.3 us  184.5 TFLOP/s     51 wGB/s x0.860 vs stock  bit-equal
+  w2 N=2304 K=1152 T=1024 skew: rows 8192 experts 128 rows/expert min 1 mean 64 max 343
+    swap_ab=1,tile_n=64,tile_k=256              1069.1 us   40.7 TFLOP/s    179 wGB/s x1.065 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             1076.2 us   40.4 TFLOP/s    178 wGB/s x1.058 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             1078.9 us   40.3 TFLOP/s    177 wGB/s x1.055 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=256              1099.9 us   39.5 TFLOP/s    174 wGB/s x1.035 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=128              1112.9 us   39.1 TFLOP/s    172 wGB/s x1.023 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             1114.4 us   39.0 TFLOP/s    171 wGB/s x1.022 vs stock  bit-equal
+    swap_ab=1,tile_n=32,tile_k=256              1138.4 us   38.2 TFLOP/s    168 wGB/s x1.000 vs stock  bit-equal  <- stock
+  w2 N=2304 K=1152 T=1024 uniform: rows 8192 experts 128 rows/expert min 45 mean 64 max 83
+    swap_ab=0,tile_n=64,tile_k=256              1061.8 us   41.0 TFLOP/s    180 wGB/s x1.011 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=256              1070.6 us   40.6 TFLOP/s    178 wGB/s x1.003 vs stock  bit-equal
+    swap_ab=1,tile_n=32,tile_k=256              1073.4 us   40.5 TFLOP/s    178 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=32,tile_k=256              1078.5 us   40.3 TFLOP/s    177 wGB/s x0.995 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=64,tile_k=128              1088.8 us   39.9 TFLOP/s    176 wGB/s x0.986 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             1091.6 us   39.8 TFLOP/s    175 wGB/s x0.983 vs stock  bit-equal
+  w2 N=2304 K=1152 T=4096 skew: rows 32768 experts 128 rows/expert min 6 mean 256 max 967
+    swap_ab=0,tile_n=128,tile_k=128             1745.2 us   99.7 TFLOP/s    110 wGB/s x1.030 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             1754.7 us   99.1 TFLOP/s    109 wGB/s x1.024 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             1790.7 us   97.1 TFLOP/s    107 wGB/s x1.004 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             1797.7 us   96.8 TFLOP/s    106 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=128             1799.2 us   96.7 TFLOP/s    106 wGB/s x0.999 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=64,tile_k=256              1804.0 us   96.4 TFLOP/s    106 wGB/s x0.997 vs stock  bit-equal
+  w2 N=2304 K=1152 T=4096 uniform: rows 32768 experts 128 rows/expert min 220 mean 256 max 307
+    swap_ab=0,tile_n=128,tile_k=256             1697.3 us  102.5 TFLOP/s    113 wGB/s x1.023 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=128             1715.5 us  101.4 TFLOP/s    111 wGB/s x1.013 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             1717.4 us  101.3 TFLOP/s    111 wGB/s x1.011 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             1737.1 us  100.1 TFLOP/s    110 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=128             1739.0 us  100.0 TFLOP/s    110 wGB/s x0.999 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=64,tile_k=256              1806.4 us   96.3 TFLOP/s    106 wGB/s x0.962 vs stock  bit-equal
+  w2 N=2304 K=1152 T=8192 skew: rows 65536 experts 128 rows/expert min 7 mean 512 max 1683
+    swap_ab=1,tile_n=128,tile_k=128             2673.4 us  130.1 TFLOP/s     71 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=128             2678.0 us  129.9 TFLOP/s     71 wGB/s x0.998 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             2686.6 us  129.5 TFLOP/s     71 wGB/s x0.995 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=256             2712.2 us  128.3 TFLOP/s     70 wGB/s x0.986 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=256             2746.6 us  126.7 TFLOP/s     70 wGB/s x0.973 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=128              2829.3 us  123.0 TFLOP/s     68 wGB/s x0.945 vs stock  bit-equal
+  w2 N=2304 K=1152 T=8192 uniform: rows 65536 experts 128 rows/expert min 425 mean 512 max 567
+    swap_ab=0,tile_n=128,tile_k=128             2564.8 us  135.6 TFLOP/s     75 wGB/s x1.023 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=128             2624.7 us  132.5 TFLOP/s     73 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=128             2634.3 us  132.1 TFLOP/s     73 wGB/s x0.996 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=256             2652.7 us  131.1 TFLOP/s     72 wGB/s x0.989 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             2685.9 us  129.5 TFLOP/s     71 wGB/s x0.977 vs stock  bit-equal
+    swap_ab=0,tile_n=64,tile_k=256              2739.4 us  127.0 TFLOP/s     70 wGB/s x0.958 vs stock  bit-equal
+  w2 N=2304 K=1152 T=16384 skew: rows 131072 experts 128 rows/expert min 18 mean 1024 max 5515
+    swap_ab=1,tile_n=128,tile_k=128             4407.4 us  157.9 TFLOP/s     43 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=128             4415.9 us  157.6 TFLOP/s     43 wGB/s x0.998 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=256             4559.6 us  152.6 TFLOP/s     42 wGB/s x0.967 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=128              4578.3 us  152.0 TFLOP/s     42 wGB/s x0.963 vs stock  bit-equal
+    swap_ab=0,tile_n=128,tile_k=128             4599.2 us  151.3 TFLOP/s     42 wGB/s x0.958 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=256              4668.4 us  149.0 TFLOP/s     41 wGB/s x0.944 vs stock  bit-equal
+  w2 N=2304 K=1152 T=16384 uniform: rows 131072 experts 128 rows/expert min 948 mean 1024 max 1098
+    swap_ab=1,tile_n=128,tile_k=128             4501.0 us  154.6 TFLOP/s     42 wGB/s x1.000 vs stock  bit-equal  <- stock
+    swap_ab=1,tile_n=128,tile_k=128             4505.5 us  154.4 TFLOP/s     42 wGB/s x0.999 vs stock  bit-equal  <- stock
+    swap_ab=0,tile_n=128,tile_k=128             4540.5 us  153.2 TFLOP/s     42 wGB/s x0.991 vs stock  bit-equal
+    swap_ab=1,tile_n=128,tile_k=256             4632.1 us  150.2 TFLOP/s     41 wGB/s x0.972 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=128              4657.7 us  149.4 TFLOP/s     41 wGB/s x0.966 vs stock  bit-equal
+    swap_ab=1,tile_n=64,tile_k=256              4717.4 us  147.5 TFLOP/s     41 wGB/s x0.954 vs stock  bit-equal
+
+-- MXFP8 grouped GEMM
+  w13 N=2304 K=2304 T=1024   uniform     3768.8 us   23.1 TFLOP/s    186 wGB/s
+  w2 N=2304 K=1152 T=1024   uniform     1875.0 us   23.2 TFLOP/s    187 wGB/s
+  w13 N=2304 K=2304 T=1024   skew        3817.6 us   22.8 TFLOP/s    184 wGB/s
+  w2 N=2304 K=1152 T=1024   skew        1932.8 us   22.5 TFLOP/s    181 wGB/s
+  w13 N=2304 K=2304 T=4096   uniform     4795.6 us   72.5 TFLOP/s    146 wGB/s
+  w2 N=2304 K=1152 T=4096   uniform     2667.0 us   65.2 TFLOP/s    131 wGB/s
+  w13 N=2304 K=2304 T=4096   skew        4979.3 us   69.9 TFLOP/s    141 wGB/s
+  w2 N=2304 K=1152 T=4096   skew        2838.5 us   61.3 TFLOP/s    123 wGB/s
+  w13 N=2304 K=2304 T=8192   uniform     6344.7 us  109.7 TFLOP/s    110 wGB/s
+  w2 N=2304 K=1152 T=8192   uniform     3904.6 us   89.1 TFLOP/s     90 wGB/s
+  w13 N=2304 K=2304 T=8192   skew        6961.2 us  100.0 TFLOP/s    101 wGB/s
+  w2 N=2304 K=1152 T=8192   skew        4103.2 us   84.8 TFLOP/s     85 wGB/s
+  w13 N=2304 K=2304 T=16384  uniform    11141.6 us  124.9 TFLOP/s     63 wGB/s
+  w2 N=2304 K=1152 T=16384  uniform     6669.4 us  104.3 TFLOP/s     53 wGB/s
+  w13 N=2304 K=2304 T=16384  skew       10955.8 us  127.0 TFLOP/s     64 wGB/s
+  w2 N=2304 K=1152 T=16384  skew        6627.4 us  105.0 TFLOP/s     53 wGB/s
+
+-- full MoE layer (stock serving path), per stage us
+  nvfp4 T=1024   total    3809.1 us = 3.720 us/token (34.2 TFLOP/s whole layer): router GEMM + route_topk 59, sort-route metadata 88, routed quantize 219, GEMM1 w13 1964, swiglu-quantize 192, GEMM2 w2 1072, routed_partial combine + cast 212
+  nvfp4 T=8192   total   12480.9 us = 1.524 us/token (83.6 TFLOP/s whole layer): router GEMM + route_topk 299, sort-route metadata 90, routed quantize 1868, GEMM1 w13 3698, swiglu-quantize 1539, GEMM2 w2 2569, routed_partial combine + cast 2193
+  nvfp4 T=16384  total   23673.2 us = 1.445 us/token (88.2 TFLOP/s whole layer): router GEMM + route_topk 559, sort-route metadata 111, routed quantize 3961, GEMM1 w13 6481, swiglu-quantize 3061, GEMM2 w2 4461, routed_partial combine + cast 4380
+  mxfp8 T=1024   total    6511.2 us = 6.359 us/token (20.0 TFLOP/s whole layer): router GEMM + route_topk 60, sort-route metadata 87, routed quantize 108, GEMM1 w13 3818, swiglu-quantize 294, GEMM2 w2 1875, routed_partial combine + cast 208
+  mxfp8 T=8192   total   17702.0 us = 2.161 us/token (59.0 TFLOP/s whole layer): router GEMM + route_topk 295, sort-route metadata 94, routed quantize 1863, GEMM1 w13 6497, swiglu-quantize 2488, GEMM2 w2 3911, routed_partial combine + cast 2186
+  mxfp8 T=16384  total   33038.2 us = 2.016 us/token (63.2 TFLOP/s whole layer): router GEMM + route_topk 560, sort-route metadata 110, routed quantize 4188, GEMM1 w13 11720, swiglu-quantize 5076, GEMM2 w2 7017, routed_partial combine + cast 4357
+
+-- FA4 SM120 attention (useful TFLOP/s)
+  swa    chunk 1024  prefix 0      bias=1     0.82 ms    7.9 TFLOP/s (first call 0.0 s)
+  swa    chunk 1024  prefix 0      bias=0     0.16 ms   39.6 TFLOP/s (first call 1.6 s)
+  global chunk 1024  prefix 0      bias=1     0.82 ms    7.9 TFLOP/s (first call 0.0 s)
+  global chunk 1024  prefix 0      bias=0     0.16 ms   40.1 TFLOP/s (first call 1.1 s)
+  swa    chunk 8192  prefix 0      bias=1     7.67 ms   12.6 TFLOP/s (first call 0.0 s)
+  swa    chunk 8192  prefix 0      bias=0     1.76 ms   55.0 TFLOP/s (first call 0.0 s)
+  global chunk 8192  prefix 0      bias=1    14.70 ms   28.1 TFLOP/s (first call 0.0 s)
+  global chunk 8192  prefix 0      bias=0     6.13 ms   67.3 TFLOP/s (first call 0.0 s)
+  swa    chunk 8192  prefix 8192   bias=1     7.86 ms   13.1 TFLOP/s (first call 0.0 s)
+  swa    chunk 8192  prefix 8192   bias=0     1.83 ms   56.4 TFLOP/s (first call 0.0 s)
+  global chunk 8192  prefix 8192   bias=1    31.64 ms   39.1 TFLOP/s (first call 0.0 s)
+  global chunk 8192  prefix 8192   bias=0    17.66 ms   70.0 TFLOP/s (first call 0.0 s)
+  swa    chunk 8192  prefix 24576  bias=1     7.90 ms   13.0 TFLOP/s (first call 0.0 s)
+  swa    chunk 8192  prefix 24576  bias=0     1.83 ms   56.5 TFLOP/s (first call 0.0 s)
+  global chunk 8192  prefix 24576  bias=1    65.77 ms   43.9 TFLOP/s (first call 0.1 s)
+  global chunk 8192  prefix 24576  bias=0    41.46 ms   69.6 TFLOP/s (first call 0.0 s)
+  swa    chunk 8192  prefix 122880 bias=1     7.85 ms   13.1 TFLOP/s (first call 0.0 s)
+  swa    chunk 8192  prefix 122880 bias=0     1.83 ms   56.3 TFLOP/s (first call 0.0 s)
+  global chunk 8192  prefix 122880 bias=1   275.71 ms   46.4 TFLOP/s (first call 0.3 s)
+  global chunk 8192  prefix 122880 bias=0   182.52 ms   70.0 TFLOP/s (first call 0.2 s)
+
+rates (for roofline.py --rates): {"bw": 224.3, "bf16_gemm": 86.5, "mxfp8_group": 101.8, "attn_swa": 13.0, "attn_global": 43.9}
+
+NVFP4 best bit-exact config vs stock per (gemm, T, routing):
+  w13/1024/skew          stock swap_ab=1,tile_n=32,tile_k=256        2048.1 us | best swap_ab=1,tile_n=128,tile_k=256       1944.6 us (  5.1 % less)
+  w13/1024/uniform       stock swap_ab=1,tile_n=32,tile_k=256        1932.2 us | best swap_ab=1,tile_n=32,tile_k=256        1932.2 us (  0.0 % less)
+  w13/4096/skew          stock swap_ab=0,tile_n=128,tile_k=256       2739.8 us | best swap_ab=0,tile_n=128,tile_k=256       2739.8 us (  0.0 % less)
+  w13/4096/uniform       stock swap_ab=0,tile_n=128,tile_k=256       2639.1 us | best swap_ab=0,tile_n=128,tile_k=256       2639.1 us (  0.0 % less)
+  w13/8192/skew          stock swap_ab=0,tile_n=128,tile_k=256       3962.0 us | best swap_ab=0,tile_n=128,tile_k=256       3962.0 us (  0.0 % less)
+  w13/8192/uniform       stock swap_ab=0,tile_n=128,tile_k=256       3747.0 us | best swap_ab=0,tile_n=128,tile_k=128       3736.3 us (  0.3 % less)
+  w13/16384/skew         stock swap_ab=0,tile_n=128,tile_k=256       6637.1 us | best swap_ab=1,tile_n=128,tile_k=256       6528.1 us (  1.6 % less)
+  w13/16384/uniform      stock swap_ab=0,tile_n=128,tile_k=256       6487.6 us | best swap_ab=0,tile_n=128,tile_k=128       6363.8 us (  1.9 % less)
+  w2/1024/skew           stock swap_ab=1,tile_n=32,tile_k=256        1138.4 us | best swap_ab=1,tile_n=64,tile_k=256        1069.1 us (  6.1 % less)
+  w2/1024/uniform        stock swap_ab=1,tile_n=32,tile_k=256        1073.4 us | best swap_ab=0,tile_n=64,tile_k=256        1061.8 us (  1.1 % less)
+  w2/4096/skew           stock swap_ab=1,tile_n=128,tile_k=128       1797.7 us | best swap_ab=0,tile_n=128,tile_k=128       1745.2 us (  2.9 % less)
+  w2/4096/uniform        stock swap_ab=1,tile_n=128,tile_k=128       1737.1 us | best swap_ab=0,tile_n=128,tile_k=256       1697.3 us (  2.3 % less)
+  w2/8192/skew           stock swap_ab=1,tile_n=128,tile_k=128       2673.4 us | best swap_ab=1,tile_n=128,tile_k=128       2673.4 us (  0.0 % less)
+  w2/8192/uniform        stock swap_ab=1,tile_n=128,tile_k=128       2624.7 us | best swap_ab=0,tile_n=128,tile_k=128       2564.8 us (  2.3 % less)
+  w2/16384/skew          stock swap_ab=1,tile_n=128,tile_k=128       4407.4 us | best swap_ab=1,tile_n=128,tile_k=128       4407.4 us (  0.0 % less)
+  w2/16384/uniform       stock swap_ab=1,tile_n=128,tile_k=128       4501.0 us | best swap_ab=1,tile_n=128,tile_k=128       4501.0 us (  0.0 % less)
+
+total 111 s
+wrote /opt/x/bench.json

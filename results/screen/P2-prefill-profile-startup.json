@@ -1,0 +1,2 @@
+{"label":"P2-prefill-profile","ready_utc":"2026-11-21T10:29:57Z","startup_s":248,"memavail_after_ready_gib":39.3,"kv":"[2026-11-21 10:29:51 PID104] max_total_num_tokens=834688, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=39.72 GB"}
+{"label":"P2-prefill-profile","memavail_after_bench_gib":24.4}

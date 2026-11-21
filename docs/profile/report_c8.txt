@@ -1,0 +1,151 @@
+# c8  (bs=8)  trace=1795250940.9494402-TP-0.trace.json.gz
+device: NVIDIA GB10 sm_121 SMs=48
+kernels=65800 dropped >5.0 ms: 0 
+
+## 1. Steps (draft graph + verify graph)  captured: 40 draft / 40 verify windows, 39 complete periods
+| ms per step | mean | min | p10 | p50 | p90 | max |
+|---|---:|---:|---:|---:|---:|---:|
+| wall period (draft start -> next draft start) | 126.286 | 120.885 | 122.510 | 126.693 | 130.075 | 134.507 |
+| GPU busy (union) | 125.699 | 120.296 | 121.937 | 126.105 | 129.488 | 133.919 |
+| GPU idle in period | 0.587 | 0.570 | 0.579 | 0.587 | 0.594 | 0.620 |
+| draft graph window | 11.045 | 10.984 | 10.999 | 11.038 | 11.088 | 11.171 |
+| verify graph window | 114.892 | 109.509 | 111.124 | 115.332 | 118.695 | 123.014 |
+|   idle inside draft window | 0.098 | 0.094 | 0.096 | 0.097 | 0.100 | 0.102 |
+|   idle inside verify window | 0.452 | 0.441 | 0.444 | 0.452 | 0.457 | 0.465 |
+|   MoE grouped GEMMs in verify | 81.627 | 75.943 | 77.831 | 82.200 | 85.300 | 89.726 |
+|   busy minus MoE GEMMs | 44.072 | 43.769 | 43.831 | 44.030 | 44.407 | 44.481 |
+| gap draft end -> verify start | 0.074 | 0.070 | 0.070 | 0.072 | 0.076 | 0.122 |
+| gap verify end -> next draft start | 0.275 | 0.264 | 0.268 | 0.272 | 0.288 | 0.301 |
+forwards per step: embedding kernels draft=2.00 verify=1.00; attention prologues per verify=48.00 (48 = one 48-visit target forward); eager (non-graph) kernels per step=23.0
+step-time spread explained by MoE: slope d(period)/d(MoE) = 0.99, stdev period 2.94 ms, stdev MoE 2.96 ms
+
+CPU runtime calls per step: cudaEventSynchronize 1.0x avg 119.94 ms, cudaDeviceSynchronize 0.0x avg 124.54 ms, cudaGraphLaunch 2.0x avg 1.26 ms, cudaLaunchKernel 16.0x avg 0.01 ms, cudaMemcpyAsync 9.1x avg 0.01 ms
+memcpys per step: Memcpy HtoD (Pinned -> Device) (stream 13) 1.0, Memcpy DtoD (Device -> Device) (stream 13) 3.0, Memcpy DtoH (Device -> Pinned) (stream 49) 3.0, Memcpy HtoD (Pinned -> Device) (stream 41) 2.0
+
+## 2. Kernel classes per step (mean over 40 steps; mean wall period 126.29 ms)
+| class | n/step | raw ms | excl ms | % of period | MB/step | GB/s (bytes/raw) |
+|---|---:|---:|---:|---:|---:|---:|
+| MoE grouped GEMM NVFP4 (layers 0-19) | 88.0 | 70.898 | 70.893 | 56.1 | 0 | - |
+| MoE grouped GEMM MXFP8 (layers 20-23) | 8.0 | 10.715 | 10.715 | 8.5 | 0 | - |
+| dense qkvr cuBLAS | 48.0 | 10.483 | 10.390 | 8.2 | 1902 | 181 |
+| attention sliding-window (40 visits) | 200.0 | 5.617 | 5.010 | 4.0 | 0 | - |
+| dense wo cuBLAS | 48.0 | 4.511 | 4.511 | 3.6 | 679 | 151 |
+| target LM head | 1.0 | 4.486 | 4.486 | 3.6 | 926 | 206 |
+| draft LM head (base logits) | 1.0 | 4.396 | 4.396 | 3.5 | 926 | 211 |
+| draft Markov fold addmm (x7) | 7.0 | 3.378 | 3.378 | 2.7 | 720 | 213 |
+| draft layers (3 x BF16 dense) | 34.0 | 2.623 | 2.621 | 2.1 | 495 | 189 |
+| MoE args/route/quant/combine | 376.0 | 3.304 | 2.308 | 1.8 | 0 | - |
+| loop controllers | 144.0 | 2.428 | 1.492 | 1.2 | 113 | 47 |
+| attention global layers (8 visits) | 54.0 | 1.366 | 1.120 | 0.9 | 0 | - |
+| attn-res mix | 144.0 | 1.544 | 1.098 | 0.9 | 0 | - |
+| short conv | 96.0 | 0.758 | 0.757 | 0.6 | 0 | - |
+| logits softcap+argmax | 3.0 | 0.643 | 0.643 | 0.5 | 0 | - |
+| norms | 121.0 | 0.853 | 0.360 | 0.3 | 0 | - |
+| MoE router gate | 96.0 | 0.442 | 0.351 | 0.3 | 28 | 64 |
+| eager glue between graphs (accept/commit/prep) | 18.8 | 0.274 | 0.270 | 0.2 | 0 | - |
+| draft Markov rnn_proj (cuBLAS gemv) | 14.0 | 0.267 | 0.267 | 0.2 | 55 | 206 |
+| draft sampling/argmax + rnn glue | 28.0 | 0.225 | 0.225 | 0.2 | 0 | - |
+| draft ctx K/V proj (in verify) | 3.0 | 0.143 | 0.143 | 0.1 | 28 | 198 |
+| global-layer conv weight_proj | 32.0 | 0.091 | 0.068 | 0.1 | 0 | - |
+| draft glue (prep/metadata) | 34.0 | 0.062 | 0.062 | 0.0 | 0 | - |
+| accept/commit glue (in verify) | 29.0 | 0.048 | 0.048 | 0.0 | 0 | - |
+| embed + verify glue | 17.0 | 0.037 | 0.037 | 0.0 | 0 | - |
+| **total kernels** | | 129.591 | 125.648 | 99.5 | 5875 (no MoE, no KV) | |
+
+GEMM detail (per kernel shape): n/step, us/call, MB/call, GB/s, kernel
+| class | role | grid | n/step | us/call | MB/call | GB/s | kernel |
+|---|---|---|---:|---:|---:|---:|---|
+| MoE grouped GEMM NVFP4 (layers 0-19) | w13 | [48, 1, 1] | 44.0 | 1091.8 | 0.00 | - | _ZN7cutlass13device_kernelINS_4gemm6kernel13Gemm |
+| MoE grouped GEMM NVFP4 (layers 0-19) | w2 | [48, 1, 1] | 44.0 | 519.5 | 0.00 | - | _ZN7cutlass13device_kernelINS_4gemm6kernel13Gemm |
+| MoE grouped GEMM MXFP8 (layers 20-23) | w13 | [48, 1, 1] | 4.0 | 1766.1 | 0.00 | - | cutlass::device_kernel<flashinfer::gemm::cute_sm |
+| dense qkvr cuBLAS |  | [360, 1, 1] | 28.0 | 231.4 | 39.63 | 171 | nvjet_sm121_tst_mma_192x104x64_2_32x104x64_tmaAB |
+| dense wo cuBLAS |  | [16, 9, 8] | 48.0 | 94.0 | 14.16 | 151 | cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s |
+| target LM head |  | [8, 131, 1] | 1.0 | 4486.0 | 926.32 | 206 | nvjet_sm121_tss_mma_192x160x64_2_48x80x64_tmaAB_ |
+| draft LM head (base logits) |  | [8, 131, 1] | 1.0 | 4395.9 | 926.32 | 211 | nvjet_sm121_tst_mma_192x160x64_2_48x80x64_tmaAB_ |
+| dense qkvr cuBLAS |  | [16, 34, 1] | 20.0 | 200.2 | 39.63 | 198 | cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s |
+| MoE grouped GEMM MXFP8 (layers 20-23) | w2 | [48, 1, 1] | 4.0 | 912.5 | 0.00 | - | cutlass::device_kernel<flashinfer::gemm::cute_sm |
+| draft Markov fold addmm (x7) |  | [8, 1571, 1] | 7.0 | 482.5 | 102.92 | 213 | cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s |
+| draft layers (3 x BF16 dense) | gate_up | [16, 72, 1] | 3.0 | 393.9 | 84.93 | 216 | cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s |
+| draft layers (3 x BF16 dense) | down | [16, 9, 7] | 3.0 | 209.3 | 42.47 | 203 | cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s |
+| draft layers (3 x BF16 dense) | qkv | [8, 5, 1] | 3.0 | 128.1 | 23.59 | 184 | nvjet_sm121_tst_mma_128x64x64_4_32x64x64_tmaAB_b |
+| MoE router gate |  | [16, 1, 8] | 48.0 | 7.4 | 0.59 | 79 | nvjet_sm121_tss_mma_64x72x64_5_16x72x64_tmaAB_sp |
+| draft Markov rnn_proj (cuBLAS gemv) |  | [8, 6, 4] | 7.0 | 36.7 | 7.86 | 214 | cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s |
+| draft layers (3 x BF16 dense) | o | [16, 9, 8] | 3.0 | 72.4 | 14.16 | 196 | cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s |
+| draft ctx K/V proj (in verify) |  | [8, 4, 1] | 3.0 | 47.7 | 9.44 | 198 | nvjet_sm121_tst_mma_64x64x64_6_16x32x64_tmaAB_bz |
+
+### MoE expert union back-solve (rows per verify = 64; random union of 64 independent top-8 draws from 128 = 125.9)
+| kind | visits/step | us/visit w13 | us/visit w2 | w13/w2 time | u @220 | u @240 | u max @273 (hard bound) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| nvfp4 | 44.0 | 1091.8 | 519.5 | 2.10 (bytes 2.00) | 79.1 | 86.3 | 98.2 |
+| mxfp8 | 4.0 | 1766.1 | 912.5 | 1.94 (bytes 2.00) | 71.8 | 78.3 | 89.1 |
+MXFP8 visit / NVFP4 visit time = 1.66x (bytes per expert 1.83x)
+MoE GEMM raw ms/step = 81.613
+
+Per layer application (mean over steps): app, stored layer, pass, w13 us, w2 us, implied u @240 (w13+w2)
+| app | layer | pass | global | w13 us | w2 us | u@240 |
+|---:|---:|---:|---|---:|---:|---:|
+| 0 | 0 | 1 |  | 1281 | 603 | 100.9 |
+| 1 | 1 | 1 |  | 1300 | 615 | 102.6 |
+| 2 | 2 | 1 |  | 1406 | 671 | 111.3 |
+| 3 | 3 | 1 |  | 1393 | 667 | 110.4 |
+| 4 | 4 | 1 |  | 1345 | 639 | 106.3 |
+| 5 | 5 | 1 | G | 1387 | 656 | 109.5 |
+| 6 | 6 | 1 |  | 1119 | 532 | 88.5 |
+| 7 | 7 | 1 |  | 1168 | 543 | 91.7 |
+| 8 | 8 | 1 |  | 1026 | 497 | 81.6 |
+| 9 | 9 | 1 |  | 1014 | 488 | 80.4 |
+| 10 | 10 | 1 |  | 1048 | 499 | 82.9 |
+| 11 | 11 | 1 | G | 1085 | 521 | 86.0 |
+| 12 | 12 | 1 |  | 1104 | 518 | 87.0 |
+| 13 | 13 | 1 |  | 1031 | 488 | 81.4 |
+| 14 | 14 | 1 |  | 1022 | 488 | 80.9 |
+| 15 | 15 | 1 |  | 968 | 461 | 76.6 |
+| 16 | 16 | 1 |  | 956 | 451 | 75.4 |
+| 17 | 17 | 1 | G | 473 | 226 | 37.5 |
+| 18 | 6 | 2 |  | 1226 | 584 | 97.0 |
+| 19 | 7 | 2 |  | 1230 | 573 | 96.6 |
+| 20 | 8 | 2 |  | 1165 | 565 | 92.7 |
+| 21 | 9 | 2 |  | 1105 | 530 | 87.6 |
+| 22 | 10 | 2 |  | 1117 | 535 | 88.5 |
+| 23 | 11 | 2 | G | 1117 | 538 | 88.7 |
+| 24 | 12 | 2 |  | 1170 | 555 | 92.4 |
+| 25 | 13 | 2 |  | 1046 | 502 | 83.0 |
+| 26 | 14 | 2 |  | 1012 | 485 | 80.2 |
+| 27 | 15 | 2 |  | 958 | 456 | 75.8 |
+| 28 | 16 | 2 |  | 1024 | 486 | 80.9 |
+| 29 | 17 | 2 | G | 626 | 295 | 49.3 |
+| 30 | 6 | 3 |  | 1168 | 558 | 92.5 |
+| 31 | 7 | 3 |  | 1148 | 535 | 90.2 |
+| 32 | 8 | 3 |  | 1097 | 532 | 87.3 |
+| 33 | 9 | 3 |  | 1056 | 503 | 83.5 |
+| 34 | 10 | 3 |  | 1050 | 502 | 83.2 |
+| 35 | 11 | 3 | G | 1078 | 520 | 85.6 |
+| 36 | 12 | 3 |  | 1173 | 556 | 92.6 |
+| 37 | 13 | 3 |  | 991 | 474 | 78.5 |
+| 38 | 14 | 3 |  | 1097 | 525 | 86.9 |
+| 39 | 15 | 3 |  | 1097 | 525 | 86.9 |
+| 40 | 16 | 3 |  | 1153 | 547 | 91.1 |
+| 41 | 17 | 3 | G | 1074 | 503 | 84.5 |
+| 42 | 18 | 1 |  | 900 | 422 | 70.8 |
+| 43 | 19 | 1 |  | 1033 | 490 | 81.6 |
+| 44 | 20 | 1 |  | 1739 | 881 | 76.6 |
+| 45 | 21 | 1 |  | 1775 | 963 | 80.0 |
+| 46 | 22 | 1 |  | 1725 | 882 | 76.2 |
+| 47 | 23 | 1 | G | 1825 | 924 | 80.4 |
+implied u@240 per stored layer: L0:101, L1:103, L2:111, L3:110, L4:106, L5:109, L6:93, L7:93, L8:87, L9:84, L10:85, L11:87, L12:91, L13:81, L14:83, L15:80, L16:82, L17:57, L18:71, L19:82, L20:77, L21:80, L22:76, L23:80
+
+## 4. Bytes-per-step roofline
+known weight bytes/step (dense, LM heads, draft, controllers) = 5.875 GB; KV read estimate (48 visits x 3072 tokens x 4 KiB) = 0.604 GB; MoE = u x 229.9 MB
+| MoE union assumption | u | total GB | floor @220 ms | floor @240 ms | measured busy ms | busy / floor@240 |
+|---|---:|---:|---:|---:|---:|---:|
+| u from MoE time @240 (MoE assumed at 240 GB/s) | 86.3 | 26.33 | 119.7 | 109.7 | 125.7 | 1.15 |
+| u from MoE time @220 | 79.1 | 24.68 | 112.2 | 102.8 | 125.7 | 1.22 |
+| u hard upper bound @273 | 98.2 | 29.06 | 132.1 | 121.1 | 125.7 | 1.04 |
+| random union (125.9) | 125.9 | 35.44 | 161.1 | 147.6 | 125.7 | 0.85 |
+non-MoE kernel occupancy = 44.03 ms vs known+KV bytes floor 27.00 ms @240 / 29.45 ms @220
+
+## 5. Server log (decode_log_interval windows; accept len = tokens per step per request incl. bonus)
+running-req=1: windows=20 accept len mean=1.89 min=1.43 p50=1.90 max=2.48; gen tok/s median=29.7
+running-req=5: windows=1 accept len mean=1.92 min=1.92 p50=1.92 max=1.92; gen tok/s median=109.5
+running-req=7: windows=1 accept len mean=1.90 min=1.90 p50=1.90 max=1.90; gen tok/s median=116.0
+running-req=8: windows=18 accept len mean=2.00 min=1.75 p50=1.90 max=3.74; gen tok/s median=124.1

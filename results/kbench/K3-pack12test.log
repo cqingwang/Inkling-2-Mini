@@ -1,0 +1,12 @@
+  gauss_rowscale 860x2304  [860x2304] exponents 110..124, 667 exceptions (0.0337 %, max 6/row), 12.035 bits/weight
+  student_t 860x2304       [860x2304] exponents 110..124, 851 exceptions (0.0429 %, max 5/row), 12.041 bits/weight
+  outliers 860x2304        [860x2304] exponents 109..123, 11826 exceptions (0.5968 %, max 369/row), 12.396 bits/weight
+  tiny_mixed 860x2304      [860x2304] exponents 109..123, 20058 exceptions (1.0123 %, max 36/row), 12.662 bits/weight
+  lm_head 860x2304         [860x2304] exponents 109..123, 344 exceptions (0.0174 %, max 3/row), 12.025 bits/weight
+  gauss_rowscale 230x3072  [230x3072] exponents 110..124, 230 exceptions (0.0326 %, max 6/row), 12.031 bits/weight
+  student_t 230x3072       [230x3072] exponents 110..124, 299 exceptions (0.0423 %, max 5/row), 12.038 bits/weight
+  outliers 230x3072        [230x3072] exponents 109..123, 4069 exceptions (0.5759 %, max 498/row), 12.379 bits/weight
+  tiny_mixed 230x3072      [230x3072] exponents 109..123, 7120 exceptions (1.0077 %, max 45/row), 12.655 bits/weight
+  lm_head 230x3072         [230x3072] exponents 109..123, 135 exceptions (0.0191 %, max 4/row), 12.023 bits/weight
+  qkvr 8600x2304 gauss       [8600x2304] exponents 110..124, 7669 exceptions (0.0387 %, max 179/row), 12.039 bits/weight  packed/bf16 bytes 0.7524
+test_pack12: 65 cases bit-identical on cuda

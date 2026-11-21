@@ -1,0 +1,2 @@
+{"label":"PF1-chunk16k","ready_utc":"2026-11-21T11:15:12Z","startup_s":344,"memavail_after_ready_gib":35.8,"kv":"[2026-11-21 11:15:10 PID104] max_total_num_tokens=842752, chunked_prefill_size=16384, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=36.07 GB"}
+{"label":"PF1-chunk16k","memavail_after_bench_gib":35.4}

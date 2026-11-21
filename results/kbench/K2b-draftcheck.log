@@ -1,0 +1,172 @@
+[inkling_draftbytes] armed: options=gemv,fold8:row,hotvocab:32768; patches apply when sglang.srt.models.inkling2_mtp is imported; weights prepare at draft attach
+[inkling_draftbytes] active: options=gemv,fold8:row,hotvocab:32768; patched Inkling2ForConditionalGenerationMTP.attach_shared_modules, Inkling2MTPHead.refresh_fold, inkling2_mtp.project_through_lm_head, Inkling2MTPHead.step_bias, Inkling2ForConditionalGenerationMTP.compute_base_logits, dspark_draft._draft_step; fold8:row 52.3 MB; hotvocab 32768 ids of 201024 (head bf16, fold row) 159.6 MB; gemv (sm12x <=16 rows, own kernel <= 16)
+model config from /model/config.json: {'padded_vocab_size': 201024, 'unpadded_vocab_size': 201024, 'final_logit_softcapping': 30.0, 'hidden_size': 2304, 'markov_rank': 256}
+torch 2.14.1+cu130, device NVIDIA GB10, cc (12, 1)
+
+== Part 1: kernels vs reference
+  [PASS] foldk M=1 vs addmm within-1ulp=1.00000
+  [PASS] foldk M=2 vs addmm within-1ulp=1.00000
+  [PASS] foldk M=4 vs addmm within-1ulp=1.00000
+  [PASS] foldk M=8 vs addmm within-1ulp=1.00000
+  [PASS] fold8:row M=1 kernel vs reference within-1ulp=1.00000
+  [PASS] fold8:row M=8 kernel vs reference within-1ulp=1.00000
+  [info] fold8:row vs BF16 stock rel=0.0263
+  [PASS] fold8:g32 M=1 kernel vs reference within-1ulp=1.00000
+  [PASS] fold8:g32 M=8 kernel vs reference within-1ulp=1.00000
+  [info] fold8:g32 vs BF16 stock rel=0.0241
+  [PASS] fold8:mx M=1 kernel vs reference within-1ulp=1.00000
+  [PASS] fold8:mx M=8 kernel vs reference within-1ulp=1.00000
+  [info] fold8:mx vs BF16 stock rel=0.0268
+  [PASS] gemv M=1 vs matmul within-1ulp=1.00000
+  [PASS] gemv M=7 vs matmul within-1ulp=1.00000
+  [PASS] gemv M=14 vs matmul within-1ulp=1.00000
+  [PASS] gemv M=21 vs matmul within-1ulp=1.00000
+  [PASS] gemv M=28 vs matmul within-1ulp=1.00000
+  [PASS] gemv M=56 vs matmul within-1ulp=1.00000
+  [PASS] head8:row M=7 kernel vs reference within-1ulp=1.00000
+  [PASS] head8:row M=14 kernel vs reference within-1ulp=1.00000
+  [info] head8:row vs BF16 rel=0.0266 argmax-agree=1.000
+  [PASS] head8:mx M=7 kernel vs reference within-1ulp=1.00000
+  [PASS] head8:mx M=14 kernel vs reference within-1ulp=1.00000
+  [info] head8:mx vs BF16 rel=0.0267 argmax-agree=1.000
+  [PASS] draftmx8:mx [5120x2304] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:mx [5120x2304] vs BF16 rel=0.0268
+  [PASS] draftmx8:row [5120x2304] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:row [5120x2304] vs BF16 rel=0.0267
+  [PASS] draftmx8:mx [2304x3072] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:mx [2304x3072] vs BF16 rel=0.0268
+  [PASS] draftmx8:row [2304x3072] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:row [2304x3072] vs BF16 rel=0.0264
+  [PASS] draftmx8:mx [18432x2304] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:mx [18432x2304] vs BF16 rel=0.0268
+  [PASS] draftmx8:row [18432x2304] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:row [18432x2304] vs BF16 rel=0.0267
+  [PASS] draftmx8:mx [2304x9216] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:mx [2304x9216] vs BF16 rel=0.0266
+  [PASS] draftmx8:row [2304x9216] M=8 kernel vs reference within-1ulp=1.00000
+  [info] draftmx8:row [2304x9216] vs BF16 rel=0.0265
+  [PASS] hot_step bf16 M=1 kernel vs reference within-1ulp=1.00000
+  [PASS] hot_step bf16 M=4 kernel vs reference within-1ulp=1.00000
+  [PASS] hot_step fp8 M=1 kernel vs reference within-1ulp=1.00000
+  [PASS] hot_step fp8 M=4 kernel vs reference within-1ulp=1.00000
+
+== Part 2: integration with the real sglang classes
+  [PASS] bs=1 stock: graph replay == eager 
+  [PASS] bs=1 gemv: graph replay == eager 
+  [PASS] bs=1 foldk: graph replay == eager 
+  [PASS] bs=1 fold8: graph replay == eager 
+  [PASS] bs=1 gemv+fold8: graph replay == eager 
+  [PASS] bs=1 hot32768: graph replay == eager 
+  [PASS] bs=1 hot32768+fold8: graph replay == eager 
+  [PASS] bs=1 hot32768+fold8+gemv: graph replay == eager 
+  [PASS] bs=1 hot32768+fold8+head8: graph replay == eager 
+  [PASS] bs=1 gemv: step logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=1 gemv token agreement 1.000; step-logit rel err 0.0000
+  [PASS] bs=1 foldk: step logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=1 foldk token agreement 1.000; step-logit rel err 0.0000
+  [info] bs=1 fold8 token agreement 1.000; step-logit rel err 0.0060
+  [info] bs=1 gemv+fold8 token agreement 1.000; step-logit rel err 0.0060
+  [PASS] bs=1 hot32768: off-hot step logits are -inf 
+  [PASS] bs=1 hot32768: every drafted token is hot 
+  [PASS] bs=1 hot32768: hot logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=1 hot32768 token agreement where stock token is hot: nan
+  [PASS] bs=1 hot32768+fold8: off-hot step logits are -inf 
+  [PASS] bs=1 hot32768+fold8: every drafted token is hot 
+  [info] bs=1 hot32768+fold8 token agreement where stock token is hot: nan
+  [PASS] bs=1 hot32768+fold8+gemv: off-hot step logits are -inf 
+  [PASS] bs=1 hot32768+fold8+gemv: every drafted token is hot 
+  [info] bs=1 hot32768+fold8+gemv token agreement where stock token is hot: nan
+  [PASS] bs=1 hot32768+fold8+head8: off-hot step logits are -inf 
+  [PASS] bs=1 hot32768+fold8+head8: every drafted token is hot 
+  [info] bs=1 hot32768+fold8+head8 token agreement where stock token is hot: nan
+
+== Part 3: draft vocab work per step, bs=1 (base logits + 7 Markov steps)
+  stock                          7.725 ms   saves +0.000 ms vs stock
+  gemv                           7.611 ms   saves +0.115 ms vs stock
+  foldk                          7.579 ms   saves +0.146 ms vs stock
+  fold8                          6.007 ms   saves +1.718 ms vs stock
+  gemv+fold8                     5.902 ms   saves +1.823 ms vs stock
+  hot32768                       1.364 ms   saves +6.361 ms vs stock
+  hot32768+fold8                 1.251 ms   saves +6.474 ms vs stock
+  hot32768+fold8+gemv            1.237 ms   saves +6.489 ms vs stock
+  hot32768+fold8+head8           0.920 ms   saves +6.805 ms vs stock
+  [PASS] bs=2 stock: graph replay == eager 
+  [PASS] bs=2 gemv: graph replay == eager 
+  [PASS] bs=2 foldk: graph replay == eager 
+  [PASS] bs=2 fold8: graph replay == eager 
+  [PASS] bs=2 gemv+fold8: graph replay == eager 
+  [PASS] bs=2 hot32768: graph replay == eager 
+  [PASS] bs=2 hot32768+fold8: graph replay == eager 
+  [PASS] bs=2 hot32768+fold8+gemv: graph replay == eager 
+  [PASS] bs=2 hot32768+fold8+head8: graph replay == eager 
+  [PASS] bs=2 gemv: step logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=2 gemv token agreement 1.000; step-logit rel err 0.0000
+  [PASS] bs=2 foldk: step logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=2 foldk token agreement 1.000; step-logit rel err 0.0000
+  [info] bs=2 fold8 token agreement 1.000; step-logit rel err 0.0063
+  [info] bs=2 gemv+fold8 token agreement 1.000; step-logit rel err 0.0063
+  [PASS] bs=2 hot32768: off-hot step logits are -inf 
+  [PASS] bs=2 hot32768: every drafted token is hot 
+  [PASS] bs=2 hot32768: hot logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=2 hot32768 token agreement where stock token is hot: nan
+  [PASS] bs=2 hot32768+fold8: off-hot step logits are -inf 
+  [PASS] bs=2 hot32768+fold8: every drafted token is hot 
+  [info] bs=2 hot32768+fold8 token agreement where stock token is hot: nan
+  [PASS] bs=2 hot32768+fold8+gemv: off-hot step logits are -inf 
+  [PASS] bs=2 hot32768+fold8+gemv: every drafted token is hot 
+  [info] bs=2 hot32768+fold8+gemv token agreement where stock token is hot: nan
+  [PASS] bs=2 hot32768+fold8+head8: off-hot step logits are -inf 
+  [PASS] bs=2 hot32768+fold8+head8: every drafted token is hot 
+  [info] bs=2 hot32768+fold8+head8 token agreement where stock token is hot: nan
+
+== Part 3: draft vocab work per step, bs=2 (base logits + 7 Markov steps)
+  stock                          7.729 ms   saves +0.000 ms vs stock
+  gemv                           7.623 ms   saves +0.106 ms vs stock
+  foldk                          7.577 ms   saves +0.153 ms vs stock
+  fold8                          6.005 ms   saves +1.725 ms vs stock
+  gemv+fold8                     5.906 ms   saves +1.824 ms vs stock
+  hot32768                       1.481 ms   saves +6.249 ms vs stock
+  hot32768+fold8                 1.106 ms   saves +6.623 ms vs stock
+  hot32768+fold8+gemv            1.100 ms   saves +6.629 ms vs stock
+  hot32768+fold8+head8           0.779 ms   saves +6.950 ms vs stock
+  [PASS] bs=4 stock: graph replay == eager 
+  [PASS] bs=4 gemv: graph replay == eager 
+  [PASS] bs=4 foldk: graph replay == eager 
+  [PASS] bs=4 fold8: graph replay == eager 
+  [PASS] bs=4 gemv+fold8: graph replay == eager 
+  [PASS] bs=4 hot32768: graph replay == eager 
+  [PASS] bs=4 hot32768+fold8: graph replay == eager 
+  [PASS] bs=4 hot32768+fold8+gemv: graph replay == eager 
+  [PASS] bs=4 hot32768+fold8+head8: graph replay == eager 
+  [PASS] bs=4 gemv: step logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=4 gemv token agreement 1.000; step-logit rel err 0.0000
+  [PASS] bs=4 foldk: step logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=4 foldk token agreement 1.000; step-logit rel err 0.0000
+  [info] bs=4 fold8 token agreement 1.000; step-logit rel err 0.0062
+  [info] bs=4 gemv+fold8 token agreement 1.000; step-logit rel err 0.0062
+  [PASS] bs=4 hot32768: off-hot step logits are -inf 
+  [PASS] bs=4 hot32768: every drafted token is hot 
+  [PASS] bs=4 hot32768: hot logits within 1 ulp of stock (same-prefix steps) 1.00000
+  [info] bs=4 hot32768 token agreement where stock token is hot: nan
+  [PASS] bs=4 hot32768+fold8: off-hot step logits are -inf 
+  [PASS] bs=4 hot32768+fold8: every drafted token is hot 
+  [info] bs=4 hot32768+fold8 token agreement where stock token is hot: nan
+  [PASS] bs=4 hot32768+fold8+gemv: off-hot step logits are -inf 
+  [PASS] bs=4 hot32768+fold8+gemv: every drafted token is hot 
+  [info] bs=4 hot32768+fold8+gemv token agreement where stock token is hot: nan
+  [PASS] bs=4 hot32768+fold8+head8: off-hot step logits are -inf 
+  [PASS] bs=4 hot32768+fold8+head8: every drafted token is hot 
+  [info] bs=4 hot32768+fold8+head8 token agreement where stock token is hot: nan
+
+== Part 3: draft vocab work per step, bs=4 (base logits + 7 Markov steps)
+  stock                          8.171 ms   saves +0.000 ms vs stock
+  gemv                           8.167 ms   saves +0.004 ms vs stock
+  foldk                          8.005 ms   saves +0.166 ms vs stock
+  fold8                          6.418 ms   saves +1.752 ms vs stock
+  gemv+fold8                     6.415 ms   saves +1.756 ms vs stock
+  hot32768                       1.697 ms   saves +6.474 ms vs stock
+  hot32768+fold8                 1.301 ms   saves +6.869 ms vs stock
+  hot32768+fold8+gemv            1.294 ms   saves +6.877 ms vs stock
+  hot32768+fold8+head8           0.971 ms   saves +7.200 ms vs stock
+
+ALL GATED CHECKS PASSED

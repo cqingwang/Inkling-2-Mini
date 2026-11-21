@@ -1,0 +1,413 @@
+# inkling_vcap: verify-width cap for Inkling-2 DSpark (dead-row expert remap)
+
+This overlay is for Inkling-2-Mini on one DGX Spark, with SGLang DSpark static verify
+(8 rows per request). Before each target verify it picks a live length `L` for each
+request, using only information the draft has already produced. Verify rows `>= L` are
+"dead". It overwrites their routed expert ids and weights with those of the request's
+anchor row, so the grouped GEMMs read only the experts the live rows need. It also
+caps the accept at row `L-1`.
+
+The static `[bs, 8]` shape and every CUDA graph stay as they are. When
+`INKLING_VERIFY_CAP` is unset or `off`, the overlay does nothing.
+
+All code was written from scratch against the image's sglang sources (read-only
+reference). The overlay patches at import time and edits no engine file.
+
+## Does the engine already have this?
+
+It does not. Read this section before choosing modes.
+
+- `SGLANG_RAGGED_VERIFY_MODE=cap-accept` already caps the accept, through the same
+  `cutoff_verify_lens` plumbing used here. It has four problems:
+  - It needs a draft confidence head or the online acceptance estimator. The bundled
+    Inkling draft has no confidence head.
+  - Its budget is planned on the host from confidences that are about two steps old,
+    and it is a batch-wide top-k.
+  - Leaving `static` mode switches off the static verify epilogue. That is the folded
+    in-graph greedy accept/commit (`static_mode` in `DSparkWorkerV2.__init__`), so the
+    step glue gets slower.
+  - It never touches the MoE routing. The verify still reads the expert union of all
+    8 rows, so cap-accept alone only throws away acceptance and saves no bandwidth.
+- `SGLANG_RAGGED_VERIFY_MODE=compact` packs fewer tokens. At bs=1 it cannot shrink
+  anything: `plans_verify_budget` is false because the floor tier and the full tier
+  are the same graph.
+
+So the overlay keeps `static` mode and adds two pieces:
+
+1. A same-step live length that it computes itself.
+2. The cutoff in the static epilogue's in-graph greedy accept. Today that accept never
+   caps; `_accept` is called without `cutoff_verify_lens`, and the fused tail writes a
+   zero trim.
+
+It also adds the MoE dead-row remap, which no engine mode has.
+
+## Modes (environment)
+
+| Variable | Values | Default |
+|---|---|---|
+| `INKLING_VERIFY_CAP` | `off` (or unset); `fixed:K` (K in 1..8); `conf:T` (alias `confmax:T`); `cost:B1=T1,B2=T2,...`. Any mode can be followed by `,min=A`, `,max=B`, `,bsmax=N` | off |
+| `INKLING_VERIFY_CAP_REMAP` | `1` = remap dead rows; `0` = cap only (for the exactness A/B) | 1 |
+| `INKLING_VERIFY_CAP_FUSED` | `1` = remap is one Triton launch per MoE visit, bit-checked against `index_select` on the device at startup, with fallback; `0` = two `index_select` launches | 1 |
+| `INKLING_VERIFY_CAP_LOG_EVERY` | prints a stats line every N decode steps; `0` = no stats kernels at all | 500 |
+| `INKLING_VERIFY_CAP_UNION` | `1` = count the distinct experts at each MoE visit in target verify (graph-safe device counters, per layer, in the stats line). When unset or `0`, nothing is recorded. | 0 |
+
+The modes work like this:
+
+- **`fixed:K`**: every request verifies rows `0..K-1`, which is `K-1` drafts plus the
+  bonus.
+- **`conf:T`** works per request, using the draft's kept step logits. It takes the
+  per-position **max** draft probability `m_j`; sampled rows use their temperature and
+  greedy rows use temperature 1. It computes `surv_j = prod_{i<=j} m_i` and sets
+  `L = 1 + #{j : surv_j >= T}` (this count is a leading run because `surv` never
+  increases). `L` is then clamped to `[min, max]`.
+  - For greedy rows the draft token is the argmax, so the max probability is also the
+    proposed token's probability.
+  - A cut on the proposed token's own probability is deliberately not offered, because
+    it is not exact for sampled requests (see below).
+- **`cost:B1=T1,...`** is `conf` with a survival threshold chosen by the decode batch
+  size.
+  - A step of `bs` requests uses the smallest key `>= bs`. Above the largest key, it
+    uses the largest key's threshold.
+  - `T = 0` means every row is live. Such a step does no draft-logit work, and once its
+    buffers are set it launches nothing.
+  - Example: `cost:1=0.30,2=0.25,4=0.15,8=0.0`.
+
+  The idea is to verify the next row only while its expected accepted tokens pay for
+  the row's cost. That cost is high at c1, where the expert union is far from
+  saturation. At c8 it is near zero, because the union is already near saturation, so
+  `T` there should be about 0.
+- **`bsmax=N`** (any mode): when `bs > N`, every request verifies all 8 rows. The
+  decision is made on the host from the batch size, with no sync.
+
+The intended runtime is the recipe launch: `--tp 1 --ep 1 --attention-backend fa4
+... --speculative-algorithm DSPARK --speculative-num-draft-tokens 8` plus the four
+`SGLANG_OPT_*` flags, with `SGLANG_RAGGED_VERIFY_MODE` unset (it defaults to `static`).
+
+## Patch points (all in the image's `sglang` package)
+
+| Target | What the overlay does |
+|---|---|
+| `srt/models/inkling_common/inkling2_moe.py: Inkling2MoE.forward` | Sets a flag only when `forward_batch.forward_mode.is_target_verify()`, so prefill, decode and draft are never touched. |
+| `... : Inkling2Gate.forward` | Takes the `(weights, ids)` from `route_topk` and returns them gathered by `src_index[:M]`: `index_select` on rows, graph-safe. With UNION=1 it also adds the distinct-expert count to a device counter. |
+| `srt/speculative/dspark_components/dspark_verify.py: TargetVerifyExecutor.run_non_compact` | Runs right before the static verify replay, on the same stream. It writes the step's live lengths and remap index (no host sync), then calls the original. `Inkling2MTPVerifyExecutor` inherits it. |
+| `... : DsparkVerifyEpilogue._accept_static_greedy` | Records `self._accept(..., cutoff_verify_lens=verify_lens)` into the verify graph, so the folded greedy accept is capped by the device buffer `verify_lens_buf`. The fused accept tail never caps, so it is bypassed while the overlay is on. |
+| `... : accept_draft_tokens` (module function) | When the static path passes `cutoff_layout=None`, injects a cutoff whose `verify_lens` is the live-length buffer. This covers the eager accept (sampled steps, grammar, non-graph). |
+| `.../dspark_sampling_accept_graph.py: accept_draft_tokens` (imported name) | Same wrapper, for the sampling-accept CUDA-graph region (`SGLANG_OPT_DSV41_SAMPLING_ACCEPT_GRAPH`). |
+| `.../dspark_draft.py: DraftBlockProposer.propose` | Stashes the proposal (draft tokens, kept step logits, temperatures, greedy mask) for the verify step that follows. |
+| `.../dspark_worker_v2.py: DSparkWorkerV2.__init__` | After the original: validates the setup, allocates buffers, enables the overlay, and prints one startup line. |
+| `... : DSparkWorkerV2._forward_decode` | After the original: accumulates the stats (mean L, commit, uncapped commit) on the device. |
+
+The live-length buffer **is** the static epilogue's own `verify_lens_buf` (int64,
+`[max_bs]`), so the in-graph accept reads it at replay. That buffer exists for Inkling
+because `Inkling2ForConditionalGenerationMTP.folds_static_verify_commit = True`.
+Without an epilogue, the overlay uses its own buffer and the accept runs eagerly.
+
+### Fail-loud guards
+
+- Every hook checks that its targets exist, with exact parameter lists, plus a few
+  source invariants. Examples: `run_static` slices `verify_lens_buf` and passes it to
+  `accept`; `_forward_decode` calls propose, then `begin_static_step`, then
+  `run_non_compact`, then `accept_and_finalize`; `Inkling2MoE.forward` calls
+  `self.gate(x)` before `self.experts(`. A mismatch raises inside the sglang import.
+- At worker init the overlay refuses to start in these cases:
+  - Ragged mode is not `static`.
+  - `SGLANG_SIMULATE_ACC_LEN` is set.
+  - `SGLANG_DSPARK_SIMULATE_FOLD` is set.
+  - Block verification is on.
+  - PP > 1.
+  - Vocab-sharded accept.
+  - No `Inkling2MoE` in the target.
+  - `conf` mode with tp > 1 or attention DP. The live lengths would not be
+    rank-synced; `fixed` mode works there.
+  - `conf` mode with `SGLANG_DSPARK_USE_GREEDY_DRAFT=1`, which keeps no step logits.
+- At the first decode step, `conf` mode refuses a megakernel or int8-markov draft
+  sampler, because those may leave greedy rows' step logits unwritten.
+- At the first decode step the overlay also refuses to run if the remap was recorded
+  into the verify graphs but the capped accept was not.
+- A malformed `INKLING_VERIFY_CAP` stops the process at interpreter start (SystemExit
+  from sitecustomize).
+
+## Why the output stays exact
+
+1. **Live rows are bit-identical to the uncapped verify.** Row `r` reads only rows
+   `<= r`:
+   - Attention is causal within the verify chain.
+   - The short convolutions (`attn_sconv`, `mlp_sconv`) are causal.
+   - Attn-res and loop messages are per token.
+   - The MoE is per token. Each token routes on its own gate logits. The NVFP4/MXFP8
+     activation scales are per row (`nvfp4_routed_quantize` returns a per-row amax).
+     The grouped-GEMM tile is chosen from the static total token count (`_tiles(tokens)`).
+     The combine sums each token's own top-k rows.
+
+   Dead rows are later than every live row of their request, so overwriting their
+   routing changes nothing a live row reads. Dead rows still compute finite values:
+   real experts, real weights, real inputs. So no 0*NaN can leak through masked
+   attention tiles.
+2. **Acceptance never uses a dead row.** The cap sets `correct = min(correct, L-1)`,
+   so the bonus comes from row `<= L-1`. Commit lengths are `<= L`, and every piece
+   of bookkeeping is keyed on them: target KV, SWA ring, conv/mamba state commit
+   (`commit_lens - 1`), draft KV/hidden commit (`gated = min(commit, verify_lens) * gate`),
+   radix cache, FutureMap relay. A capped step therefore looks to the engine exactly
+   like a natural rejection at row `L-1`.
+3. **Greedy:** every committed token is the target argmax given an exact prefix, which
+   is the same chain the uncapped engine produces.
+4. **Sampled:** the decision to verify draft `d_j` depends only on `m_0..m_j`. Each
+   `m_i` is a function of the draft distribution at position `i` (the context plus
+   `d_{<i}`), never of `d_j` itself. So given the accepted prefix, `d_j` is still
+   drawn from the draft law `q_j`, and rejection sampling still outputs `p`.
+   Truncating is a stopping rule on past information; a truncated step emits the row
+   `L-1` output, which is distributed as `p`.
+
+   A cut on `q_j(d_j)` (the proposed token's probability) conditions `d_j` on itself
+   and is **biased**. The Monte Carlo test shows both facts: the max-probability rule
+   is within 4e-3 of the exact joint, and the token-probability rule is off by
+   about 0.037.
+
+   **What the stock sampled kernels do under the cap** (checked against
+   `speculative_sampling_classic_kernel`, its split variant, `blockwise_rejection`
+   (`_rejection_kernel` + `_insert_kernel`), and the ROCm split accept):
+   - The rejection walk runs over every row, dead rows included. `correct` is then
+     `min(raw, L-1)`.
+   - If the cap trims (`raw > L-1`), the bonus is `candidates[L]`, which is `d_{L-1}`.
+     That token sits in the first dead row, but it was *accepted at row L-1* using row
+     `L-1`'s live target distribution and coin. In the classic kernel this is
+     `predicts[accept_index[L-1]]`. Blockwise uses the `capped < raw` branch.
+   - Otherwise (`raw <= L-1`, including the boundary `raw == L-1`), the bonus is the
+     residual sample at row `raw`, which is live.
+   - So the token emitted at the boundary is the rejection-sampling output of row
+     `L-1`, which is distributed as `p_{L-1}`. Dead rows only influence `raw` beyond
+     `L-1` and the final sample at a dead row, and both are discarded.
+   - This is the standard argument (the output at each verified row is `p`-distributed
+     given the prefix) plus a stopping time that is fixed before the target runs.
+   - The alternative "stop before `d_{L-1}` and draw a fresh `p_{L-1}` bonus" is equally
+     exact. It is not needed.
+
+   `StockCappedSamplingLawTest` checks this with a multi-step Monte Carlo that mirrors
+   the stock kernels:
+   - Order-1 Markov target and draft, gamma = 3, L from the max-probability rule.
+   - Dead rows are given a deliberately wrong target distribution.
+   - Boundary cases `raw == L-1` (about 18 % of steps) and trims (about 42 %) are
+     asserted to occur.
+   - The first three emitted tokens match the exact joint law to within 3.5e-3
+     (measured 8e-4). The fresh-bonus variant also passes.
+   - A negative control that leaks the dead-row residual into the bonus is off by
+     about 0.11, and the test asserts that it is detected.
+
+   Caveat: block verification (`BLOCK_VERIFICATION=True`, Sun et al.) makes each accept
+   decision from the whole block's probabilities, dead rows included. It is not exact
+   under the cap, so the overlay refuses `--speculative-use-block-verification`.
+
+5. **Full width is inert.** If no batch size can ever get `L < 8` (`fixed:8`, `conf:0`,
+   or `cost:` with every `T = 0`), the overlay sets `capping=off (inert)` at startup:
+   - no remap is recorded;
+   - no cutoff is injected;
+   - the stock accept, including the fused tail, is kept.
+
+   Only the stats and the optional union counter remain. The counter is observational:
+   it gathers the ids into a separate tensor, and graph-padding rows read as row 0, so
+   padding does not inflate the count.
+
+   In capping modes, graph-padding requests (`L = 0`) are deliberately remapped to
+   row 0 and capped to 0. Their outputs are discarded by the engine, and this only
+   shrinks the union.
+
+## How dead rows shrink the expert union
+
+Each MoE application reads the union of top-8 experts over the step's rows. Dead rows
+get the anchor row's ids, so per request the union becomes the union over rows `0..L-1`.
+Experts with no tokens get no grouped-GEMM work and their weights are not read.
+
+That saving happens at each of the 48 layer applications:
+
+- 24 stored layers, with 6-17 looped 3 times.
+- About 4.48 MB per NVFP4 expert and 8.21 MB per MXFP8 expert, so roughly 230 MB per
+  unit of union.
+
+### Rough c1 model
+
+Assumptions:
+
+- About 16.9 ms of non-MoE reads per step: 3.72 GB at 220 GB/s.
+- The rest of the measured 60 ms is MoE, which means a union of about 41 at 8 rows.
+- The union grows like independent top-8 draws, scaled down to match that 41.
+- Per-position acceptance of 0.6.
+
+| L | union | step (ms) | tokens/step | tok/s |
+|---|---|---|---|---|
+| 8 (today) | 41 | 60 | 2.46 | 41 |
+| 5 | 28 | 46 | 2.31 | 50 |
+| 4 | 23 | 41 | 2.18 | 53 |
+| 3 | 18 | 36 | 1.96 | 55 |
+| 2 | 12 | 30 | 1.60 | 54 |
+
+This is only a model. Correlated routing inside one request makes the union grow
+*slower* than independent draws, which shrinks the gain. Draft time and launch costs
+are ignored. `conf:T` should beat the best fixed K, because it spends rows only where
+the draft is confident. Measure the real union with `INKLING_VERIFY_CAP_UNION=1`.
+
+## CUDA-graph safety
+
+- `live_lens` (the epilogue's `verify_lens_buf`) and `src_index` (`[max_bs*8]` int64)
+  are static device buffers. They are written by plain tensor ops right before the
+  replay, on the same stream, with no `.item()` or `.tolist()`.
+- During capture `src_index` is the identity and `verify_lens_buf` holds zeros, so
+  capture and warmup outputs are unaffected.
+- The graphs record `index_select` (remap), `CapCorrectLen` plus the bonus gather (the
+  same in-graph kernels ragged `compact` already captures), and the gated commit.
+- Graph padding requests get `L = 0`: they are remapped to row 0 and capped to 0.
+- If a step's batch is larger than the captured maximum, the remap (by row count) and
+  the cutoff (by request count) both skip, so they stay consistent.
+- Interaction with the user's folding flags:
+  - `MID_FOLD`: verify ids from the draft graph tail. No effect.
+  - `PREPARE_INPUTS_ONCE`: the window and anchor are built in one launch. No effect.
+  - `SKIP_PREFILLED_INPUTS`: input_ids and positions are not re-copied. No effect.
+  - `INKLING2_VERIFY_REL_BIAS_KERNEL`: an attention kernel. No effect.
+
+  None of them touch these two buffers. Under `TARGET_METADATA_EARLY` the side stream
+  stages metadata only, and the replay still runs on the main stream after these
+  writes.
+- Per-step eager cost:
+  - Constant-L steps (`fixed`, above `bsmax`, `T=0`) launch nothing once the buffers
+    hold the right values. The overlay only refills them when the batch size or the
+    epilogue's `(bs, armed)` state changes.
+  - `conf`/`cost` steps with `T>0` take about 15 small launches: softmax stats over
+    `[bs*7, V]`, cumprod, and the index rebuild. That is roughly 0.1-0.2 ms at c1.
+  - Stats take 3 launches per step for constant L and 5 for dynamic L, plus one host
+    sync every `LOG_EVERY` steps. They are off with `LOG_EVERY=0`.
+- Inside the graph:
+  - Remap: one fused launch per MoE visit, 48 per verify graph. Before this change it
+    was two `index_select` launches per visit, 96 in all.
+  - Capped greedy accept: about 2 more small kernels than the uncapped one.
+  - With `UNION=1`, the counter adds about 6 kernels per visit, about 290 per graph.
+    Measure speed with it off.
+
+## Docker additions
+
+```
+-v /path/to/repo/overlay:/opt/inkling-overlay:ro
+-e PYTHONPATH=/opt/inkling-overlay            # append ":$PYTHONPATH" if the image sets one
+-e INKLING_VERIFY_CAP=conf:0.3             # or fixed:4, or off
+-e INKLING_VERIFY_CAP_LOG_EVERY=500        # optional
+-e INKLING_VERIFY_CAP_UNION=1              # optional, measurement runs only
+```
+
+- Do not set `SGLANG_RAGGED_VERIFY_MODE`; it must stay `static`.
+- The server must be launched by a normal `python` (not `-I` or `-S`), or
+  sitecustomize is ignored.
+- The overlay's `sitecustomize.py` runs any `sitecustomize` it shadows.
+- Check it is active: the scheduler log should show
+  `[inkling-vcap] enabled mode=... patched: ...`. The first decode step then prints
+  `[inkling-vcap] first decode step: remap recorded in N MoE calls ...`. N > 0 means
+  the remap is inside the verify graphs; expect 48 × (warmups + captures) per captured
+  batch size. Stats lines follow, `steps=... mean_live=... mean_commit=...
+  mean_uncapped=... [union_mean=...]`. `mean_uncapped` is commit plus the drafts the
+  cap trimmed, so `mean_uncapped - mean_commit` is the acceptance the cap gave up.
+
+## Test plan
+
+### CPU (done here)
+
+Run from this directory:
+
+```
+python -m unittest discover -s tests -v
+```
+
+22 tests, all passing on torch 2.15 CPU. They cover:
+
+- Config parsing.
+- Live lengths.
+- The remap index (identity, dead rows to anchor, padding rows to 0, partial rebuild).
+- Union shrink.
+- The greedy cap.
+- The sampled stopping rule: a two-token Monte Carlo, plus the multi-step
+  stock-kernel Monte Carlo with garbage dead rows, boundary cases and a negative
+  control.
+- Import-hook and signature guards.
+- An end-to-end toy DSpark loop through the real `sitecustomize`. It runs on stand-in
+  modules with the engine's names and signatures and a float64 causal toy with
+  `Inkling2MoE` layers (one of them looped) and per-position caches. It checks:
+  - Greedy output is byte-identical for off, `fixed:{8,3,1}`, `conf`, and `confmax`.
+  - It holds with remap on and off.
+  - It holds on both the eager accept path and the epilogue-style accept path.
+  - The union drops with `fixed:3`.
+
+### On the Spark (c1, greedy, temperature 0)
+
+Use N = 50 prompts of mixed prose and code, 512 output tokens each.
+
+**A. Hooks are inert.** Compare `off` with `fixed:8`. The output must be
+byte-identical, and the tok/s gap should be within noise (only the
+`index_select`/accept-path overhead differs).
+
+**B. The remap is exact (the key test).** Compare `fixed:3` with `REMAP=0` against
+`fixed:3` with `REMAP=1`, then do the same for `fixed:5` and `conf:0.3`.
+
+- The schedule is identical in both runs, so the outputs **must** be byte-identical.
+- Any difference means a live row read something a dead row changed. To find it, dump
+  the first divergent step's logits and diff by layer.
+
+**C. End-to-end vs baseline.** Compare `off` with `conf:T` for T in
+{0.15, 0.25, 0.35, 0.5}, and with `fixed:K` for K in {3, 4, 5}.
+
+- Expect identical text on almost all prompts.
+- Changing the step schedule can, in principle, move a position to another row of
+  another block. Attention split or reduction order may depend on the block's KV
+  length, so a rare near-tie argmax flip is possible. The same is true of the baseline
+  against a different acceptance pattern.
+- For every divergence, check the top-2 logit gap at the first differing token. Tiny
+  means a near-tie (benign); large means a bug, so go back to B.
+
+**D. Speed.** Run your speedbench or RigMark c1 prose and code for off, the best
+`fixed:K`, and a few values of `conf:T`. Do this after the warm-up boot (the first run
+after a boot is invalid). Record tok/s, `mean_live`, `mean_commit` and `mean_uncapped`.
+
+**E. Union measurement.** Run `fixed:8`, `fixed:4` and `fixed:2` with `UNION=1`, and
+read `union_mean` and the per-layer values. This gives the real union growth u(L) that
+the model above assumed.
+
+**F. Sampled sanity.** Run `conf:0.3` at temperature 0.7 on a fixed seed. Check there
+are no errors and the acceptance stats look sane. If the harness has a quality eval
+(qeval), run it against off; distribution exactness cannot be shown by byte identity.
+
+**G. bs > 1.** Run c4 with `conf:0.3`: per-request L, padded graph rows. Repeat B at
+c4.
+
+## Measured on the Spark (2026-11-21, before cost/bsmax/fused)
+
+- The overlay loads. The first-step line showed the remap recorded in 3312 MoE calls
+  and the capped accept recorded 69 times.
+- `fixed:8` with `UNION=1`:
+  - Greedy output was byte-identical on 16/16 prompts.
+  - Union was 28.3 experts per visit at c1, and about 55-60 at c8 thinking.
+  - Step time went from 61.4 to 63.0 ms. Most of that is likely the union counter.
+- `fixed:4`:
+  - Union 19.2; commit 2.04 against uncapped 2.19.
+  - Prose c1 went from 32.3 to 35.4 tok/s (+9.7 %).
+  - At c8 thinking it fell from 187.8 to 174.9 tok/s (-7 %), because the union is
+    saturated there. `bsmax` and `cost` address this.
+
+## Risks and limits
+
+- **Gain depends on the real union curve.** If one request's 8 rows share most
+  experts, dead rows saved little to begin with. Measure E first; it is cheap.
+- **Acceptance loss.** Every cap gives up the drafts it trims (`mean_uncapped -
+  mean_commit`). Small T or K can lose more than it saves.
+- **`conf` cost.** It reads the `[bs, 7, V≈200K]` draft step logits each step: 5.6 MB
+  of fp32 temporaries at c1, chunked at 64 rows for larger batches. A fused Triton
+  kernel could replace about 10 launches if this ever shows up in a profile.
+- **Remap overhead.** It adds 48 tiny kernels per verify graph (fused). Folding the
+  remap into `route_topk` itself would remove them, but that means changing an engine
+  kernel. The fused Triton kernel was not compiled here (there is no GPU locally). It
+  is bit-checked at startup and falls back to `index_select` on any mismatch.
+- **Graph capture ordering.** If a future engine captures the target verify graphs
+  before `DSparkWorkerV2.__init__` returns, the remap is absent from the graphs. That
+  is still exact: the cap is applied eagerly, but nothing is saved. The first-step log
+  warns about it.
+- **Engine changes.** The patches depend on private methods (`_accept_static_greedy`,
+  `verify_lens_buf`, `run_non_compact`). The guards make a mismatch fail at startup
+  rather than misbehave.
+- **The fused accept tail is bypassed** while the overlay is on. It is only enabled
+  under `SGLANG_ENABLE_NV_MEGA_RUNTIME_OPTIMIZATION`, which is off by default.
+- **Scope.** TP or attention DP with `conf` mode is refused. EP>1 and the MegaMoE path
+  take the same gate output and should work with `fixed:K`, but were not reviewed.

@@ -1,0 +1,2 @@
+{"label":"V4N-fixed4-noremap","ready_utc":"2026-11-21T09:21:05Z","startup_s":227,"memavail_after_ready_gib":39.6,"kv":"[2026-11-21 09:21:03 PID105] max_total_num_tokens=841728, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=39.92 GB"}
+{"label":"V4N-fixed4-noremap","memavail_after_bench_gib":39.3}

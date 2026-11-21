@@ -1,0 +1,54 @@
+== 2026-11-21T07:56:59+01:00 speedbench full
+F1-sglang-base-s05: {"failed": 0, "valid_decode": 73, "ALL": {"n": 73, "median_tok_s": 39.88, "geomean_tok_s": 41.09, "aggregate_tok_s": 38.79, "median_ttft_ms": 182.2, "truncated_frac": 0.932, "reasoning_token_frac": 0.659, "reasoning_char_frac": 0.72, "median_step_ms": 60.14, "median_tokens_per_step": 2.452, "steps_source": "response", "median_accept_rate": 0.2074, "median_draft_per_step": 7.0}, "sentinel": {"n": 4, "identical_text": 4, "drift_pct_identical": 0.014, "drift_pct_all": 0.014}}
+wrote /home/knapcio/inkling/repo/results/F1-sglang-base-s05/F1-sglang-base-s05-speedbench.json (8.6 min)
+== 2026-11-21T08:05:36+01:00 decode table
+prose      c1  aggregate    32.0 tok/s  per-stream   33.6  ttft 0.234 s  failed 0
+prose      c2  aggregate    51.6 tok/s  per-stream   26.5  ttft 0.288 s  failed 0
+prose      c4  aggregate    76.0 tok/s  per-stream   20.7  ttft 0.347 s  failed 0
+prose      c8  aggregate   118.4 tok/s  per-stream   15.9  ttft 0.389 s  failed 0
+prose      c16 aggregate   190.8 tok/s  per-stream   12.6  ttft 0.508 s  failed 0
+code       c1  aggregate    42.6 tok/s  per-stream   44.1  ttft 0.213 s  failed 0
+code       c2  aggregate    67.6 tok/s  per-stream   35.0  ttft 0.281 s  failed 0
+code       c4  aggregate    89.0 tok/s  per-stream   24.4  ttft 0.413 s  failed 0
+code       c8  aggregate   138.1 tok/s  per-stream   18.9  ttft 0.406 s  failed 0
+code       c16 aggregate   221.3 tok/s  per-stream   15.1  ttft 0.579 s  failed 0
+structured c1  aggregate    47.4 tok/s  per-stream   50.3  ttft 0.223 s  failed 0
+structured c2  aggregate    67.2 tok/s  per-stream   37.4  ttft 0.262 s  failed 0
+structured c4  aggregate    91.5 tok/s  per-stream   24.8  ttft 0.381 s  failed 0
+structured c8  aggregate   142.0 tok/s  per-stream   19.6  ttft 0.516 s  failed 0
+structured c16 aggregate   227.9 tok/s  per-stream   15.6  ttft 0.495 s  failed 0
+json       c1  aggregate    44.1 tok/s  per-stream   47.0  ttft 0.219 s  failed 0
+json       c2  aggregate    58.9 tok/s  per-stream   32.5  ttft 0.269 s  failed 0
+json       c4  aggregate    90.6 tok/s  per-stream   23.7  ttft 0.341 s  failed 0
+json       c8  aggregate   142.7 tok/s  per-stream   20.1  ttft 0.479 s  failed 0
+json       c16 aggregate   236.3 tok/s  per-stream   16.6  ttft 0.518 s  failed 0
+wrote /home/knapcio/inkling/repo/results/F1-sglang-base-s05/F1-sglang-base-s05-decode.json
+| prompt type | c1 | c2 | c4 | c8 | c16 |
+|---|---:|---:|---:|---:|---:|
+| prose | 33.6 | 51.6 (26.5) | 76.0 (20.7) | 118.4 (15.9) | 190.8 (12.6) |
+| code | 44.1 | 67.6 (35.0) | 89.0 (24.4) | 138.1 (18.9) | 221.3 (15.1) |
+| structured | 50.3 | 67.2 (37.4) | 91.5 (24.8) | 142.0 (19.6) | 227.9 (15.6) |
+| json | 47.0 | 58.9 (32.5) | 90.6 (23.7) | 142.7 (20.1) | 236.3 (16.6) |
+== 2026-11-21T08:14:59+01:00 thinking load
+{"label": "F1-sglang-base-s05-c1", "started": "2026-11-21T08:14:59+01:00", "concurrency": 1, "requests": 3, "failed": 0, "max_tokens": 2048, "temperature": 0.8, "effort": "high", "wall_s": 88.4, "completion_tokens": 4710, "aggregate_tok_s": 53.3, "per_request_decode_tok_s_median": 53.5, "ttft_median_s": 0.26, "length_finishes": 2}
+{"label": "F1-sglang-base-s05-c8", "started": "2026-11-21T08:16:27+01:00", "concurrency": 8, "requests": 16, "failed": 0, "max_tokens": 4096, "temperature": 0.8, "effort": "high", "wall_s": 291.18, "completion_tokens": 57675, "aggregate_tok_s": 198.1, "per_request_decode_tok_s_median": 27.5, "ttft_median_s": 0.65, "length_finishes": 13}
+{"label": "F1-sglang-base-s05-c24", "started": "2026-11-21T08:21:18+01:00", "concurrency": 24, "requests": 48, "failed": 0, "max_tokens": 4096, "temperature": 0.8, "effort": "high", "wall_s": 469.78, "completion_tokens": 178918, "aggregate_tok_s": 380.9, "per_request_decode_tok_s_median": 17.8, "ttft_median_s": 0.82, "length_finishes": 40}
+== 2026-11-21T08:29:08+01:00 longctx
+128K     130920.0 54.13      2418.6      27.14        None      37.8 [27.1, 52.8]        -         -
+wrote /home/knapcio/inkling/repo/results/F1-sglang-base-s05/F1-sglang-base-s05-longctx.json (4.9 min)
+== 2026-11-21T08:34:04+01:00 sanity
+chat: 17*23                  PASS  {"answer": "391", "completion_tokens": 44}
+chat: capital + river        PASS  {"answer": "Warsaw is the capital of Poland, and the Vistula River flows through it."}
+effort none                  PASS  {"completion_tokens": 195, "reasoning_chars": 299, "prompt_tokens": 50, "answer": " = 30 - k:\n2(30 - k) + 4k = 74\n60 + 2k = 74\nk = 7\n\nAnswer: 7"}
+effort low                   PASS  {"completion_tokens": 183, "reasoning_chars": 306, "prompt_tokens": 52, "answer": "-k\\).\n\n\\(2(30-k)+4k=74\\)  \n\\(60+2k=74\\)  \n\\(k=7\\)\n\nAnswer: 7"}
+effort medium                PASS  {"completion_tokens": 227, "reasoning_chars": 302, "prompt_tokens": 52, "answer": "0-k)+4k=74\\)  \n\\(60+2k=74\\)  \n\\(2k=14\\)  \n\\(k=7\\)\n\nAnswer: 7"}
+effort high                  PASS  {"completion_tokens": 200, "reasoning_chars": 356, "prompt_tokens": 52, "answer": "[\n2(30-k)+4k=74\n\\]\n\\[\n60+2k=74 \\Rightarrow k=7\n\\]\n\nAnswer: 7"}
+effort: none <= high         PASS  {"lengths": {"none": 195, "low": 183, "medium": 227, "high": 200}}
+tool call                    PASS  {"finish": "tool_calls", "calls": [{"name": "get_weather", "arguments": "{\"city\": \"Krakow\", \"unit\": \"c\"}"}]}
+tool result -> answer        PASS  {"answer": "Right now in Krakow: 7°C with light rain."}
+json_schema output           PASS  {"parsed": {"city": "Gdańsk", "population_millions": 1.0, "landmarks": ["Gdańsk Crane", "Main Town Hall", "Westerplatte", "Long Market"]}}
+needle 120K                  PASS  {"prompt_tokens": 134611, "seconds": 57.2, "expected": "MEADOW-FALCON-0347", "answer": "MEADOW-FALCON-0347"}
+11 / 11 passed
+<lambda>                     FAIL  {"error": "<HTTPError 400: 'Bad Request'>"}
+0 / 1 passed
+== 2026-11-21T08:35:29+01:00 done

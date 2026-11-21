@@ -1,0 +1,7 @@
+state-before.md
+worklog.md
+speedbench/
+results/screen/*.log
+__pycache__/
+*.pyc
+.DS_Store

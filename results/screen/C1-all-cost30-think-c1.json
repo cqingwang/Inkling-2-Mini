@@ -1,0 +1,1 @@
+{"label": "C1-all-cost30-think-c1", "started": "2026-11-21T11:14:51+01:00", "concurrency": 1, "requests": 4, "failed": 0, "max_tokens": 2048, "temperature": 0.8, "effort": "high", "wall_s": 142.17, "completion_tokens": 8192, "aggregate_tok_s": 57.6, "per_request_decode_tok_s_median": 57.9, "ttft_median_s": 0.24, "length_finishes": 4}

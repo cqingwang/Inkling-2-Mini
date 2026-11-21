@@ -1,0 +1,2 @@
+{"label":"PFO3-prefill-all","ready_utc":"2026-11-21T11:36:10Z","startup_s":242,"memavail_after_ready_gib":40.2,"kv":"[2026-11-21 11:36:08 PID106] max_total_num_tokens=839680, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=40.52 GB"}
+{"label":"PFO3-prefill-all","memavail_after_bench_gib":40.0}

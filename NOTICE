@@ -1,0 +1,19 @@
+Inkling-2-Mini on one NVIDIA DGX Spark
+
+Repository-authored launch scripts, benchmark scripts and documentation: MIT, see LICENSE.
+
+Third-party code vendored in this repository:
+- overlay/inkling_pico12/third_party/pico/: kernels/gemv16.cu, kernels/common.cuh, kernels/dsk.h, common/check.h
+  by Andy Shu (github.com/blaesus/dsgb10, formerly dsgx10, `ds41f-4xgx10-switchless/engine/` at commit f2117916, as
+  carried in github.com/Picom-code/pico-dgx-ds4), MIT licence, Copyright (c) 2026
+  Andy Shu; full text in overlay/inkling_pico12/third_party/pico/LICENSE. Unmodified except a two-line header
+  naming the origin.
+
+The serving engines run from their published container images, pinned by digest in scripts/launch.sh:
+- SGLang (sgl-project/sglang), lmsysorg/sglang:inkling-2-mini, Apache-2.0.
+- vLLM (vllm-project/vllm), vllm/vllm-openai:inkling-2-mini, Apache-2.0.
+bench/decode_table.py reads the prompt file of speedbench (knapcio/speedbench, MIT) from a separate checkout; the
+prompts themselves are not copied here.
+
+No model weights or container images are distributed. The Inkling-2-Mini weights (thinkingmachines/Inkling-2-Mini)
+are Apache-2.0 from Thinking Machines Lab; read the model card for the terms that apply to anything you serve.

@@ -1,0 +1,56 @@
+## N=1024: measured TTFT 0.46 s, benchmarked kernels 0.30 s (66 %), remainder 0.16 s
+  MoE NVFP4 x44 (whole layer)                          168 ms  36.4 %   163.7 us/tok
+    of which grouped GEMMs                             134 ms  29.0 %   130.4 us/tok
+  MoE MXFP8 x4 (whole layer)                            26 ms   5.7 %    25.4 us/tok
+  dense qkvr 20 single                                  11 ms   2.3 %    10.4 us/tok
+  dense qkvr 28 stacked (3M rows)                       39 ms   8.4 %    37.8 us/tok
+  dense wo x48                                           8 ms   1.8 %     8.2 us/tok
+  dense dyn-conv proj 2x8                                0 ms   0.1 %     0.3 us/tok
+  rel-bias einsum x48                                   13 ms   2.8 %    12.5 us/tok
+  attention SWA x40 (FA4 + rel-bias shear)              33 ms   7.1 %    32.1 us/tok
+  attention global x8 (FA4 + rel-bias shear)             7 ms   1.4 %     6.4 us/tok
+    attention without rel-bias (SWA+global)              8 ms   1.7 %     7.6 us/tok
+  DSpark ctx K/V                                         0 ms   0.0 %     0.1 us/tok
+
+## N=8192: measured TTFT 2.40 s, benchmarked kernels 1.58 s (66 %), remainder 0.82 s
+  MoE NVFP4 x44 (whole layer)                          549 ms  22.9 %    67.0 us/tok
+    of which grouped GEMMs                             276 ms  11.5 %    33.7 us/tok
+  MoE MXFP8 x4 (whole layer)                            71 ms   3.0 %     8.6 us/tok
+  dense qkvr 20 single                                  74 ms   3.1 %     9.1 us/tok
+  dense qkvr 28 stacked (3M rows)                      297 ms  12.4 %    36.2 us/tok
+  dense wo x48                                          67 ms   2.8 %     8.1 us/tok
+  dense dyn-conv proj 2x8                                3 ms   0.1 %     0.4 us/tok
+  rel-bias einsum x48                                   98 ms   4.1 %    11.9 us/tok
+  attention SWA x40 (FA4 + rel-bias shear)             307 ms  12.8 %    37.5 us/tok
+  attention global x8 (FA4 + rel-bias shear)           118 ms   4.9 %    14.4 us/tok
+    attention without rel-bias (SWA+global)            119 ms   5.0 %    14.6 us/tok
+  DSpark ctx K/V                                         1 ms   0.0 %     0.1 us/tok
+
+## N=32768: measured TTFT 10.10 s, benchmarked kernels 7.15 s (71 %), remainder 2.95 s
+  MoE NVFP4 x44 (whole layer)                         2197 ms  21.7 %    67.0 us/tok
+    of which grouped GEMMs                            1103 ms  10.9 %    33.7 us/tok
+  MoE MXFP8 x4 (whole layer)                           283 ms   2.8 %     8.6 us/tok
+  dense qkvr 20 single                                 297 ms   2.9 %     9.1 us/tok
+  dense qkvr 28 stacked (3M rows)                     1187 ms  11.8 %    36.2 us/tok
+  dense wo x48                                         266 ms   2.6 %     8.1 us/tok
+  dense dyn-conv proj 2x8                               12 ms   0.1 %     0.4 us/tok
+  rel-bias einsum x48                                  390 ms   3.9 %    11.9 us/tok
+  attention SWA x40 (FA4 + rel-bias shear)            1228 ms  12.2 %    37.5 us/tok
+  attention global x8 (FA4 + rel-bias shear)          1286 ms  12.7 %    39.3 us/tok
+    attention without rel-bias (SWA+global)           1040 ms  10.3 %    31.7 us/tok
+  DSpark ctx K/V                                         4 ms   0.0 %     0.1 us/tok
+
+## N=131072: measured TTFT 54.00 s, benchmarked kernels 41.97 s (78 %), remainder 12.03 s
+  MoE NVFP4 x44 (whole layer)                         8787 ms  16.3 %    67.0 us/tok
+    of which grouped GEMMs                            4412 ms   8.2 %    33.7 us/tok
+  MoE MXFP8 x4 (whole layer)                          1133 ms   2.1 %     8.6 us/tok
+  dense qkvr 20 single                                1186 ms   2.2 %     9.1 us/tok
+  dense qkvr 28 stacked (3M rows)                     4749 ms   8.8 %    36.2 us/tok
+  dense wo x48                                        1065 ms   2.0 %     8.1 us/tok
+  dense dyn-conv proj 2x8                               46 ms   0.1 %     0.4 us/tok
+  rel-bias einsum x48                                 1561 ms   2.9 %    11.9 us/tok
+  attention SWA x40 (FA4 + rel-bias shear)            4912 ms   9.1 %    37.5 us/tok
+  attention global x8 (FA4 + rel-bias shear)         18517 ms  34.3 %   141.3 us/tok
+    attention without rel-bias (SWA+global)          13199 ms  24.4 %   100.7 us/tok
+  DSpark ctx K/V                                        14 ms   0.0 %     0.1 us/tok
+

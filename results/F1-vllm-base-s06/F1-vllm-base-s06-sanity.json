@@ -1,0 +1,96 @@
+{
+ "url": "http://127.0.0.1:8000",
+ "results": [
+  {
+   "check": "chat: 17*23",
+   "pass": true,
+   "answer": "391",
+   "completion_tokens": 44
+  },
+  {
+   "check": "chat: capital + river",
+   "pass": true,
+   "answer": "The capital of Poland is Warsaw, which is crossed by the Vistula River."
+  },
+  {
+   "check": "effort none",
+   "pass": true,
+   "completion_tokens": 195,
+   "reasoning_chars": 302,
+   "prompt_tokens": 50,
+   "answer": " = 30 - k:\n2(30 - k) + 4k = 74\n60 + 2k = 74\nk = 7\n\nAnswer: 7"
+  },
+  {
+   "check": "effort low",
+   "pass": true,
+   "completion_tokens": 186,
+   "reasoning_chars": 315,
+   "prompt_tokens": 52,
+   "answer": "-k\\).\n\n\\(2(30-k)+4k=74\\)  \n\\(60+2k=74\\)  \n\\(k=7\\)\n\nAnswer: 7"
+  },
+  {
+   "check": "effort medium",
+   "pass": true,
+   "completion_tokens": 227,
+   "reasoning_chars": 302,
+   "prompt_tokens": 52,
+   "answer": "0-k)+4k=74\\)  \n\\(60+2k=74\\)  \n\\(2k=14\\)  \n\\(k=7\\)\n\nAnswer: 7"
+  },
+  {
+   "check": "effort high",
+   "pass": true,
+   "completion_tokens": 206,
+   "reasoning_chars": 354,
+   "prompt_tokens": 52,
+   "answer": "0-k)+4k=74\\)  \n\\(60+2k=74\\)  \n\\(2k=14\\)  \n\\(k=7\\)\n\nAnswer: 7"
+  },
+  {
+   "check": "effort: none <= high",
+   "pass": true,
+   "lengths": {
+    "none": 195,
+    "low": 186,
+    "medium": 227,
+    "high": 206
+   }
+  },
+  {
+   "check": "tool call",
+   "pass": true,
+   "finish": "tool_calls",
+   "calls": [
+    {
+     "name": "get_weather",
+     "arguments": "{\"city\":\"Krakow\",\"unit\":\"c\"}"
+    }
+   ]
+  },
+  {
+   "check": "tool result -> answer",
+   "pass": true,
+   "answer": "Krakow is currently 7°C with light rain."
+  },
+  {
+   "check": "json_schema output",
+   "pass": true,
+   "parsed": {
+    "city": "Gdańsk",
+    "population_millions": 1.0,
+    "landmarks": [
+     "Old Town",
+     "Main Market Square",
+     "Westerplatte",
+     "Long Market"
+    ]
+   }
+  },
+  {
+   "check": "needle 120K",
+   "pass": true,
+   "prompt_tokens": 134611,
+   "seconds": 67.4,
+   "expected": "MEADOW-FALCON-0347",
+   "answer": "MEADOW-FALCON-0347"
+  }
+ ]
+}

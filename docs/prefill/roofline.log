@@ -1,0 +1,73 @@
+# Inkling-2-Mini prefill roofline per prompt token (rates from bench.json; chunk 8192)
+rates: bf16_gemm=86, nvfp4_group=300, mxfp8_group=102, attn_swa=13, attn_global=44, bw=224
+visits: 40 SWA + 8 global; 44 NVFP4 + 4 MXFP8 MoE; 28 stacked-qkvr visits; 24 loop-message visits
+activation bytes/token: 35.9 MB (column split: 34.9 MB); per visit 667 KB
+
+## N = 1024 (11.41 GFLOP/token as served; 9.19 with qkvr column split)
+  class                                                           MFLOP/tok   us/tok
+  MoE NVFP4 (44 visits)                                              5605.7   109.82
+  MoE MXFP8 (4 visits)                                                509.6    18.30
+  dense BF16 qkvr (28 stacked visits x3)                             4121.4    47.65
+  dense BF16 wo                                                       679.5     7.86
+  dense BF16 router (FP32 out)                                         28.3     0.33
+  dense BF16 small (dyn-conv proj, loop controllers)                  115.6     1.34
+  rel-bias einsum (bandwidth-bound)                                    37.7     0.00
+  attention SWA (40 visits)                                           236.4    18.13
+  attention global (8 visits)                                          50.4     1.15
+  DSpark draft ctx K/V (3 layers)                                      28.3     0.33
+  LM head (last token only)                                             0.9     0.01
+  activation traffic (elementwise, norms, quant, shear, combine)              160.09
+  ceiling: compute-only    4880 tok/s | + activation traffic    2740 tok/s | + qkvr column split    2985 tok/s
+  measured    2226 tok/s (449 us/tok) = 81 % of the with-traffic ceiling, 46 % of compute-only
+
+## N = 8192 (12.00 GFLOP/token as served; 9.78 with qkvr column split)
+  class                                                           MFLOP/tok   us/tok
+  MoE NVFP4 (44 visits)                                              5605.7    18.69
+  MoE MXFP8 (4 visits)                                                509.6     5.00
+  dense BF16 qkvr (28 stacked visits x3)                             4121.4    47.65
+  dense BF16 wo                                                       679.5     7.86
+  dense BF16 router (FP32 out)                                         28.3     0.33
+  dense BF16 small (dyn-conv proj, loop controllers)                  115.6     1.34
+  rel-bias einsum (bandwidth-bound)                                    37.7     0.00
+  attention SWA (40 visits)                                           470.0    36.03
+  attention global (8 visits)                                         402.7     9.18
+  DSpark draft ctx K/V (3 layers)                                      28.3     0.33
+  LM head (last token only)                                             0.1     0.00
+  activation traffic (elementwise, norms, quant, shear, combine)              160.09
+  ceiling: compute-only    7912 tok/s | + activation traffic    3491 tok/s | + qkvr column split    3898 tok/s
+  measured    3413 tok/s (293 us/tok) = 98 % of the with-traffic ceiling, 43 % of compute-only
+
+## N = 32768 (13.23 GFLOP/token as served; 11.01 with qkvr column split)
+  class                                                           MFLOP/tok   us/tok
+  MoE NVFP4 (44 visits)                                              5605.7    18.69
+  MoE MXFP8 (4 visits)                                                509.6     5.00
+  dense BF16 qkvr (28 stacked visits x3)                             4121.4    47.65
+  dense BF16 wo                                                       679.5     7.86
+  dense BF16 router (FP32 out)                                         28.3     0.33
+  dense BF16 small (dyn-conv proj, loop controllers)                  115.6     1.34
+  rel-bias einsum (bandwidth-bound)                                    37.7     0.00
+  attention SWA (40 visits)                                           495.0    37.95
+  attention global (8 visits)                                        1610.7    36.70
+  DSpark draft ctx K/V (3 layers)                                      28.3     0.33
+  LM head (last token only)                                             0.0     0.00
+  activation traffic (elementwise, norms, quant, shear, combine)              160.09
+  ceiling: compute-only    6417 tok/s | + activation traffic    3165 tok/s | + qkvr column split    3497 tok/s
+  measured    3244 tok/s (308 us/tok) = 102 % of the with-traffic ceiling, 51 % of compute-only
+
+## N = 131072 (18.07 GFLOP/token as served; 15.85 with qkvr column split)
+  class                                                           MFLOP/tok   us/tok
+  MoE NVFP4 (44 visits)                                              5605.7    18.69
+  MoE MXFP8 (4 visits)                                                509.6     5.00
+  dense BF16 qkvr (28 stacked visits x3)                             4121.4    47.65
+  dense BF16 wo                                                       679.5     7.86
+  dense BF16 router (FP32 out)                                         28.3     0.33
+  dense BF16 small (dyn-conv proj, loop controllers)                  115.6     1.34
+  rel-bias einsum (bandwidth-bound)                                    37.7     0.00
+  attention SWA (40 visits)                                           501.2    38.43
+  attention global (8 visits)                                        6442.5   146.81
+  DSpark draft ctx K/V (3 layers)                                      28.3     0.33
+  LM head (last token only)                                             0.0     0.00
+  activation traffic (elementwise, norms, quant, shear, combine)              160.09
+  ceiling: compute-only    3753 tok/s | + activation traffic    2345 tok/s | + qkvr column split    2522 tok/s
+  measured    2427 tok/s (412 us/tok) = 104 % of the with-traffic ceiling, 65 % of compute-only
+

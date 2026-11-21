@@ -1,0 +1,183 @@
+device: NVIDIA GB10 sm_121 SMs=48 L2=24 MiB  torch 2.14.1+cu130  flashinfer 0.7.4
+--- group_gemm_nvfp4_nt_groupwise
+signature: flashinfer.gemm.gemm_base.group_gemm_nvfp4_nt_groupwise(a: torch.Tensor, b: torch.Tensor, a_scale: torch.Tensor, b_scale: torch.Tensor, m_indptr: torch.Tensor, alpha: Optional[torch.Tensor] = None, tile_m: int = 128, tile_n: int = 128, tile_k: int = 128, swap_ab: bool = True, out: Optional[torch.Tensor] = None, out_dtype: Optional[torch.dtype] = None) -> torch.Tensor
+  src| tile_m: int = 128,
+  src| tile_n: int = 128,
+  src| tile_k: int = 128,
+  src| swap_ab: bool = True,
+  src| tile_m: int
+  src| tile_n: int
+  src| tile_k: int
+  src| swap_ab : bool
+  src| tile_m,
+  src| tile_n,
+  src| tile_k,
+  src| swap_ab,
+isolated sweep: 16 configs x 2 GEMMs x 6 scenarios
+  swap_ab=1,tile_n=32,tile_k=128: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=32,tile_k=256: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=64,tile_k=128: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=64,tile_k=256: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=128,tile_k=128: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=128,tile_k=256: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=256,tile_k=128: ok
+  swap_ab=1,tile_n=256,tile_k=256: ok
+  swap_ab=0,tile_n=32,tile_k=128: ok
+  swap_ab=0,tile_n=32,tile_k=256: ok
+  swap_ab=0,tile_n=64,tile_k=128: ok
+  swap_ab=0,tile_n=64,tile_k=256: ok
+  swap_ab=0,tile_n=128,tile_k=128: ok
+  swap_ab=0,tile_n=128,tile_k=256: ok
+  swap_ab=0,tile_n=256,tile_k=128: ok
+  swap_ab=0,tile_n=256,tile_k=256: ok
+
+NVFP4: configs rejected / failed:
+  swap_ab=1,tile_n=32,tile_k=128: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=32,tile_k=256: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=64,tile_k=128: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=64,tile_k=256: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=128,tile_k=128: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=128,tile_k=256: child exit 1: TypeError: sum() missing 1 required positional arguments: "dim"
+  swap_ab=1,tile_n=256,tile_k=128: ValueError: tile_n must be one of 32, 64, 128, but got 256
+  swap_ab=1,tile_n=256,tile_k=256: ValueError: tile_n must be one of 32, 64, 128, but got 256
+  swap_ab=0,tile_n=256,tile_k=128: ValueError: tile_n must be one of 32, 64, 128, but got 256
+  swap_ab=0,tile_n=256,tile_k=256: ValueError: tile_n must be one of 32, 64, 128, but got 256
+
+NVFP4 w13 N=2304 K=2304 tokens=1 distinct=8 rows=8
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           117.8    115.7    118.8   203.3   202.9      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           126.0    124.0    128.0   189.9   189.6      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            165.9    163.8    166.0   144.3   144.0      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            178.3    176.1    180.3   134.3   134.0      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            342.7    340.0    344.2    69.8    69.7      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            360.6    358.4    362.7    66.4    66.2      nan  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=8 distinct=20 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           272.5    268.4    275.6   220.5   219.1      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            275.4    269.4    279.6   218.2   216.8      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            294.0    288.8    299.1   204.4   203.2      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           294.9    290.8    301.1   203.8   202.5      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            439.9    417.8    457.9   136.6   135.8      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            475.1    450.8    487.4   126.5   125.7      nan  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=8 distinct=27 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           372.9    365.7    376.8   217.2   216.2      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            392.2    382.0    397.3   206.5   205.6      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           393.4    388.1    399.5   205.9   204.9      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            423.0    412.7    430.1   191.5   190.6      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            620.7    600.2    631.8   130.5   129.9      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            630.8    600.4    645.3   128.4   127.8      nan  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=8 distinct=40 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           536.8    532.5    539.8   223.2   222.5      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           574.6    568.3    578.7   208.5   207.9      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            585.8    574.7    594.9   204.5   203.9      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            641.2    621.6    656.4   186.9   186.3      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            957.0    900.0    996.7   125.2   124.8      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            972.8    905.4   1012.7   123.2   122.8      nan  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=64 distinct=100 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256          1332.5   1323.9   1340.6   226.4   224.1      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256           1333.2   1325.2   1341.5   226.2   224.0      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128           1428.5   1417.2   1437.8   211.2   209.0      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128          1440.8   1429.6   1450.0   209.3   207.2      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128           1664.0   1625.1   1685.5   181.3   179.4      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256           1687.5   1647.7   1721.4   178.7   176.9      nan  yes
+
+NVFP4 w13 N=2304 K=2304 tokens=64 distinct=128 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=64,tile_k=256           1691.8   1682.5   1698.9   227.7   225.9      nan  yes
+  swap_ab=0,tile_n=128,tile_k=256          1701.0   1690.6   1708.0   226.5   224.7      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128           1814.5   1797.1   1820.7   212.3   210.6      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128          1832.1   1817.6   1841.3   210.3   208.6      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128           2035.9   1981.4   2075.8   189.2   187.7      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256           2049.0   1982.5   2091.0   188.0   186.5      nan  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=1 distinct=8 rows=8
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=128            64.5     62.7     65.6   185.8   185.1      nan  yes
+  swap_ab=0,tile_n=128,tile_k=256            64.5     62.6     65.7   185.8   185.1      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128             96.3     93.9     98.4   124.4   124.0      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            100.4    100.1    106.6   119.4   118.9      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            184.5    182.3    207.2    65.0    64.7      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            194.6    191.6    196.7    61.6    61.4      nan  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=8 distinct=20 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           145.5    141.3    150.7   207.5   205.2      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           148.6    146.4    150.6   203.2   201.0      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            163.8    159.7    167.9   184.3   182.3      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            182.3    172.0    190.5   165.7   163.8      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            330.8    303.2    348.2    91.3    90.3      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            358.6    335.8    370.9    84.2    83.3      nan  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=8 distinct=27 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           195.7    189.4    205.8   207.7   206.0      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           197.7    192.5    200.7   205.6   203.9      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            215.6    206.9    220.2   188.5   186.9      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            256.0    243.7    266.2   158.8   157.5      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            397.3    360.2    419.8   102.3   101.5      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            541.8    507.9    561.2    75.0    74.4      nan  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=8 distinct=40 rows=64
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           275.6    270.6    291.8   217.9   216.7      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           285.8    282.6    288.8   210.1   209.0      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            309.2    302.2    313.4   194.2   193.1      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            364.1    347.2    370.9   164.9   164.0      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            647.2    606.3    672.8    92.8    92.3      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256            861.2    765.8    878.6    69.7    69.3      nan  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=64 distinct=100 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           682.2    671.8    689.1   222.8   218.9      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            686.1    673.8    693.4   221.5   217.6      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           699.4    694.3    705.7   217.3   213.5      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            732.2    713.8    741.5   207.6   203.9      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128            887.9    863.2    901.3   171.2   168.1      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256           1018.0    975.9   1044.7   149.3   146.7      nan  yes
+
+NVFP4 w2 N=2304 K=1152 tokens=64 distinct=128 rows=512
+  config                                   med us   min us   p90 us    GB/s   wGB/s vs stock  exact
+  swap_ab=0,tile_n=128,tile_k=256           866.5    855.0    873.5   223.7   220.5      nan  yes
+  swap_ab=0,tile_n=64,tile_k=256            873.5    862.2    879.6   221.9   218.8      nan  yes
+  swap_ab=0,tile_n=128,tile_k=128           891.0    884.8    896.0   217.5   214.5      nan  yes
+  swap_ab=0,tile_n=64,tile_k=128            913.4    899.1    921.8   212.2   209.2      nan  yes
+  swap_ab=0,tile_n=32,tile_k=128           1111.6   1080.3   1135.8   174.3   171.9      nan  yes
+  swap_ab=0,tile_n=32,tile_k=256           1274.0   1241.1   1300.7   152.1   150.0      nan  yes
+
+Best bit-exact NVFP4 config per token bucket:
+  tokens<=1 w13 (K=2304): best swap_ab=0,tile_n=128,tile_k=256 sum 117.8 us vs stock nan us (saves nan us summed over 1 scenario(s))
+  tokens<=1 w2 (K=1152): best swap_ab=0,tile_n=128,tile_k=128 sum 64.5 us vs stock nan us (saves nan us summed over 1 scenario(s))
+  tokens<=8 w13 (K=2304): best swap_ab=0,tile_n=128,tile_k=256 sum 1182.1 us vs stock nan us (saves nan us summed over 3 scenario(s))
+  tokens<=8 w2 (K=1152): best swap_ab=0,tile_n=128,tile_k=256 sum 616.8 us vs stock nan us (saves nan us summed over 3 scenario(s))
+  tokens<=64 w13 (K=2304): best swap_ab=0,tile_n=64,tile_k=256 sum 3025.1 us vs stock nan us (saves nan us summed over 2 scenario(s))
+  tokens<=64 w2 (K=1152): best swap_ab=0,tile_n=128,tile_k=256 sum 1548.7 us vs stock nan us (saves nan us summed over 2 scenario(s))
+
+Suggested override (A/B end to end):
+  INKLING_KERNELS=moe_tiles INKLING_MOE_TILES='1@2304:swap_ab=0,tile_n=128,tile_k=256;1@1152:swap_ab=0,tile_n=128,tile_k=128;8@2304:swap_ab=0,tile_n=128,tile_k=256;8@1152:swap_ab=0,tile_n=128,tile_k=256;64@2304:swap_ab=0,tile_n=64,tile_k=256;64@1152:swap_ab=0,tile_n=128,tile_k=256'
+--- moe_gemm_mxfp8_nt_groupwise
+signature: flashinfer.grouped_mm.cute_sm120_mxfp8_groupwise.core.moe_gemm_mxfp8_nt_groupwise(a: torch.Tensor, b: torch.Tensor, a_scale: torch.Tensor, b_scale: torch.Tensor, m_indptr: torch.Tensor, scale_granularity_mnk: Tuple[int, int, int] = (1, 1, 128), scale_major_mode: Literal['MN'] = 'MN', backend: Literal['cute'] = 'cute', out: Optional[torch.Tensor] = None, out_dtype: Optional[torch.dtype] = None, is_gated: bool = False) -> torch.Tensor
+  src| Anything else raises ``ValueError``.
+  src| raise NotImplementedError(
+  src| raise NotImplementedError(
+MXFP8 non-data parameters: ['backend', 'is_gated']
+MXFP8: no tile tunables in this FlashInfer; timing the default only
+Traceback (most recent call last):
+  File "/opt/inkling-kern/bench_moe_tiles.py", line 530, in <module>
+    main()
+  File "/opt/inkling-kern/bench_moe_tiles.py", line 518, in main
+    mres, _ = sweep(torch, mx_fn, mcases, scen, mx_cfgs, lambda t, k: {}, args,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-kern/bench_moe_tiles.py", line 314, in sweep
+    tm = time_call(torch, lambda: case.call(fn, inp, out, cfg), flush, sink,
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-kern/bench_moe_tiles.py", line 243, in time_call
+    sink.copy_(flush.sum(dtype=torch.float32))  # read > L2: weights cold
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: sum() missing 1 required positional arguments: "dim"
