@@ -140,6 +140,44 @@ def greedy_accept(
     return correct, bonus
 
 
+def mask_dead_draft_rows(
+    draft_probs: torch.Tensor, draft_tokens: torch.Tensor, live_lens: torch.Tensor
+) -> torch.Tensor:
+    """Block verification under the cap: make the stock block-verification kernel see
+    a draft that stops after its live drafts. In place on ``draft_probs`` [bs, G, V]
+    (contiguous FP32 probabilities; row j is the law of d_j), ``draft_tokens``
+    [bs, G], ``live_lens`` [>= bs] (L: rows 0..L-1 live, so g = L-1 live drafts).
+
+    For every request with g < G:
+      - row g (the law of the first dead draft d_g) becomes all zeros;
+      - q_j(d_j) becomes 0 for every j >= g.
+    This is exactly the draft of the stopped chain written over the real vocabulary:
+    after the stop the draft emits a token outside the vocabulary with probability 1
+    (README, "Block verification under the cap"). The kernel then gets prefix
+    probability 0 for every step past g (q is not a probability: q <= 0), h_g = p_g
+    (its residual mass is p_g x sum(p_next) - 0) and the bonus at tau = g is drawn
+    from the target row g alone. Rows g+1.. are never read in full. Requests with
+    g >= G are left as they are. Fixed shapes, no host sync (graph-safe)."""
+    bs, gamma, vocab = draft_probs.shape
+    if not draft_probs.is_contiguous():
+        raise RuntimeError("mask_dead_draft_rows needs contiguous draft probabilities")
+    if bs == 0:
+        return draft_probs
+    device = draft_probs.device
+    g = (live_lens[:bs].to(torch.int64) - 1).clamp_(min=0)
+    flat = draft_probs.view(bs * gamma, vocab)
+    # 1) the cut row: zeroed when g < G (a request with g >= G rewrites row G-1 as is)
+    idx = torch.arange(bs, device=device, dtype=torch.int64) * gamma + g.clamp(max=gamma - 1)
+    keep = (g >= gamma).to(draft_probs.dtype)[:, None]
+    flat.index_copy_(0, idx, flat.index_select(0, idx) * keep)
+    # 2) the proposed tokens' probabilities past the cut
+    tok = draft_tokens[:bs].to(device=device, dtype=torch.int64).clamp(0, vocab - 1)
+    dead = torch.arange(gamma, device=device)[None, :] >= g[:, None]
+    q = draft_probs.gather(2, tok[..., None])
+    draft_probs.scatter_(2, tok[..., None], q.masked_fill(dead[..., None], 0.0))
+    return draft_probs
+
+
 def distinct_experts(ids: torch.Tensor, num_experts: int) -> torch.Tensor:
     """0-d float tensor: number of distinct experts in ``ids``. Graph-safe (no sync)."""
     present = torch.zeros(num_experts, dtype=torch.float32, device=ids.device)

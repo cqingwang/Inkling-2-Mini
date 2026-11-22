@@ -10,7 +10,15 @@ Patch points (all draft-side; the target model and the accept path are untouched
     project_through_lm_head (the name inkling2_mtp imported)   -> gemv / head8
   sglang.srt.speculative.dspark_components.dspark_draft
     _draft_step                                                -> hotvocab
+    resolve_draft_params                                       -> tau (tau.py)
+  sglang.srt.speculative.dspark_components.dspark_draft_sampler
+    resolve_draft_params (the name it imported)                -> tau
+  sglang.srt.speculative.dspark_components.dspark_sampling_accept_graph
+    DsparkSamplingAcceptGraph.__init__                         -> tau: refuses (reads draft temps as target temps)
   draft layers' linear quant_method (instances, at prepare)    -> draftmx8
+  sglang.srt.layers.attention.flashattention_backend
+    FlashAttentionBackend.forward_extend                        -> dwin (only calls whose layer carries the
+                                                                   drafter global-layer mark set at prepare)
 """
 
 from __future__ import annotations
@@ -25,7 +33,7 @@ from typing import Optional
 
 import torch
 
-from . import ops, w8gemv
+from . import dwin, ops, tau as tau_mod, w8gemv
 from ._hooks import when_imported
 from .quant import SCALE_E8M0, W8Pack, bf16_pack, quantize_mode
 
@@ -204,6 +212,10 @@ def hot_base_logits(hidden: torch.Tensor, hot) -> torch.Tensor:
 def patch_dspark_draft(mod) -> None:
     _require(mod, ["_draft_step", "draft_markov_block", "MarkovSampleStep"], DRAFT_MODULE)
     orig_step = mod._draft_step
+    if getattr(orig_step, "_idb_hot_step", False):
+        # The post-import callback can fire twice when another overlay's import hook
+        # (inkling_vcap) also wraps this module's loader; wrap once.
+        return
 
     @functools.wraps(orig_step)
     def _draft_step(markov_head, prev_tokens, base_logits, *, hidden_states, state,
@@ -244,7 +256,42 @@ def patch_dspark_draft(mod) -> None:
         )
         return tokens, (state, f_rnn)
 
+    _draft_step._idb_hot_step = True
     _replace(mod, "_draft_step", _draft_step, "dspark_draft._draft_step")
+
+
+def patch_draft_tau(mod) -> None:
+    _require(mod, ["resolve_draft_params", "DraftParams"], DRAFT_MODULE)
+    orig = mod.resolve_draft_params
+    if tau_mod.is_patched(orig):
+        return
+    try:
+        new = tau_mod.make_resolve(orig, STATE.opts.tau)
+    except TypeError as e:
+        _fail(f"tau: {e}")
+    _replace(mod, "resolve_draft_params", new, tau_mod.LABEL)
+
+
+def patch_sampler_tau(mod) -> None:
+    """dspark_draft_sampler imported resolve_draft_params by name; point it at the
+    patched one (normally it already is: dspark_draft is patched as it finishes
+    importing, before this module's import line runs)."""
+    _require(mod, ["resolve_draft_params"], tau_mod.SAMPLER_MODULE)
+    draft = importlib.import_module(DRAFT_MODULE)
+    if not tau_mod.is_patched(draft.resolve_draft_params):
+        _fail("tau: dspark_draft.resolve_draft_params is not patched")
+    if mod.resolve_draft_params is not draft.resolve_draft_params:
+        _replace(mod, "resolve_draft_params", draft.resolve_draft_params, tau_mod.LABEL_SAMPLER)
+
+
+def patch_sag_tau(mod) -> None:
+    _require(mod, ["DsparkSamplingAcceptGraph"], tau_mod.SAG_MODULE)
+    cls = mod.DsparkSamplingAcceptGraph
+    if tau_mod.is_patched(cls.__init__):
+        return
+    _replace(cls, "__init__",
+             tau_mod.refusing_sag_init(cls.__init__, STATE.opts.tau, DraftBytesPatchError),
+             tau_mod.LABEL_SAG)
 
 
 # --------------------------------------------------------------------------
@@ -457,6 +504,22 @@ def prepare(model, refresh: bool = False) -> None:
                             f"{w8gemv.INFO.get('seconds', 0):.1f} s)" if w8gemv.INFO else ""))
     if opts.gemv:
         notes.append(f"gemv (sm12x <=16 rows, own kernel <= {opts.gemv_max_m})")
+    if opts.tau != 1.0:
+        if not refresh:
+            importlib.import_module(DRAFT_MODULE)
+            if tau_mod.LABEL not in STATE.patched:
+                raise RuntimeError("tau: dspark_draft.resolve_draft_params was not patched")
+        notes.append(f"draft tau {opts.tau:g} (sampled rows draft at {opts.tau:g} x T; q at the same)")
+    if opts.dwin and not refresh:
+        importlib.import_module(dwin.FA_MODULE)
+        if "FlashAttentionBackend.forward_extend" not in STATE.patched:
+            raise RuntimeError("dwin: FlashAttentionBackend.forward_extend was not patched")
+        cfg = dwin.DwinCfg(window=opts.dwin, sink=opts.dwin_sink, maxk=opts.dwin_maxk)
+        marked = dwin.mark_draft_layers(model, cfg)
+        if not marked:
+            raise RuntimeError("dwin: the drafter has no global attention layer to window")
+        notes.append(f"dwin: drafter global layer(s) {marked} read sink {cfg.sink} + last {cfg.window} tokens"
+                     + ("" if cfg.maxk else " (stock FA4 planning bound)"))
     say(
         ("refreshed" if refresh else "active")
         + f": options={opts.describe()}; patched {', '.join(STATE.patched)}; "
@@ -471,5 +534,19 @@ def arm(opts) -> None:
     STATE.opts = opts
     ops.configure(opts)
     when_imported(MTP_MODULE, patch_inkling2_mtp)
+    draft_patches = []
     if opts.hotvocab:
-        when_imported(DRAFT_MODULE, patch_dspark_draft)
+        draft_patches.append(patch_dspark_draft)
+    if opts.tau != 1.0:
+        draft_patches.append(patch_draft_tau)
+    if draft_patches:
+        # One post-import callback per module name (_hooks keeps a dict).
+        when_imported(DRAFT_MODULE, lambda mod: [patch(mod) for patch in draft_patches])
+    if opts.tau != 1.0:
+        when_imported(tau_mod.SAMPLER_MODULE, patch_sampler_tau)
+        when_imported(tau_mod.SAG_MODULE, patch_sag_tau)
+    if opts.dwin:
+        when_imported(
+            dwin.FA_MODULE,
+            lambda mod: dwin.patch_fa_backend(mod, require=_require, replace=_replace, say=say),
+        )

@@ -1,0 +1,2 @@
+{"label":"HC1-s06","ready_utc":"2026-11-22T08:20:36Z","startup_s":247,"memavail_ready_gib":17.7,"kv":"[2026-11-22 08:20:31 PID105] max_total_num_tokens=1200768, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=18.11 GB"}
+{"memavail_end_gib":15.8}

@@ -14,7 +14,7 @@ from typing import Optional
 
 import torch
 
-from inkling_vcap import fused, logic
+from inkling_vcap import fastprobs, fused, logic
 from inkling_vcap.config import VcapConfig
 
 PREFIX = "[inkling-vcap]"
@@ -22,6 +22,12 @@ PREFIX = "[inkling-vcap]"
 
 def log(msg: str) -> None:
     print(f"{PREFIX} {msg}", file=sys.stderr, flush=True)
+
+
+def _capturing(t: torch.Tensor) -> bool:
+    if t.device.type != "cuda":
+        return False
+    return bool(torch.cuda.is_current_stream_capturing())
 
 
 class _Cutoff:
@@ -75,6 +81,19 @@ class VcapState:
         self._union_names: list[str] = []
         # policy: mode device tensors (table [2, gamma, nb], edges, row_cost, u1)
         self._pol = None
+        # Block verification (--speculative-use-block-verification): the accept wrapper
+        # sets bv_lens for the duration of one accept call; _draft_probs masks the dead
+        # drafts with it (logic.mask_dead_draft_rows).
+        self.block_verify = False
+        self.bv_lens: Optional[torch.Tensor] = None
+        self.bv_masked = 0
+        self.bv_skipped = 0
+        # INKLING_VERIFY_CAP_FASTPROBS: set by attach() after the device self-check.
+        self.use_fastprobs = False
+        self.fastprobs_calls = 0
+        # INKLING_VERIFY_CAP_FUSED_ACCEPT: primitives object after the self-check, or None.
+        self.fused_accept = None
+        self.fused_accept_calls = 0
 
     # ------------------------------------------------------------------ setup
     def allocate(self, *, stride: int, capacity: int, device, live_lens=None) -> None:
@@ -139,15 +158,23 @@ class VcapState:
                     "this step's proposal has none (SGLANG_DSPARK_USE_GREEDY_DRAFT=1, "
                     "or a draft path that drops them). Use fixed:K or unset the flag."
                 )
-            probs = logic.draft_token_probs(
-                logits[:bs],
-                block.draft_tokens[:bs],
-                temperatures=getattr(block, "temperatures", None),
-                greedy_mask=getattr(block, "greedy_mask", None),
-                # Max probability: a function of the draft distribution at position
-                # j (context + earlier drafts), never of the token d_j it verifies.
-                use_max=True,
-            )
+            if self.use_fastprobs and logits.is_cuda and logits.stride(-1) == 1:
+                # Same max probabilities from one read of the logits (fastprobs.py).
+                probs = fastprobs.max_prob(
+                    logits[:bs],
+                    temperatures=getattr(block, "temperatures", None),
+                    greedy_mask=getattr(block, "greedy_mask", None),
+                )
+            else:
+                probs = logic.draft_token_probs(
+                    logits[:bs],
+                    block.draft_tokens[:bs],
+                    temperatures=getattr(block, "temperatures", None),
+                    greedy_mask=getattr(block, "greedy_mask", None),
+                    # Max probability: a function of the draft distribution at position
+                    # j (context + earlier drafts), never of the token d_j it verifies.
+                    use_max=True,
+                )
             if cfg.kind == "policy":
                 lens = logic.calibrated_live_lens(
                     probs, self._sampled_rows(block, bs, probs.device),
@@ -192,6 +219,23 @@ class VcapState:
             return None
         self.cutoff_injected += 1
         return _Cutoff(self.live_lens[:n])
+
+    def block_verify_lens(self, verify_lens: torch.Tensor, n: int) -> Optional[torch.Tensor]:
+        """The live lengths to mask the draft with before a block-verification accept,
+        or None when every row of this step is live (the stock accept is then exact as
+        it is). The skip is a host decision, so it is taken only on an eager step whose
+        lengths are our own constant full-width buffer; a graph capture always records
+        the mask (it reads the buffer at replay)."""
+        key = self._src_key
+        if (
+            key is not None and key[0] == "const" and key[1] >= self.stride and key[2] == n
+            and self.live_lens is not None
+            and verify_lens.data_ptr() == self.live_lens.data_ptr()
+            and not _capturing(verify_lens)
+        ):
+            self.bv_skipped += 1
+            return None
+        return verify_lens[:n]
 
     def remap(self, weights: torch.Tensor, ids: torch.Tensor):
         if ids.dim() != 2 or weights.shape[0] != ids.shape[0]:
@@ -278,6 +322,10 @@ class VcapState:
             f"mean_commit={sum_commit / n:.3f} mean_uncapped={sum_block / n:.3f} "
             f"(uncapped = commit + cap-trimmed drafts)"
         )
+        if self.fused_accept is not None:
+            msg += f" fused_accept_calls={self.fused_accept_calls}"
+        if self.block_verify:
+            msg += f" block_verify masked_calls={self.bv_masked} skipped_full={self.bv_skipped}"
         if self._union_acc is not None and self._union_slots:
             u = self._union_acc[: len(self._union_slots)].tolist()
             visits = sum(row[1] for row in u)

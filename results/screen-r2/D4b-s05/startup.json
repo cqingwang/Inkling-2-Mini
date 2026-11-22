@@ -1,0 +1,2 @@
+{"label":"D4b-s05","ready_utc":"2026-11-22T10:31:12Z","startup_s":257,"memavail_ready_gib":18.4,"kv":"[2026-11-22 10:31:09 PID105] max_total_num_tokens=1190400, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=19.34 GB"}
+{"memavail_end_gib":18.4}

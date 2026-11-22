@@ -19,6 +19,13 @@ Third-party code vendored in this repository:
   modified to expand coded scale factors; scodes_group_gemm.cuh reduces FlashInfer 0.7.4's
   include/flashinfer/gemm/group_gemm_nvfp4_groupwise_sm120.cuh (Apache-2.0, Copyright (c) 2026 FlashInfer team)
   to the configuration SGLang uses and swaps in that mainloop.
+- overlay/inkling_kv12/ops.py: the decode / verify attention kernels (`_kv12_partials_np`, `_kv12_partials`) follow
+  SGLang's Inkling2 split-KV decode kernel (`_decode_partials` in
+  sglang.kernels.ops.attention.inkling2_decode_attention_sm90,
+  sgl-project/sglang, Apache-2.0) with the same grid, tile order and online softmax, modified to read packed 12-bit
+  K / V tiles from a side pool.
+- overlay/inkling_vattn/ops.py: `_inkernel_bias_partials` is the same SGLang `_decode_partials` kernel body
+  (sgl-project/sglang, Apache-2.0), modified to compute the relative-position bias per key tile in-kernel.
 
 The serving engines run from their published container images, pinned by digest in scripts/launch.sh:
 - SGLang (sgl-project/sglang), lmsysorg/sglang:inkling-2-mini, Apache-2.0.

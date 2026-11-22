@@ -1,0 +1,2 @@
+{"label":"BVTa-s05","ready_utc":"2026-11-22T11:29:53Z","startup_s":237,"memavail_ready_gib":17.9,"kv":"[2026-11-22 11:29:49 PID104] max_total_num_tokens=1195136, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=18.92 GB"}
+{"memavail_end_gib":17.1}

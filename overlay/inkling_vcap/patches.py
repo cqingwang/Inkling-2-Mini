@@ -11,6 +11,7 @@ from typing import Callable, Iterable
 
 import torch
 
+from inkling_vcap import fastprobs, logic
 from inkling_vcap.state import PREFIX, STATE, log
 
 MOD_MOE = "sglang.srt.models.inkling_common.inkling2_moe"
@@ -25,6 +26,7 @@ P_STATIC_ACCEPT = "DsparkVerifyEpilogue._accept_static_greedy"
 P_RUN_NON_COMPACT = "TargetVerifyExecutor.run_non_compact"
 P_ACCEPT_VERIFY = "dspark_verify.accept_draft_tokens"
 P_ACCEPT_SAG = "dspark_sampling_accept_graph.accept_draft_tokens"
+P_DRAFT_PROBS = "dspark_verify._draft_probs"  # required only with block verification
 P_PROPOSE = "DraftBlockProposer.propose"
 P_WORKER_INIT = "DSparkWorkerV2.__init__"
 P_FORWARD_DECODE = "DSparkWorkerV2._forward_decode"
@@ -141,19 +143,127 @@ def patch_moe(mod) -> None:
 
 # ------------------------------------------------------------------ verify / accept
 def _wrap_accept_draft_tokens(orig):
-    _require_subset(orig, ["candidates", "cutoff_layout"], "accept_draft_tokens")
+    _require_subset(orig, ["candidates", "cutoff_layout", "block_verification"],
+                    "accept_draft_tokens")
     sig = inspect.signature(orig)
     if sig.parameters["candidates"].kind is not inspect.Parameter.KEYWORD_ONLY:
         raise PatchTargetError(f"{PREFIX} accept_draft_tokens is no longer keyword-only")
 
     def accept_draft_tokens(**kwargs):
-        if STATE.enabled and kwargs.get("cutoff_layout") is None:
-            cutoff = STATE.cutoff_for(int(kwargs["candidates"].shape[0]))
+        if not STATE.enabled:
+            return orig(**kwargs)
+        n = int(kwargs["candidates"].shape[0])
+        if kwargs.get("cutoff_layout") is None:
+            cutoff = STATE.cutoff_for(n)
             if cutoff is not None:
                 kwargs["cutoff_layout"] = cutoff
-        return orig(**kwargs)
+        cutoff = kwargs.get("cutoff_layout")
+        if STATE.fused_accept is not None:
+            fused = _fused_sampled_accept(orig, kwargs, cutoff)
+            if fused is not None:
+                return fused
+        bv_lens = None
+        if kwargs.get("block_verification") and cutoff is not None and STATE.config.bv_mask:
+            # Block verification reads every row: the dead drafts must look stopped
+            # (README, "Block verification under the cap"); _draft_probs masks them.
+            bv_lens = STATE.block_verify_lens(cutoff.verify_lens, n)
+        if bv_lens is None:
+            return orig(**kwargs)
+        STATE.bv_lens = bv_lens
+        try:
+            return orig(**kwargs)
+        finally:
+            STATE.bv_lens = None
 
     return _mark(accept_draft_tokens, orig)
+
+
+def _fused_sampled_accept(orig, kwargs, cutoff):
+    """The sampled branch of accept_draft_tokens through fused_accept.accept_core, or
+    None when this call is not eligible (the stock path then runs)."""
+    from inkling_vcap import fused_accept
+
+    si = kwargs.get("sampling_info")
+    block = kwargs.get("draft_block")
+    cand = kwargs["candidates"]
+    logits = kwargs.get("target_logits")
+    if (
+        si is None or si.is_all_greedy or si.need_top_k_sampling or si.need_top_p_sampling
+        or block is None or getattr(block, "greedy_draft", True)
+        or getattr(block, "vocab_shard", None) is not None
+        or kwargs.get("rejection_noise") is not None
+        or logits is None or not logits.is_cuda or torch.cuda.is_current_stream_capturing()
+    ):
+        return None
+    bs, stride = cand.shape
+    if bs < STATE.config.fused_accept_min_bs:
+        return None
+    dlog = block.corrected_logits
+    vocab = logits.shape[-1]
+    if (
+        dlog is None or dlog.dim() != 3 or tuple(dlog.shape[:2]) != (bs, stride - 1)
+        or dlog.shape[-1] != vocab or dlog.stride(-1) != 1 or logits.stride(-1) != 1
+        or logits.shape[0] != bs * stride
+    ):
+        return None
+    t = si.temperatures.reshape(-1)[:bs].to(torch.float32)
+    t_temps = torch.where(t > 0, t, torch.ones_like(t))
+    d_temps = block.temperatures.reshape(-1)[:bs].to(torch.float32)
+    coins = torch.rand((bs, stride - 1), dtype=torch.float32, device=logits.device)
+    STATE.fused_accept_calls += 1
+    sampled = fused_accept.accept_core(
+        STATE.fused_accept, candidates=cand, target_logits=logits, draft_logits=dlog,
+        t_temps=t_temps, d_temps=d_temps,
+        live_lens=None if cutoff is None else cutoff.verify_lens,
+        block_verification=bool(kwargs.get("block_verification")), coins=coins,
+    )
+    if not si.is_any_greedy:
+        return sampled
+    mod = _ACCEPT_MODULE["mod"]
+    greedy_len, greedy_bonus, greedy_trim = mod.AcceptGreedy.execute(
+        candidates=cand, target_logits=logits,
+        verify_num_draft_tokens=kwargs["verify_num_draft_tokens"],
+        cutoff_verify_lens=None if cutoff is None else cutoff.verify_lens,
+    )
+    sampling_len, sampling_bonus, sampling_trim = sampled
+    sel = mod.SelectMixedAccept.execute(
+        greedy_mask=block.greedy_mask, greedy_len=greedy_len, greedy_bonus=greedy_bonus,
+        greedy_trim=greedy_trim, sampling_len=sampling_len.to(greedy_len.dtype),
+        sampling_bonus=sampling_bonus.to(greedy_bonus.dtype),
+        sampling_trim=sampling_trim.to(greedy_trim.dtype),
+    )
+    return sel.correct_len, sel.bonus, sel.cap_trim_lens
+
+
+_ACCEPT_MODULE: dict = {}
+
+
+def _wrap_draft_probs(orig):
+    _require_params(orig, ["draft_block", "vocab", "device"], P_DRAFT_PROBS)
+
+    def _draft_probs(draft_block, vocab, device):
+        probs = None
+        if STATE.enabled and STATE.use_fastprobs and not draft_block.greedy_draft:
+            logits = draft_block.corrected_logits
+            if (
+                logits is not None and logits.is_cuda and logits.dim() == 3
+                and logits.shape[-1] == vocab and logits.stride(-1) == 1
+                and getattr(draft_block, "vocab_shard", None) is None
+            ):
+                bs, gamma, _ = logits.shape
+                STATE.fastprobs_calls += 1
+                probs = fastprobs.softmax_temp(
+                    logits.reshape(bs * gamma, vocab), draft_block.temperatures, gamma
+                ).view(bs, gamma, vocab)
+        if probs is None:
+            probs = orig(draft_block, vocab, device)
+        lens = STATE.bv_lens
+        if lens is not None:
+            STATE.bv_masked += 1
+            logic.mask_dead_draft_rows(probs, draft_block.draft_tokens, lens)
+        return probs
+
+    return _mark(_draft_probs, orig)
 
 
 def patch_verify(mod) -> None:
@@ -219,6 +329,12 @@ def patch_verify(mod) -> None:
 
     if not _is_marked(adt):
         mod.accept_draft_tokens = _wrap_accept_draft_tokens(adt)
+    _ACCEPT_MODULE["mod"] = mod
+    dp = getattr(mod, "_draft_probs", None)
+    if dp is not None:
+        if not _is_marked(dp):
+            mod._draft_probs = _wrap_draft_probs(dp)
+        STATE.applied.add(P_DRAFT_PROBS)
     STATE.applied.update((P_STATIC_ACCEPT, P_RUN_NON_COMPACT, P_ACCEPT_VERIFY))
 
 
@@ -360,6 +476,90 @@ def _capacity_without_epilogue() -> int:
     return max(sizes)
 
 
+def fastprobs_selfcheck(device) -> "str | None":
+    """None when fastprobs matches the torch reference on this device; else why not."""
+    try:
+        if not fastprobs.available(device):
+            return "not CUDA or the image's split softmax kernels are missing"
+        gen = torch.Generator(device="cpu").manual_seed(0)
+        bs, gamma, vocab = 3, 7, 201024
+        logits = (torch.randn((bs, gamma, vocab), generator=gen) * 4).to(torch.bfloat16)
+        logits[:, :, 150000:] = float("-inf")  # hot-vocabulary style rows
+        logits = logits.to(device)
+        temps = torch.tensor([0.8, 0.0, 1.3], device=device)
+        greedy = torch.tensor([False, True, False], device=device)
+        ref_m = logic.draft_token_probs(logits, torch.zeros(bs, gamma, dtype=torch.long,
+                                        device=device), temperatures=temps,
+                                        greedy_mask=greedy, use_max=True)
+        got_m = fastprobs.max_prob(logits, temperatures=temps, greedy_mask=greedy)
+        err_m = float((ref_m - got_m).abs().max())
+        clamped = temps.clamp_min(1e-5)
+        x = logits.float().reshape(bs * gamma, vocab) / clamped.repeat_interleave(gamma)[:, None]
+        ref_q = torch.softmax(x, dim=-1)
+        got_q = fastprobs.softmax_temp(logits.reshape(bs * gamma, vocab), clamped, gamma)
+        err_q = float((ref_q - got_q).abs().max())
+        sum_err = float((got_q.sum(-1) - 1).abs().max())
+        if not (err_m < 1e-5 and err_q < 1e-6 and sum_err < 1e-4):
+            return f"self-check mismatch: m {err_m:.2e}, q {err_q:.2e}, sum {sum_err:.2e}"
+        return None
+    except Exception as exc:  # noqa: BLE001
+        return f"self-check failed: {exc!r}"[:200]
+
+
+def fused_accept_selfcheck(device) -> "str | None":
+    """Install the Triton primitives in STATE.fused_accept when they agree with the dense
+    torch primitives on this device; else return why not (the stock accept stays)."""
+    STATE.fused_accept = None
+    try:
+        from inkling_vcap import fused_accept as fa
+
+        mod = _ACCEPT_MODULE.get("mod")
+        src = inspect.getsource(mod.accept_draft_tokens.__wrapped__)
+        for needle in ("AcceptGreedy.execute(", "SelectMixedAccept.execute(",
+                       "sampling_info.is_any_greedy", "AcceptSampling.execute("):
+            if needle not in src:
+                return f"accept_draft_tokens no longer contains {needle!r}"
+        if torch.device(device).type != "cuda" or fa.triton is None or not fastprobs.available(device):
+            return "not CUDA, or Triton / the split softmax kernels are missing"
+        tp, rp = fa.TritonPrims(), fa.TorchPrims()
+        gen = torch.Generator(device="cpu").manual_seed(0)
+        bs, S, V = 3, 8, 201024
+        G = S - 1
+        tl2 = (torch.randn((bs * S, V), generator=gen) * 3).to(device)
+        dl2 = (torch.randn((bs * G, V), generator=gen) * 3).to(torch.bfloat16)
+        dl2[:, 150000:] = float("-inf")
+        dl2 = dl2.to(device)
+        tt = torch.tensor([0.8, 1.0, 0.5], device=device)
+        td = tt * 0.7
+        need_t = torch.ones(bs * S, dtype=torch.bool, device=device)
+        need_d = torch.ones(bs * G, dtype=torch.bool, device=device)
+        st_ref = rp.stats(tl2, tt, S, need_t) + rp.stats(dl2, td, G, need_d)
+        st_got = tp.stats(tl2, tt, S, need_t) + tp.stats(dl2, td, G, need_d)
+        e_lse = max(float((a_ - b_).abs().max()) for a_, b_ in zip(st_ref, st_got))
+        st = (st_got[0].view(bs, S), st_got[1].view(bs, S), st_got[2].view(bs, G),
+              st_got[3].view(bs, G))
+        pp = torch.rand((bs, G), generator=gen).to(device)
+        need = torch.ones((bs, G), dtype=torch.bool, device=device)
+        need[:, G - 1] = False
+        m_ref = rp.masses(tl2, dl2, st, tt, td, pp, need)
+        m_got = tp.masses(tl2, dl2, st, tt, td, pp, need)
+        e_mass = float((m_ref - m_got).abs().max())
+        # the race only picks tokens with positive residual weight
+        tau = torch.tensor([0, 3, 7], device=device)
+        scale = torch.tensor([1.0, 0.6, 1.0], device=device)
+        use_q = torch.tensor([True, True, False], device=device)
+        pick = tp.sample(tl2, dl2, st, tt, td, tau, scale, use_q)
+        P, Q = rp._dense(tl2, dl2, st, tt, td)
+        rows = torch.arange(bs, device=device)
+        w = (scale * P[rows, tau, pick] - Q[rows, tau.clamp(max=G - 1), pick] * use_q).clamp(min=0)
+        if not (e_lse < 1e-4 and e_mass < 1e-5 and bool((w > 0).all())):
+            return f"self-check mismatch: lse {e_lse:.1e}, mass {e_mass:.1e}, race w {w.tolist()}"
+        STATE.fused_accept = tp
+        return None
+    except Exception as exc:  # noqa: BLE001
+        return f"self-check failed: {exc!r}"[:200]
+
+
 def attach(worker) -> None:
     """Validate the serving setup, allocate the buffers, and enable the hooks."""
     cfg = STATE.config
@@ -380,11 +580,15 @@ def attach(worker) -> None:
     if float(getattr(worker, "_simulate_acc_len", 0.0) or 0.0) > 0:
         raise RuntimeError(f"{PREFIX} incompatible with SGLANG_SIMULATE_ACC_LEN")
     rc = _runtime_context()
+    block_verify = False
     if rc is not None:
         spec = rc.get_spec()
-        if getattr(spec, "speculative_use_block_verification", False):
-            raise RuntimeError(
-                f"{PREFIX} incompatible with --speculative-use-block-verification"
+        block_verify = bool(getattr(spec, "speculative_use_block_verification", False))
+        if block_verify and P_DRAFT_PROBS not in STATE.applied:
+            raise PatchTargetError(
+                f"{PREFIX} --speculative-use-block-verification needs the "
+                f"{P_DRAFT_PROBS} patch (dead drafts masked as a stopped draft); "
+                "the target is missing in this engine"
             )
         par = rc.get_parallel()
 
@@ -453,12 +657,23 @@ def attach(worker) -> None:
             err = fused.selfcheck(worker.device)
             STATE.use_fused = err is None
             fused_note = "on (self-check passed)" if err is None else f"off ({err})"
+    fa_note = "off"
+    if cfg.fused_accept:
+        err = fused_accept_selfcheck(worker.device)
+        fa_note = "on (self-check passed)" if err is None else f"off ({err})"
+    fast_note = "off"
+    if cfg.fastprobs:
+        err = fastprobs_selfcheck(worker.device)
+        STATE.use_fastprobs = err is None
+        fast_note = "on (self-check passed)" if err is None else f"off ({err})"
     STATE.worker = worker
+    STATE.block_verify = block_verify
     STATE.enabled = True
     log(
         f"enabled mode={cfg.describe()} capping={'on' if STATE.capping else 'off (inert)'} "
+        f"block_verification={('on, ' + ('dead drafts masked as a stopped draft' if cfg.bv_mask else 'stock kernel + cap')) if block_verify else 'off'} "
         f"stride={stride} capacity={capacity} reqs "
         f"moe_layers={n_moe} live_lens={STATE.live_lens_source} "
-        f"fused_remap={fused_note}; patched: "
+        f"fused_remap={fused_note} fastprobs={fast_note} fused_accept={fa_note}; patched: "
         + ", ".join(REQUIRED)
     )

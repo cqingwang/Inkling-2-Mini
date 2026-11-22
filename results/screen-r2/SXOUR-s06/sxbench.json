@@ -1,0 +1,187 @@
+{
+ "protocol": "usage: python3 scripts/bench.py OUT.json [--port 8020] [--compare results/ab/stock.json] [--no-vision]",
+ "canary": {
+  "http": 200,
+  "answer": "408"
+ },
+ "rows": [
+  {
+   "ttft_s": 0.15926896598830353,
+   "decode_tps": 67.76889781209299,
+   "usage": {
+    "prompt_tokens": 53,
+    "total_tokens": 213,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "f3249d408562366c9d46e43d62141f81cf77d318b80650925478a52d6090fc25",
+   "case": "code",
+   "repeat": 0
+  },
+  {
+   "ttft_s": 0.18863985399366356,
+   "decode_tps": 63.704608547920074,
+   "usage": {
+    "prompt_tokens": 54,
+    "total_tokens": 214,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "aac8eb3ea430bed81b31aa783d3505a717e5b8e774e231f94ade98eabb018fe3",
+   "case": "prose",
+   "repeat": 0
+  },
+  {
+   "ttft_s": 0.170362267002929,
+   "decode_tps": 77.70725637360471,
+   "usage": {
+    "prompt_tokens": 44,
+    "total_tokens": 204,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "e34301954d48c356673504d523c30df3a97b16c70b3db3ab49be4ddd99b214fb",
+   "case": "math",
+   "repeat": 0
+  },
+  {
+   "ttft_s": 0.18937169900164008,
+   "decode_tps": 67.49885604408725,
+   "usage": {
+    "prompt_tokens": 53,
+    "total_tokens": 213,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "f3249d408562366c9d46e43d62141f81cf77d318b80650925478a52d6090fc25",
+   "case": "code",
+   "repeat": 1
+  },
+  {
+   "ttft_s": 0.18953384199994616,
+   "decode_tps": 63.648732779548396,
+   "usage": {
+    "prompt_tokens": 54,
+    "total_tokens": 214,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "aac8eb3ea430bed81b31aa783d3505a717e5b8e774e231f94ade98eabb018fe3",
+   "case": "prose",
+   "repeat": 1
+  },
+  {
+   "ttft_s": 0.1816552620002767,
+   "decode_tps": 77.63338005975284,
+   "usage": {
+    "prompt_tokens": 44,
+    "total_tokens": 204,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "e34301954d48c356673504d523c30df3a97b16c70b3db3ab49be4ddd99b214fb",
+   "case": "math",
+   "repeat": 1
+  },
+  {
+   "ttft_s": 0.1899639930052217,
+   "decode_tps": 67.78461545060208,
+   "usage": {
+    "prompt_tokens": 53,
+    "total_tokens": 213,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "f3249d408562366c9d46e43d62141f81cf77d318b80650925478a52d6090fc25",
+   "case": "code",
+   "repeat": 2
+  },
+  {
+   "ttft_s": 0.18944777200522367,
+   "decode_tps": 63.540657169019426,
+   "usage": {
+    "prompt_tokens": 54,
+    "total_tokens": 214,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "aac8eb3ea430bed81b31aa783d3505a717e5b8e774e231f94ade98eabb018fe3",
+   "case": "prose",
+   "repeat": 2
+  },
+  {
+   "ttft_s": 0.1815558650123421,
+   "decode_tps": 77.69043295972855,
+   "usage": {
+    "prompt_tokens": 44,
+    "total_tokens": 204,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 160
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "e34301954d48c356673504d523c30df3a97b16c70b3db3ab49be4ddd99b214fb",
+   "case": "math",
+   "repeat": 2
+  }
+ ],
+ "median_decode_tps": 67.76889781209299,
+ "median_ttft_s": 0.18863985399366356,
+ "case_medians": {
+  "code": 67.76889781209299,
+  "prose": 63.648732779548396,
+  "math": 77.69043295972855
+ }
+}

@@ -69,3 +69,30 @@ def draft_markov_block(*, markov_head, base_logits, anchor_tokens, draft_hidden,
         )
         out.append(prev)
     return torch.stack(out, 1), (None if greedy_draft else logits_out)
+
+
+class DraftParams(NamedTuple):
+    temperatures: torch.Tensor
+    greedy_mask: torch.Tensor
+    step_temperatures: torch.Tensor
+
+
+def resolve_draft_params(*, sampling_info, bs, device=None, out=None):
+    """Same arithmetic as the image's resolve_draft_params."""
+    if out is None:
+        out = DraftParams(
+            temperatures=torch.empty(bs, dtype=torch.float32),
+            greedy_mask=torch.empty(bs, dtype=torch.bool),
+            step_temperatures=torch.empty(bs, dtype=torch.float32),
+        )
+    temperatures, greedy_mask, step_temperatures = (buf[:bs] for buf in out)
+    if sampling_info is None:
+        temperatures.fill_(1.0)
+        greedy_mask.fill_(True)
+        step_temperatures.zero_()
+    else:
+        torch.clamp(sampling_info.temperatures.view(-1)[:bs].to(torch.float32), min=1e-5,
+                    out=temperatures)
+        torch.le(sampling_info.top_ks.view(-1)[:bs], 1, out=greedy_mask)
+        torch.where(greedy_mask, torch.zeros(()), temperatures, out=step_temperatures)
+    return DraftParams(temperatures, greedy_mask, step_temperatures)

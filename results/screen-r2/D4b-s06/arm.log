@@ -1,0 +1,38 @@
+2026-11-22T10:41:19Z D4b-s06 mode warm
+D4b-s06-warm: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 59.92, "geomean_tok_s": 63.8, "aggregate_tok_s": 61.86, "median_ttft_ms": 159.1, "truncated_frac": 0.967, "reasoning_token_frac": 0.783, "reasoning_char_frac": 0.827, "median_step_ms": 36.54, "median_tokens_per_step": 2.24, "steps_source": "response", "median_accept_rate": 0.1781, "median_draft_per_step": 7.0}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": 2.023, "drift_pct_all": 2.023}}
+wrote /home/knapcio/inkling/r2/results/D4b-s06/warm-sbquick.json (1.6 min)
+2026-11-22T10:42:53Z D4b-s06 mode sbq
+D4b-s06: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 60.2, "geomean_tok_s": 63.85, "aggregate_tok_s": 61.83, "median_ttft_ms": 158.8, "truncated_frac": 0.967, "reasoning_token_frac": 0.782, "reasoning_char_frac": 0.826, "median_step_ms": 36.33, "median_tokens_per_step": 2.225, "steps_source": "response", "median_accept_rate": 0.1799, "median_draft_per_step": 7.0}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": -0.144, "drift_pct_all": -0.144}}
+wrote /home/knapcio/inkling/r2/results/D4b-s06/sbquick.json (1.5 min)
+2026-11-22T10:44:23Z D4b-s06 mode sbq2
+D4b-s06: {"failed": 0, "valid_decode": 30, "ALL": {"n": 30, "median_tok_s": 60.32, "geomean_tok_s": 63.82, "aggregate_tok_s": 61.8, "median_ttft_ms": 159.2, "truncated_frac": 0.967, "reasoning_token_frac": 0.782, "reasoning_char_frac": 0.826, "median_step_ms": 36.57, "median_tokens_per_step": 2.225, "steps_source": "response", "median_accept_rate": 0.1799, "median_draft_per_step": 7.0}, "sentinel": {"n": 2, "identical_text": 2, "drift_pct_identical": 0.091, "drift_pct_all": 0.091}}
+wrote /home/knapcio/inkling/r2/results/D4b-s06/sbquick2.json (1.5 min)
+2026-11-22T10:45:53Z D4b-s06 mode think1
+2026-11-22T10:47:44Z D4b-s06 mode dt
+prose      c1  aggregate    52.7 tok/s  per-stream   54.0  ttft 0.163 s  failed 0
+prose      c2  aggregate    72.7 tok/s  per-stream   37.4  ttft 0.22 s  failed 0
+prose      c4  aggregate   108.1 tok/s  per-stream   28.5  ttft 0.385 s  failed 0
+prose      c8  aggregate   158.3 tok/s  per-stream   21.1  ttft 0.319 s  failed 0
+prose      c16 aggregate   230.2 tok/s  per-stream   15.3  ttft 0.525 s  failed 0
+code       c1  aggregate    65.0 tok/s  per-stream   63.4  ttft 0.19 s  failed 0
+code       c2  aggregate    87.2 tok/s  per-stream   45.3  ttft 0.237 s  failed 0
+code       c4  aggregate   118.4 tok/s  per-stream   31.9  ttft 0.29 s  failed 0
+code       c8  aggregate   177.9 tok/s  per-stream   24.6  ttft 0.337 s  failed 0
+code       c16 aggregate   256.2 tok/s  per-stream   18.4  ttft 0.572 s  failed 0
+structured c1  aggregate    69.4 tok/s  per-stream   70.9  ttft 0.187 s  failed 0
+structured c2  aggregate    93.3 tok/s  per-stream   48.9  ttft 0.247 s  failed 0
+structured c4  aggregate   123.8 tok/s  per-stream   33.3  ttft 0.321 s  failed 0
+structured c8  aggregate   172.3 tok/s  per-stream   23.4  ttft 0.35 s  failed 0
+structured c16 aggregate   259.2 tok/s  per-stream   17.5  ttft 0.429 s  failed 0
+json       c1  aggregate    62.6 tok/s  per-stream   63.2  ttft 0.165 s  failed 0
+json       c2  aggregate    88.7 tok/s  per-stream   47.7  ttft 0.232 s  failed 0
+json       c4  aggregate   130.2 tok/s  per-stream   35.2  ttft 0.258 s  failed 0
+json       c8  aggregate   187.7 tok/s  per-stream   24.7  ttft 0.333 s  failed 0
+json       c16 aggregate   266.9 tok/s  per-stream   17.9  ttft 0.57 s  failed 0
+wrote /home/knapcio/inkling/r2/results/D4b-s06/decode.json
+| prompt type | c1 | c2 | c4 | c8 | c16 |
+|---|---:|---:|---:|---:|---:|
+| prose | 54.0 | 72.7 (37.4) | 108.1 (28.5) | 158.3 (21.1) | 230.2 (15.3) |
+| code | 63.4 | 87.2 (45.3) | 118.4 (31.9) | 177.9 (24.6) | 256.2 (18.4) |
+| structured | 70.9 | 93.3 (48.9) | 123.8 (33.3) | 172.3 (23.4) | 259.2 (17.5) |
+| json | 63.2 | 88.7 (47.7) | 130.2 (35.2) | 187.7 (24.7) | 266.9 (17.9) |

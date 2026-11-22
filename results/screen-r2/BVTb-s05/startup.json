@@ -1,0 +1,2 @@
+{"label":"BVTb-s05","ready_utc":"2026-11-22T12:09:48Z","startup_s":237,"memavail_ready_gib":18.2,"kv":"[2026-11-22 12:09:45 PID104] max_total_num_tokens=1191808, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=18.63 GB"}
+{"memavail_end_gib":17.6}

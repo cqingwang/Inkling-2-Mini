@@ -28,12 +28,12 @@ VLLM_IMAGE=${VLLM_IMAGE:-vllm/vllm-openai@sha256:c2dc759f5984f69c1e2418c6af7c26e
 MODEL_REVISION=ed40e7da625f594fc9c4990f5f66be24873c22d7
 
 # SGLang profile
-MEM_FRACTION=${MEM_FRACTION:-0.84}
+MEM_FRACTION=${MEM_FRACTION:-0.80}
 # Speed overlays (overlay/, see overlay/README.md). OVERLAY=0 runs the stock image exactly as the cookbook does.
 OVERLAY=${OVERLAY:-1}
 OVERLAY_DIR=${OVERLAY_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/overlay}
 VERIFY_CAP=${VERIFY_CAP:-policy:/opt/inkling-overlay/inkling_vcap/policies/r2-theta004.json,bsmax=16}  # verify-width policy (off = stock)
-DRAFT_BYTES=${DRAFT_BYTES:-gemv,fold8,head8,draftmx8,hotvocab:65536,wide8,w8tile}  # draft-side byte cuts (empty = stock)
+DRAFT_BYTES=${DRAFT_BYTES:-gemv,fold8,head8,draftmx8,hotvocab:65536,wide8,w8tile,dwin:16384}  # draft-side byte cuts (empty = stock)
 HOTVOCAB_FILE=${HOTVOCAB_FILE:-/opt/inkling-overlay/inkling_draftbytes/hotvocab/inkling2-mini-hot-r2.json}  # ranked draft vocabulary
 KERNELS=${KERNELS:-moe_tiles,qkvr_gemv}                     # target-side kernel choices (empty = stock)
 PREFILL=${PREFILL:-qkvr_split,bias_layout,quant_once,partial_bf16}  # exact prefill levers (empty = stock)
@@ -44,6 +44,11 @@ WIDE_SCOPE=${WIDE_SCOPE:-verify}                            # wide only on decod
 VATTN=${VATTN:-1}                                           # verify attention on the split-KV relative-bias kernel at all batch sizes
 ATTN=${ATTN:-prefill_swa,prefill_global}                    # fused relative-bias prefill attention (empty = stock FA4 path)
 MOE2=${MOE2:-tiles}                                          # GB10 tile tables for the routed-expert GEMMs (9-128 tokens NVFP4, MXFP8 tactic)
+VCAP_BV=${VCAP_BV:-1}                                       # block verification under the verify cap (exact; INKLING_VERIFY_CAP_BV=mask)
+VCAP_FASTPROBS=${VCAP_FASTPROBS:-1}                         # draft statistics / sampled accept q from one BF16 read (exact)
+VCAP_FUSED=${VCAP_FUSED:-1}                                 # sampled accept straight from the logits, >= 3 requests (exact)
+KV12=${KV12:-1}                                             # global-layer KV also kept as packed 12-bit pages (exact; side pool)
+KV12_SLOTS=${KV12_SLOTS:-2048}                              # packed side-pool pages per global layer (2048 = 6.1 GiB, one 256K request)
 SCODES=${SCODES:-1}                                          # NVFP4 expert scale codes: 5-bit codes + row base, expanded in the GEMM (exact)
 PFUSE=${PFUSE:-all}                                         # prefill glue fusion (empty = stock)
 MOE_TILES=${MOE_TILES:-1@2304:swap_ab=1,tile_n=32,tile_k=256;1@1152:swap_ab=1,tile_n=32,tile_k=256;8@2304:swap_ab=1,tile_n=32,tile_k=256;8@1152:swap_ab=1,tile_n=32,tile_k=256;64@2304:swap_ab=0,tile_n=64,tile_k=256;64@1152:swap_ab=1,tile_n=32,tile_k=256}
@@ -93,6 +98,7 @@ common=(docker run -d --name "$NAME" --gpus all --ipc=host --network host --shm-
 if [[ $ENGINE == sglang ]]; then
   spec=()
   [[ $SPEC == dspark ]] && spec=(--speculative-algorithm DSPARK --speculative-num-draft-tokens 8)
+  [[ $SPEC == dspark && $OVERLAY == 1 && $VCAP_BV == 1 ]] && spec+=(--speculative-use-block-verification)
   ov=()
   if [[ $OVERLAY == 1 ]]; then
     [[ -f $OVERLAY_DIR/sitecustomize.py ]] || { echo "OVERLAY=1 but no overlay at $OVERLAY_DIR" >&2; exit 1; }
@@ -101,7 +107,9 @@ if [[ $ENGINE == sglang ]]; then
         -e INKLING_DRAFT_BYTES="$DRAFT_BYTES" -e INKLING_DRAFT_HOTVOCAB_FILE="$HOTVOCAB_FILE" -e INKLING_KERNELS="$KERNELS" -e INKLING_MOE_TILES="$MOE_TILES"
         -e INKLING_PICO12="$PICO12" -e INKLING_PREFILL="$PREFILL" -e INKLING_PREFILL_QKVR_OUT=strided
         -e INKLING_CERT_HEAD="$CERT_HEAD" -e INKLING_WIDE="$WIDE" -e INKLING_WIDE_SCOPE="$WIDE_SCOPE"
-        -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE" -e INKLING_MOE2="$MOE2" -e INKLING_SCODES="$SCODES")
+        -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE" -e INKLING_MOE2="$MOE2" -e INKLING_SCODES="$SCODES"
+        -e INKLING_VERIFY_CAP_FASTPROBS="$VCAP_FASTPROBS" -e INKLING_VERIFY_CAP_FUSED_ACCEPT="$VCAP_FUSED"
+        -e INKLING_KV12="$KV12" -e INKLING_KV12_MAX_PAGES="$KV12_SLOTS")
   fi
   run=("${common[@]}" ${ov[@]+"${ov[@]}"}
        -e MAX_JOBS=4

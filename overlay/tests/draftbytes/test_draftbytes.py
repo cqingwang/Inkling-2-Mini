@@ -69,6 +69,86 @@ def run_scenario(name, options, extra_env=None, expect_ok=True):
     return json.loads(proc.stdout.strip().splitlines()[-1])
 
 
+class DwinTests(unittest.TestCase):
+    def test_options(self):
+        o = _opts.parse("dwin:16k", environ={})
+        self.assertTrue(o.active)
+        self.assertEqual((o.dwin, o.dwin_sink), (16384, 128))
+        o = _opts.parse("dwin:8192:0, gemv", environ={})
+        self.assertEqual((o.dwin, o.dwin_sink, o.gemv), (8192, 0, True))
+        self.assertIn("dwin:8192:0", o.describe())
+        self.assertEqual(_opts.parse("gemv", environ={}).dwin, 0)
+        for bad in ("dwin", "dwin:0", "dwin:abc", "dwin:16k:x"):
+            with self.assertRaises(_opts.OptionError, msg=bad):
+                _opts.parse(bad, environ={})
+
+    def test_window_table_matches_reference(self):
+        from inkling_draftbytes.dwin import DwinCfg, reference_keys, window_page_metadata
+
+        g = torch.Generator().manual_seed(0)
+        for P, S, W in ((4, 4, 12), (4, 0, 8), (4, 8, 17), (128, 128, 16384), (4, 4, 1), (4, 0, 4), (128, 0, 300)):
+            sp, wp = DwinCfg(W, S).pages(P)
+            for width in (3, sp + wp, sp + wp + 1, 20, 400):
+                table = torch.stack([torch.randperm(1000, generator=g)[:width] for _ in range(3)]).to(torch.int32)
+                step = max(1, P // 4) if P <= 8 else 211
+                for n0 in range(0, min(width * P, 3 * (sp + wp) * P + 5), step):
+                    lens = torch.tensor([n0, max(0, n0 - 3), min(width * P, n0 + P + 1)], dtype=torch.int32)
+                    built = window_page_metadata(table, lens, P, sp, W)
+                    if width <= sp + wp:
+                        self.assertIsNone(built)
+                        continue
+                    t, l, cu = built
+                    self.assertEqual(tuple(t.shape), (3, sp + wp))
+                    self.assertEqual(t.dtype, torch.int32)
+                    self.assertEqual(cu.tolist(), [0] + torch.cumsum(l, 0).tolist())
+                    for r in range(3):
+                        n = int(lens[r])
+                        keys = reference_keys(n, P, sp, W)  # independent: pages of the sink + of the last W tokens
+                        self.assertEqual(int(l[r]), len(keys), (P, S, W, width, n))
+                        phys = [int(t[r, i // P]) * P + i % P for i in range(len(keys))]
+                        want = [int(table[r, j // P]) * P + j % P for j in keys]
+                        self.assertEqual(phys, want, (P, S, W, width, n))
+                        self.assertTrue(set(range(max(0, n - W), n)) <= set(keys))
+                        self.assertTrue(set(range(min(n, sp * P))) <= set(keys))
+                        if n < W + (sp + 1) * P:
+                            self.assertEqual(keys, list(range(n)))
+
+    def test_end_to_end_stubs(self):
+        r = run_scenario("dwin_paths", "dwin:24:4")
+        self.assertTrue(r["patched"])
+        self.assertEqual(r["marks"], [False, True])
+        self.assertEqual((r["sp"], r["wp"]), (1, 7))
+        for c in r["cases"]:
+            self.assertTrue(c["restored"], c)
+            self.assertLess(c["err_vs_ref"], 1e-5, c)
+            self.assertEqual(c["max_k"], [(1 + 7) * 4, None], c)  # windowed call gets the static bound; stock not
+            self.assertTrue(c["no_leftover_attr"], c)
+            if all(c["identity"]):
+                self.assertTrue(c["equal_stock"], c)
+            else:
+                self.assertFalse(c["equal_stock"], c)
+        self.assertEqual(r["passthrough_same_meta"], [True, True, True])
+        self.assertTrue(r["raised_and_restored"])
+        self.assertGreaterEqual(r["stats"]["passthrough_marked"], 2)
+
+    def test_off_leaves_backend_stock(self):
+        r = run_scenario("import_fa_only", "gemv")
+        self.assertFalse(r["patched"])
+
+    def test_stacks_with_tau(self):
+        # merge check: tau (dspark_draft temperatures) and dwin (FA backend, drafter global layer) are independent
+        o = _opts.parse("tau:0.7,dwin:16k:0", environ={})
+        self.assertEqual((o.tau, o.dwin, o.dwin_sink), (0.7, 16384, 0))
+        self.assertEqual(o.describe(), "tau:0.7,dwin:16384:0")
+        r = run_scenario("dwin_paths", "dwin:24:4,tau:0.7")
+        self.assertTrue(r["patched"])
+        self.assertEqual((r["sp"], r["wp"]), (1, 7))
+        for c in r["cases"]:
+            self.assertTrue(c["restored"], c)
+            self.assertLess(c["err_vs_ref"], 1e-5, c)
+            self.assertEqual(c["equal_stock"], all(c["identity"]), c)
+
+
 class OptionTests(unittest.TestCase):
     def test_empty_is_off(self):
         self.assertFalse(_opts.parse("", environ={}).active)

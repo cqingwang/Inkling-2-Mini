@@ -1,0 +1,2 @@
+{"label":"TAU7b-s06","ready_utc":"2026-11-22T12:41:45Z","startup_s":252,"memavail_ready_gib":17.9,"kv":"[2026-11-22 12:41:43 PID106] max_total_num_tokens=1198848, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=18.67 GB"}
+{"memavail_end_gib":17.7}

@@ -19,6 +19,15 @@ Comma list, any order, default empty (= the overlay does nothing):
                  after the first) instead of a CTA per 64-row block (which re-reads W from DRAM per block);
                  same per-element math (gated bit for bit on the GPU). Applies to whatever head8 / fold8 /
                  foldk / hotvocab / draftmx8 / gemv route through them.
+  tau:X          the draft samples at X times the request temperature (sampled rows only; the accept reads
+                 q at the same X x T, so the output law is unchanged). Also INKLING_DRAFT_TAU=X (alone it
+                 needs sitecustomize to call install(); with any other option it rides along). X in
+                 [0.05, 4]; 1 = off. See tau.py.
+  dwin:W[:S]     the drafter's global attention layer (layer 1; local_layer_ids [0, 2]) reads only the first S
+                 tokens (sink, default 128 = one page; 0 = none) plus every page holding one of the last W tokens
+                 of its K/V (W <= kept tail < W + page) instead of the whole context; the identity below about
+                 S + W tokens. W, S: integers, optional k suffix (x1024). INKLING_DRAFT_DWIN_MAXK=0 keeps FA4's
+                 stock SplitKV planning bound. Draft-only (dwin.py).
 
 MODE: row = one fp32 scale per output row; gN = one fp32 scale per N inputs of a
 row (N a power of two >= 16); mx = MXFP8, one power-of-two (e8m0) scale per 32.
@@ -33,6 +42,7 @@ from typing import Optional
 
 ENV = "INKLING_DRAFT_BYTES"
 HOT_FILE_ENV = "INKLING_DRAFT_HOTVOCAB_FILE"
+TAU_ENV = "INKLING_DRAFT_TAU"
 
 
 class OptionError(ValueError):
@@ -81,6 +91,10 @@ class Options:
     w8gemv: bool = False
     w8tile: bool = False
     w8gemv_cfg: int = 0  # 0: the per-shape table in w8gemv.py
+    tau: float = 1.0  # draft temperature factor (tau.py); 1.0 = stock
+    dwin: int = 0  # tokens kept at the tail of the drafter's global layer (0 = off)
+    dwin_sink: int = 128  # tokens kept at the start (sink)
+    dwin_maxk: bool = True  # window's static max_seqlen_k for FA4 planning (INKLING_DRAFT_DWIN_MAXK)
     # wide8 launches (more than one 64-row block), from the GB10 sweep of 2026-11-21 (tools/gpu_check_wide8.py
     # --tile-sweep; every configuration bit-identical to the default kernel): mode 1, BN 64, 8 warps, 3 stages
     wide8_mode: int = 1  # 1: row blocks outer (W tile re-read from L2); 2: K outer, <= 6 blocks (spills; slower)
@@ -107,6 +121,8 @@ class Options:
             or self.head8
             or self.draftmx8
             or self.hotvocab
+            or self.tau != 1.0
+            or self.dwin
         )
 
     @property
@@ -133,6 +149,10 @@ class Options:
             parts.append("w8tile")
         if self.w8gemv:
             parts.append("w8gemv" + (f"(cfg {self.w8gemv_cfg})" if self.w8gemv_cfg else ""))
+        if self.tau != 1.0:
+            parts.append(f"tau:{self.tau:g}")
+        if self.dwin:
+            parts.append(f"dwin:{self.dwin}:{self.dwin_sink}")
         return ",".join(parts) or "off"
 
 
@@ -144,6 +164,22 @@ def _int_env(name: str, default: int) -> int:
         return int(value)
     except ValueError as e:
         raise OptionError(f"{name} must be an integer, got {value!r}") from e
+
+
+def _parse_tau(text: Optional[str], where: str) -> float:
+    from .tau import check_tau
+
+    try:
+        return check_tau(float(text or ""))
+    except ValueError as e:
+        raise OptionError(f"{where}: {e} (e.g. tau:0.7)") from e
+
+
+def _tokens(text: str, what: str) -> int:
+    m = re.fullmatch(r"(\d+)([kK]?)", text.strip())
+    if not m:
+        raise OptionError(f"{what} must be an integer token count (optional k suffix), got {text!r}")
+    return int(m.group(1)) * (1024 if m.group(2) else 1)
 
 
 def parse(text: Optional[str] = None, environ=None) -> Options:
@@ -172,12 +208,29 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
             kw["w8gemv"] = True
         elif name == "w8tile":
             kw["w8tile"] = True
+        elif name == "tau":
+            kw["tau"] = _parse_tau(arg, "tau")
+        elif name == "dwin":
+            if arg is None:
+                raise OptionError("dwin needs a window size in tokens, e.g. dwin:16384 or dwin:16k:128")
+            w, _, sink = arg.partition(":")
+            kw["dwin"] = _tokens(w, "dwin window")
+            if kw["dwin"] <= 0:
+                raise OptionError("dwin window must be positive")
+            if sink.strip():
+                kw["dwin_sink"] = _tokens(sink, "dwin sink")
         elif name == "hotvocab":
             if arg is None or not arg.isdigit() or int(arg) <= 0:
                 raise OptionError("hotvocab needs a positive size, e.g. hotvocab:32768")
             kw["hotvocab"] = int(arg)
         else:
             raise OptionError(f"unknown {ENV} option {item!r}")
+    env_tau = environ.get(TAU_ENV, "").strip()
+    if env_tau:
+        tau = _parse_tau(env_tau, TAU_ENV)
+        if "tau" in kw and kw["tau"] != tau:
+            raise OptionError(f"tau:{kw['tau']:g} in {ENV} disagrees with {TAU_ENV}={env_tau}")
+        kw["tau"] = tau
     if kw.get("w8tile") and kw.get("draftmx8") is None:
         raise OptionError("w8tile needs draftmx8")
     if kw.get("w8gemv") and (kw.get("draftmx8") is None or kw["draftmx8"].kind != "mx"):
@@ -187,6 +240,7 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
         if not path:
             raise OptionError(f"hotvocab needs {HOT_FILE_ENV} (a JSON list of token ids)")
         kw["hotvocab_file"] = path
+    kw["dwin_maxk"] = _int_env("INKLING_DRAFT_DWIN_MAXK", 1) != 0
     kw["gemv_max_m"] = _int_env("INKLING_DRAFT_GEMV_MAX_M", 16)
     kw["w8_max_m"] = _int_env("INKLING_DRAFT_W8_MAX_M", 64)
     kw["fold_bn"] = _int_env("INKLING_DRAFT_FOLD_BN", 64)

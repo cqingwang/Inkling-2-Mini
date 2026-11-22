@@ -169,6 +169,94 @@ def draftmx8():
     }
 
 
+def dwin_paths():
+    """dwin end to end on the CPU stand-ins: marks, passthroughs, identity below the window, windowed == stock
+    attention over the reference key subset, metadata restored (also when the stock call raises)."""
+    import os
+
+    from inkling_draftbytes import dwin, patches
+
+    opts, m, model = _setup()
+    from sglang.srt.layers.attention import flashattention_backend as fb
+
+    patched = hasattr(fb.FlashAttentionBackend.forward_extend, "__wrapped__")
+    marks = [getattr(l.self_attn.attn, dwin.MARK, None) is not None for l in model.layers]
+    P, H, D, QL = 4, 2, 8, 3
+    g = torch.Generator().manual_seed(5)
+    pages_total = 200
+    kc = torch.randn(pages_total, P, H, D, generator=g)
+    vc = torch.randn(pages_total, P, H, D, generator=g)
+    be = fb.FlashAttentionBackend(kc, vc, P)
+    sp, wp = dwin.DwinCfg(opts.dwin, opts.dwin_sink).pages(P)
+    width = 60
+    bs = 2
+    table = torch.stack([torch.randperm(pages_total - 1, generator=g)[:width] + 1 for _ in range(bs)]).to(torch.int32)
+    q = torch.randn(bs * QL, H, D, generator=g)
+    glob, loc = model.layers[1].self_attn.attn, model.layers[0].self_attn.attn
+    orig = patches.STATE.originals["FlashAttentionBackend.forward_extend"]
+    out = {"patched": patched, "marks": marks, "sp": sp, "wp": wp, "cases": []}
+    W = opts.dwin
+    for lens in ([1, 5], [W + (sp + 1) * P - 1, 3], [W + (sp + 1) * P, 40], [150, 237], [239, 17]):
+        cs = torch.tensor(lens, dtype=torch.int32)
+        meta = fb.FlashAttentionMetadata(
+            cache_seqlens_int32=cs, page_table=table,
+            cu_seqlens_k=torch.cat([torch.zeros(1, dtype=torch.int32), cs.cumsum(0).to(torch.int32)]),
+        )
+        be.forward_metadata = meta
+        fbatch = fb.ForwardBatch("TARGET_VERIFY")
+        got = be.forward_extend(q, None, None, glob, fbatch)
+        restored = be.forward_metadata is meta
+        stock = orig(be, q, None, None, glob, fbatch)
+        # reference: stock attention restricted to the reference key subset of each request
+        ref = []
+        for r in range(bs):
+            keys = torch.tensor(dwin.reference_keys(lens[r], P, sp, W), dtype=torch.long)
+            pg = table[r].long()[keys // P]
+            kk, vv = kc[pg, keys % P], vc[pg, keys % P]
+            s = torch.einsum("thd,nhd->thn", q[r * QL:(r + 1) * QL], kk) * glob.scaling
+            ref.append(torch.einsum("thn,nhd->thd", torch.softmax(s, -1), vv))
+        ref = torch.cat(ref)
+        ident = [dwin.reference_keys(n, P, sp, W) == list(range(n)) for n in lens]
+        out["cases"].append({
+            "lens": lens,
+            "restored": restored,
+            "err_vs_ref": (got - ref).abs().max().item(),
+            "equal_stock": bool(torch.equal(got, stock)),
+            "identity": ident,
+            "seen_lens": [int(x) for x in be.seen[-2].cache_seqlens_int32],
+            "max_k": be.seen_max_k[-2:],
+            "no_leftover_attr": "flash_attn_with_kvcache" not in be.__dict__,
+        })
+    # passthroughs: local layer, non-verify mode, topk > 1 -> exactly the stock call on the original metadata
+    cs = torch.tensor([239, 200], dtype=torch.int32)
+    meta = fb.FlashAttentionMetadata(cache_seqlens_int32=cs, page_table=table, cu_seqlens_k=None)
+    be.forward_metadata = meta
+    be.seen.clear()
+    be.forward_extend(q, None, None, loc, fb.ForwardBatch("TARGET_VERIFY"))
+    be.forward_extend(q, None, None, glob, fb.ForwardBatch("EXTEND"))
+    be.topk = 2
+    be.forward_extend(q, None, None, glob, fb.ForwardBatch("TARGET_VERIFY"))
+    be.topk = 1
+    out["passthrough_same_meta"] = [x is meta for x in be.seen]
+    raised = False
+    try:
+        be.forward_extend(q, None, None, glob, fb.ForwardBatch("TARGET_VERIFY"), boom=True)
+    except RuntimeError:
+        raised = True
+    out["raised_and_restored"] = raised and be.forward_metadata is meta
+    out["stats"] = dict(dwin.STATS)
+    return out
+
+
+def import_fa_only():
+    import inkling_draftbytes
+
+    inkling_draftbytes.install()
+    from sglang.srt.layers.attention import flashattention_backend as fb
+
+    return {"patched": hasattr(fb.FlashAttentionBackend.forward_extend, "__wrapped__")}
+
+
 def import_only():
     from sglang.srt.models import inkling2_mtp  # noqa: F401
 

@@ -31,8 +31,19 @@
 - **Tri Dao et al., FlashAttention-2** (algorithm): the online-softmax tiling of the fused relative-bias prefill
   attention in `overlay/inkling_attn/`.
 - **SGLang Inkling2 kernels**: the split-KV relative-bias verify kernel that `overlay/inkling_vattn/` routes every batch
-  size to (and copies, with the bias computed per key tile, above 32 rows), and the fused loop-controller kernels of
-  sgl-project/sglang PR #51926, already in the image.
+  size to (and copies, with the bias computed per key tile, above 32 rows), the split-KV decode kernel that
+  `overlay/inkling_kv12/` follows with its K / V tile loads replaced, the split softmax kernels that
+  `VCAP_FASTPROBS` calls, the block-verification accept kernel behind `--speculative-use-block-verification`, and the
+  fused loop-controller kernels of sgl-project/sglang PR #51926, already in the image.
+- **Sun et al.**, "Block Verification Accelerates Speculative Decoding" (ICLR 2025): the block-verification algorithm
+  that sampled requests use (`VCAP_BV`). Running it under the verify cap (dead drafts as a stopped draft) and its
+  logits-only form in the fused accept are ours.
+- **Xiao et al.**, "Efficient Streaming Language Models with Attention Sinks" (StreamingLLM, 2023): the attention
+  sink kept by the drafter's global-attention window (`dwin`, 128 sink tokens plus the last 16,384).
+- **Lossless float compression by exponent coding** (ZipNN, Hershcovitch et al., 2024; SplitZip) and **Andy Shu's
+  exactly coded 12-bit `bf16x` format**: the inspiration for the packed 12-bit global-layer KV in
+  `overlay/inkling_kv12/` (sign + mantissa byte, 4-bit exponent code, escapes). The KV format, packer and attention
+  kernel are our own code; nothing is copied from these projects.
 - **Alexey Fateev / Project Maya**, [maya-inkling-mini](https://github.com/alesha-pro/maya-inkling-mini) (MIT): launch
   and "bytes in flight" notes on Inkling's small per-visit kernels that framed our L2-warming screen (not adopted, see
   docs/experiments.md).

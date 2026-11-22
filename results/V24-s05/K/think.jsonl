@@ -1,0 +1,1 @@
+{"label": "V24K-s05-kv-c24", "started": "2026-11-22T17:43:42+01:00", "concurrency": 24, "requests": 48, "failed": 0, "max_tokens": 2048, "temperature": 0.8, "effort": "high", "wall_s": 290.81, "completion_tokens": 90038, "aggregate_tok_s": 309.6, "per_request_decode_tok_s_median": 15.2, "ttft_median_s": 1.08, "length_finishes": 38}

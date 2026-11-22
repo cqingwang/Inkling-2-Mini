@@ -1,0 +1,27 @@
+KBRUN start 2026-11-22T10:34:06Z memavail=117GiB
+device NVIDIA GB10 sms 48 pool 5274 pages (2.77 GB K+V)
+{"bs": 8, "prefix": 20480, "private": 2048, "group": 1, "us": 3175.3, "us_min": 3152.9, "logical_GB": 0.7411, "unique_GB": 0.7411, "logical_GBs": 233.4, "unique_GBs": 233.4, "config": [3, 32, 2]}
+{"bs": 8, "prefix": 20480, "private": 2048, "group": 2, "us": 1728.8, "us_min": 1717.3, "logical_GB": 0.7333, "unique_GB": 0.3977, "logical_GBs": 424.2, "unique_GBs": 230.1, "config": [3, 32, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 8, "prefix": 20480, "private": 2048, "group": 8, "us": 963.8, "us_min": 956.2, "logical_GB": 0.7349, "unique_GB": 0.1477, "logical_GBs": 762.5, "unique_GBs": 153.2, "config": [3, 32, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 20480, "private": 2048, "group": 1, "us": 6292.4, "us_min": 6267.9, "logical_GB": 1.4728, "unique_GB": 1.4728, "logical_GBs": 234.1, "unique_GBs": 234.1, "config": [2, 64, 2]}
+{"bs": 16, "prefix": 20480, "private": 2048, "group": 2, "us": 3477.2, "us_min": 3456.9, "logical_GB": 1.4772, "unique_GB": 0.8061, "logical_GBs": 424.8, "unique_GBs": 231.8, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 20480, "private": 2048, "group": 4, "us": 2111.6, "us_min": 2076.6, "logical_GB": 1.4779, "unique_GB": 0.4713, "logical_GBs": 699.9, "unique_GBs": 223.2, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 20480, "private": 2048, "group": 8, "us": 1785.7, "us_min": 1765.6, "logical_GB": 1.4785, "unique_GB": 0.3041, "logical_GBs": 828.0, "unique_GBs": 170.3, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 20480, "private": 2048, "group": 16, "us": 1675.3, "us_min": 1658.0, "logical_GB": 1.4727, "unique_GB": 0.2144, "logical_GBs": 879.1, "unique_GBs": 128.0, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 24, "prefix": 20480, "private": 2048, "group": 1, "us": 9430.8, "us_min": 9414.5, "logical_GB": 2.2172, "unique_GB": 2.2172, "logical_GBs": 235.1, "unique_GBs": 235.1, "config": [1, 64, 2]}
+{"bs": 24, "prefix": 20480, "private": 2048, "group": 2, "us": 5207.9, "us_min": 5183.5, "logical_GB": 2.2239, "unique_GB": 1.2173, "logical_GBs": 427.0, "unique_GBs": 233.7, "config": [1, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 24, "prefix": 20480, "private": 2048, "group": 4, "us": 3012.6, "us_min": 2987.8, "logical_GB": 2.2092, "unique_GB": 0.6992, "logical_GBs": 733.3, "unique_GBs": 232.1, "config": [1, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 24, "prefix": 20480, "private": 2048, "group": 8, "us": 2568.4, "us_min": 2552.7, "logical_GB": 2.214, "unique_GB": 0.4524, "logical_GBs": 862.0, "unique_GBs": 176.1, "config": [1, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 24, "prefix": 20480, "private": 2048, "group": 24, "us": 2354.2, "us_min": 2344.8, "logical_GB": 2.2216, "unique_GB": 0.2922, "logical_GBs": 943.7, "unique_GBs": 124.1, "config": [1, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 22528, "private": 4096, "group": 1, "us": 7422.8, "us_min": 7406.4, "logical_GB": 1.7371, "unique_GB": 1.7371, "logical_GBs": 234.0, "unique_GBs": 234.0, "config": [2, 64, 2]}
+{"bs": 16, "prefix": 22528, "private": 4096, "group": 2, "us": 4384.8, "us_min": 4361.2, "logical_GB": 1.7459, "unique_GB": 1.0077, "logical_GBs": 398.2, "unique_GBs": 229.8, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 22528, "private": 4096, "group": 4, "us": 2852.7, "us_min": 2831.2, "logical_GB": 1.7474, "unique_GB": 0.6401, "logical_GBs": 612.5, "unique_GBs": 224.4, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 22528, "private": 4096, "group": 8, "us": 2504.5, "us_min": 2476.1, "logical_GB": 1.7486, "unique_GB": 0.4567, "logical_GBs": 698.2, "unique_GBs": 182.4, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 22528, "private": 4096, "group": 16, "us": 2337.6, "us_min": 2315.1, "logical_GB": 1.7369, "unique_GB": 0.3528, "logical_GBs": 743.0, "unique_GBs": 150.9, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 2048, "private": 8192, "group": 1, "us": 2868.0, "us_min": 2853.1, "logical_GB": 0.6551, "unique_GB": 0.6551, "logical_GBs": 228.4, "unique_GBs": 228.4, "config": [2, 64, 2]}
+{"bs": 16, "prefix": 2048, "private": 8192, "group": 2, "us": 2646.0, "us_min": 2637.8, "logical_GB": 0.6728, "unique_GB": 0.6057, "logical_GBs": 254.3, "unique_GBs": 228.9, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 2048, "private": 8192, "group": 4, "us": 2533.2, "us_min": 2522.3, "logical_GB": 0.6757, "unique_GB": 0.575, "logical_GBs": 266.7, "unique_GBs": 227.0, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 2048, "private": 8192, "group": 8, "us": 2514.8, "us_min": 2499.5, "logical_GB": 0.6781, "unique_GB": 0.5606, "logical_GBs": 269.6, "unique_GBs": 222.9, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+{"bs": 16, "prefix": 2048, "private": 8192, "group": 16, "us": 2395.1, "us_min": 2385.7, "logical_GB": 0.6548, "unique_GB": 0.5289, "logical_GBs": 273.4, "unique_GBs": 220.8, "config": [2, 64, 2], "bitwise_equal_vs_distinct_pages": true}
+DONE
+KBRUN end 2026-11-22T10:34:17Z rc=0 memavail=117GiB

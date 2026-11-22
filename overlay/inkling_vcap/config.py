@@ -38,6 +38,25 @@ Other variables:
     INKLING_VERIFY_CAP_UNION=0|1      count distinct experts per MoE visit in target
                                       verify (graph-safe device counters; default 0; when
                                       0 no counter kernel is recorded at all)
+    INKLING_VERIFY_CAP_FASTPROBS=0|1  1: the draft max probabilities (conf/cost/policy) and
+                                      the sampled accept's draft probabilities from one /
+                                      two reads of the BF16 step logits with the image's
+                                      split softmax kernels (fastprobs.py; self-checked at
+                                      startup, falls back on mismatch). Default 0.
+    INKLING_VERIFY_CAP_FUSED_ACCEPT=0|1  1: plain-temperature sampled accepts are computed
+                                      from the logits (fused_accept.py: lse pass, [bs, 7]
+                                      walk, residual masses / exponential-race bonus)
+                                      instead of materialised probabilities; chain and
+                                      block verification; self-checked at startup. Default 0.
+    INKLING_VERIFY_CAP_FUSED_ACCEPT_MIN_BS=N  fused accept only for decode batches >= N
+                                      (default 3; GB10 crossover between bs 2 and 3)
+    INKLING_VERIFY_CAP_BV=mask|stock  only with --speculative-use-block-verification
+                                      (README, "Block verification under the cap"); both
+                                      exact. mask (default): the dead drafts are handed to
+                                      the stock kernel as a stopped draft (zero cut row,
+                                      q(d_j) = 0 past it), so the kernel never scans a dead
+                                      level. stock: the stock kernel over every row, then
+                                      the usual cap.
 """
 
 from __future__ import annotations
@@ -53,6 +72,10 @@ ENV_REMAP = "INKLING_VERIFY_CAP_REMAP"
 ENV_FUSED = "INKLING_VERIFY_CAP_FUSED"
 ENV_LOG_EVERY = "INKLING_VERIFY_CAP_LOG_EVERY"
 ENV_UNION = "INKLING_VERIFY_CAP_UNION"
+ENV_BV = "INKLING_VERIFY_CAP_BV"
+ENV_FASTPROBS = "INKLING_VERIFY_CAP_FASTPROBS"
+ENV_FUSED_ACCEPT = "INKLING_VERIFY_CAP_FUSED_ACCEPT"
+ENV_FUSED_ACCEPT_MIN_BS = "INKLING_VERIFY_CAP_FUSED_ACCEPT_MIN_BS"
 
 _OFF_VALUES = ("", "off", "0", "none", "false", "no")
 
@@ -83,6 +106,10 @@ class VcapConfig:
     fused: bool = True
     log_every: int = 500
     union: bool = False
+    bv_mask: bool = True  # block verification: mask dead drafts (False: stock kernel + cap)
+    fastprobs: bool = False  # fastprobs.py for m_j and the accept's draft probabilities
+    fused_accept: bool = False  # fused_accept.py for plain sampled accepts
+    fused_accept_min_bs: int = 3  # bs 1-2 keep the stock accept (GB10 crossover between 2 and 3)
     raw: str = ""
     policy_file: Optional[PolicyFile] = None
 
@@ -279,6 +306,9 @@ def parse_config(env: Mapping[str, str] = os.environ) -> Optional[VcapConfig]:
         raise VcapConfigError(f"{ENV_MODE}={raw!r}: min must be >= 1 (the anchor row)")
     if max_len < 0 or (max_len and max_len < min_len):
         raise VcapConfigError(f"{ENV_MODE}={raw!r}: need 1 <= min <= max")
+    bv = (env.get(ENV_BV) or "mask").strip().lower()
+    if bv not in ("mask", "stock"):
+        raise VcapConfigError(f"{ENV_BV} must be mask or stock, got {bv!r}")
     log_every = _parse_int(ENV_LOG_EVERY, env.get(ENV_LOG_EVERY), 500)
     if log_every < 0:
         raise VcapConfigError(f"{ENV_LOG_EVERY} must be >= 0")
@@ -294,6 +324,10 @@ def parse_config(env: Mapping[str, str] = os.environ) -> Optional[VcapConfig]:
         fused=_parse_bool(ENV_FUSED, env.get(ENV_FUSED), True),
         log_every=log_every,
         union=_parse_bool(ENV_UNION, env.get(ENV_UNION), False),
+        bv_mask=bv == "mask",
+        fastprobs=_parse_bool(ENV_FASTPROBS, env.get(ENV_FASTPROBS), False),
+        fused_accept=_parse_bool(ENV_FUSED_ACCEPT, env.get(ENV_FUSED_ACCEPT), False),
+        fused_accept_min_bs=_parse_int(ENV_FUSED_ACCEPT_MIN_BS, env.get(ENV_FUSED_ACCEPT_MIN_BS), 3),
         raw=raw,
         policy_file=policy_file,
     )

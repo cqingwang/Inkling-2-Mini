@@ -1,0 +1,2 @@
+{"label":"AB1all-s06","ready_utc":"2026-11-22T16:56:50Z","startup_s":263,"memavail_ready_gib":15.9,"kv":"[2026-11-22 16:56:46 PID107] max_total_num_tokens=1113728, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=16.98 GB"}
+{"memavail_end_gib":15.8}

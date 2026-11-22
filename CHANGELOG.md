@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.4 (2026-11-22)
+
+Sampled-path verification, a drafter attention window and a packed global-layer KV; all exact. Median of both boxes,
+`bench/full.sh` (`results/V24-s05/`, `results/V24-s06/`), against v2.3: thinking c1 / c8 / c24 68.2 / 239.9 / 439.4
+(69.8 / 236.5 / 427.9); decode prose c8 / c16 159.6 / 236.4 (156.5 / 232.9), code c16 261.3 (256.0), json c16 275.4
+(268.3); decode at 128K context 48.2 (43.1, +12 %), at 32K the same step time as v2.4 with its levers off (47.2 vs 47.3 ms, same session; the full-run tok/s cell, 63.3 vs
+69.6, follows the accepted tokens of the generated texts); 200K / 250K c1 decode 44.1 / 38.9
+on Spark_06 (v2.3 38.1 / 35.1 on Spark_05); cold prefill 1K / 8K / 32K / 128K 2,939 / 5,456 / 5,148 / 3,805 tok/s
+(2,914 / 5,352 / 5,036 / 3,751, run noise); speedbench full c1 64.1 (64.7) at identical tokens per step (2.383): a
+same-session ablation on both boxes puts the c1 step with all v2.4 levers on and off within 0.6 %, so the -0.9 % is
+run-to-run variation, not the levers; KV pool 1.11-1.12M tokens (-6 %: `MEM_FRACTION` 0.84 -> 0.80 for the 6.1 GiB
+packed side pool), lowest MemAvailable 14.8-15.6 GiB under thinking c24 with a cold 240K-token prompt; quality guard
+30/30, sanity 11/11, needles 120K / 240K PASS on both boxes.
+
+- `inkling_vcap`: block verification (Sun et al., ICLR 2025) for sampled requests under the verify cap
+  (`VCAP_BV=1` -> `--speculative-use-block-verification`, `INKLING_VERIFY_CAP_BV=mask`: dead drafts enter as a
+  stopped draft); thinking c1 / c8 / c24 +3.0 / +4.8 / +4.0 % in the screen.
+- `inkling_vcap` `VCAP_FASTPROBS=1`: the verify rule's max draft probabilities and the sampled accept's q from one
+  read of the BF16 draft logits; +1.7 to +3.5 % (thinking c8, greedy c8 / c16).
+- `inkling_vcap` `VCAP_FUSED=1`: sampled accept computed from the logits for >= 3 requests; code c16 +2 %.
+- `inkling_draftbytes` `dwin:16384`: the draft's global layer reads a 128-token sink + the last 16,384 tokens; c1 step
+  at 128K / 250K -1.4 to -2.4 / -4.0 to -4.8 ms (+2 to +6 %, both boxes), tokens per step unchanged.
+- `inkling_kv12` (new, `KV12=1`, `KV12_SLOTS=2048`): full, committed global-layer KV pages also kept as exactly coded
+  12-bit pages (2,048 slots per layer, 6.1 GiB) and decoded in the decode / verify attention; bit-identical partials;
+  c1 step at 128K 62.2 -> 56.8 ms, 250K 80.1 -> 75.2 ms.
+- `MEM_FRACTION` default 0.84 -> 0.80.
+- Rejected: draft sampling temperature, 4-bit draft MLP (tokens-per-step-only gain within boot-to-boot variation, step
+  time unchanged), late kill of doomed verify rows, shared-prefix KV reads, fused routed epilogue, streaming NVFP4 MoE
+  kernel, centroid draft vocabulary, verify-policy retunes, 80K hot vocabulary. Details: docs/experiments.md "v2.4".
+
 ## v2.3 (2026-11-22)
 
 Three exact levers. Median of both boxes, `bench/full.sh` (`results/V23-s05/`, `results/V23-s06/`), against v2.2:

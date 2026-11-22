@@ -439,3 +439,187 @@ unchanged (these paths only run at <= 16 rows per source).
   2,870 / 5,523 / 5,200 / 3,884 vs 2,928 / 5,619 / 5,214 / 3,853 tok/s, flat.
 
 Confirmed with full runs on both boxes (CHANGELOG v2.3).
+
+## v2.4: sampled-path verification, drafter window, packed global KV
+
+Same boxes, same image, same harness. Every lever was screened against controls booted the same day on the same box,
+then confirmed on the second box, then the stack ran `bench/full.sh` on both boxes (`results/V24-s05/`,
+`results/V24-s06/`). Method change in this round: c1 and long-context A/Bs are judged by step time = tokens per step /
+decode tok/s, not by tok/s alone. The same configuration gives 2.224 or 2.194 tokens per step on speedbench quick
+depending on what ran earlier in the boot (every arm of the ablation below shows both), so a whole-set tokens-per-step
+shift of ~1.4 % is W4A4 text variation, not acceptance.
+
+### Sampled path (thinking load, T=0.8)
+
+Where the sampled step spends its extra time (torch profile, thinking c8 / c24): the max draft probability that the
+verify rule reads costs 2.0 ms per step at c8 in its torch form (~8 full-width FP32 passes over [bs x 7, vocabulary]);
+the stock sampled accept copies the BF16 draft logits to FP32, runs two softmaxes and materialises the [bs x 8,
+vocabulary] target and [bs x 7, vocabulary] draft probabilities, about 1.07 GB and 5 ms per step at c24.
+
+- **Block verification under the cap** (`VCAP_BV=1`). SGLang's `--speculative-use-block-verification` implements
+  Sun et al., "Block Verification Accelerates Speculative Decoding" (ICLR 2025, Algorithm 2) for sampled rows. Under
+  the verify cap a request verifies only L rows, and the dead rows beyond L carry wrong target rows (expert remap).
+  `mask` (default) zeroes the draft probability of every dead draft, which is exactly a draft that stops after L-1
+  tokens; over that draft the kernel is the stock fixed-length algorithm, so Sun et al.'s theorem applies directly,
+  and dead levels are never scanned. The proof that `P(tau >= i | X_1..X_i) = p_i` depends only on live rows, and the
+  Monte Carlo test (joint law of the first three tokens, 300K sequences, garbage dead rows, max error <= 1.2e-3 against
+  a 3.5e-3 tolerance; a dead-row leak and a look-ahead cut are both detected) are in `overlay/inkling_vcap/README.md`.
+- **FASTPROBS** (`VCAP_FASTPROBS=1`): the max probability and the draft q of the sampled accept from one or two reads
+  of the BF16 draft logits with the image's split softmax kernels; the same function up to FP32 summation order.
+- **FUSED_ACCEPT** (`VCAP_FUSED=1`): p and q of the drafted tokens from a per-row (max, log-sum-exp), the accept walk
+  (chain or block verification) and the bonus sample on [bs, 7] tensors, without the full-width probability tensors;
+  from 3 requests up, self-checked against the stock accept at start-up.
+
+Screens (aggregate tok/s; two runs per arm, two controls):
+
+| arm (box) | thinking c1 / c8 / c24 | greedy prose c8 / c16 | code c16 |
+|---|---|---|---|
+| controls T0c, T0d (Spark_05) | 69.3 / 220.1 / 423.7 ; 69.8 / 221.1 / 415.8 | - | - |
+| block verification BVa, BVb (Spark_05) | 69.5 / 227.7 / 429.3 ; 73.8 / 234.7 / 443.4 | - | - |
+| BV + draft temperature 0.7 (Spark_05) | 67.2 / 229.1 / 428.6 ; 67.8 / 211.1 / 418.8 | - | - |
+| controls FPc, FPcb (Spark_06) | - / 225.3 / 428.8 ; - / 213.2 / 425.2 | 156.3, 158.8 / 232.7, 229.4 | 255.9 / 256.6 |
+| FASTPROBS FPa, FPb (Spark_06) | - / 228.3 / 435.6 ; - / 224.6 / 418.9 | 160.8, 159.6 / 235.5, 238.9 | 262.1 / 261.1 |
+| FASTPROBS + FUSED_ACCEPT FAa, FAb (Spark_06) | - / 229.2 / 418.9 ; - / 234.0 / 436.0 | - | 269.5 / 266.2 |
+
+Block verification: thinking c1 / c8 / c24 +3.0 / +4.8 / +4.0 %; with a draft temperature of 0.7 the gain is gone.
+FASTPROBS: thinking c8 +3.5 %, c24 flat, greedy prose c8 / c16 +1.7 / +2.6 %, code c16 +2 % (the max-probability
+path also runs for greedy requests). FUSED_ACCEPT on top: code c16 +2 %, thinking c8 up, c24 within noise.
+
+Confirmation of block verification + FASTPROBS on both boxes (`U2a` vs control `U2c`):
+
+| box | thinking c1 / c8 / c24 | greedy prose c8 / c16 | code c16 |
+|---|---|---|---|
+| Spark_06 | 68.5 / 234.1 / 440.6 vs 70.5 / 226.7 / 426.2 | - / 238.3 vs - / 230.0 | 265.4 vs 255.6 |
+| Spark_05 | 70.5 / 227.3 / 422.0 vs 68.3 / 234.9 / 418.2 (sampled c8 noisy) | 161.1 / 235.1 vs 155.1 / 229.7 | - |
+
+### Drafter global-attention window (`dwin:16384`)
+
+The DSpark drafter has three layers; layer 1 is global and, in every draft forward, attends over the request's whole
+context through the drafter's own KV (4,096 bytes per token: 0.54 GB at 128K, 1.05 GB at 255K). `dwin:W[:S]`
+(`overlay/inkling_draftbytes/dwin.py`) gives that layer a page table of the first S tokens (the attention sink,
+default 128) plus every page that holds one of the last W tokens; whole pages only, so FA4 keeps its paged path, and
+the call is the identity below W + 2 pages (16,640 tokens). Draft-only: the target verifies every proposal as
+before.
+
+| box | context | step ms, controls | step ms, `dwin:16384` | tokens per step, dwin vs controls |
+|---|---|---:|---:|---|
+| Spark_05 | 128K | 60.1 / 60.2 | **57.7** | 2.44 vs 2.45 / 2.66 |
+| Spark_05 | 250K | 80.0 / 79.7 | **76.0** | 2.54 vs 2.48 / 2.47 |
+| Spark_06 | 128K | 59.5 | **58.1** | unchanged |
+| Spark_06 | 250K | 80.0 | **75.2** | unchanged |
+
+32K is flat (the window saves at most 67 MB per step there).
+`dwin:8192` gave a similar step time with fewer tokens per step at 32K.
+
+### Packed 12-bit global-layer KV (`inkling_kv12`)
+
+Long-context decode is at the DRAM floor for the BF16 KV of the 8 global-layer visits (layers 5 / 11 / 17 / 23, each
+pass of the looped core with its own cache). On K / V from a CPU reference run of the model, all 16 global tensors (K after the L2 clip, V
+after the gain-free RMSNorm) use the same 15 exponents 116..130; 2.8e-4 of the values fall outside
+(tiny values and exact zeros). `inkling_kv12` keeps the BF16 pool and stores full, committed pages a second time as
+sign + 7-bit mantissa bytes, a 4-bit exponent code (15 = escape) and a sparse escape stream: 193 instead of 256 bytes
+per key and head (1.33x fewer). The decode / verify attention is the stock split-KV kernel with the K / V tile load
+replaced: a packed tile is decoded in registers, any other tile (open page, unpacked or overflowed) is read raw. Every
+write path clears the page's packed flag, so a packed page always equals its raw bytes. Design, invalidation and
+CUDA-graph safety: `overlay/inkling_kv12/README.md`.
+
+Exactness: decoded tiles equal the BF16 cache for all 65,536 BF16 patterns, inf / nan, escape-dense rows and real
+K / V; attention partials are bit-identical to stock at the stock launch configuration (packed, mixed and raw tiles,
+eager and graph-replayed, 60-step verify loop with page reuse).
+
+Microbenchmark, one global verify visit (find / pack steady state + attention + combine), Spark_06, cold, CUDA-graph
+medians:
+
+| shape | stock us | kv12 us | speedup |
+|---|---:|---:|---:|
+| 128K, 1 request x 8 rows, synthetic KV (measured exponent histogram) | 2,296 | 1,809 | 1.27 |
+| 128K, 1 x 8, real KV (layer-5 bank, the most escapes) | 2,297 | 1,996 | 1.15 |
+| 128K, 4 x 8, synthetic | 9,123 | 7,149 | 1.28 |
+| 256K, 1 x 8, synthetic | 4,572 | 3,623 | 1.26 |
+
+Serving screens (Spark_05, c1 step ms from speedbench longctx):
+
+| arm | 128K | 250K | note |
+|---|---:|---:|---|
+| first version, side pool capped at 3,000 pages by physical page id (mem 0.76) | 59.5 / 59.1 vs 62.4 / 59.7 | 79.3 / 80.2 vs 80.1 / 79.6 | no clear gain: long requests held page ids above the cap |
+| every page covered (`MAX_PAGES=0`, mem 0.62, 18 GiB side pool) | 57.5 vs 60.2 | 72.7 vs 79.5 | +4.5 / +9.5 %: the coverage was the cause |
+| slot indirection, 2,048 slots per layer (6.1 GiB, mem 0.80), released | **56.8** vs 62.2 | **75.2** vs 80.1 | +9.5 / +6.5 %; 92.6-99.9 % of tiles read packed, 0 overflow |
+
+The released version gives any page a slot from a free stack, then by LRU stealing; 2,048 slots cover one 256K-token
+request or the recently decoded pages of many shorter ones. Sanity 11/11 and needles 120K / 240K PASS with it.
+`MEM_FRACTION` went from 0.84 to 0.80 to make room for the side pool.
+
+### Same-session ablation (both boxes)
+
+Four arms per box, booted back to back the same day (`results/screen-r2/AB1all-*`, `AB1nokv-*`, `AB1nodw-*`,
+`AB1v23-*`; all at mem 0.80). Step ms = tokens per step / speedbench quick tok/s, c1; greedy decode table at c16:
+
+| arm | c1 step ms (Spark_06 / Spark_05) | prose c16 (06 / 05) | code c16 (06 / 05) |
+|---|---|---|---|
+| all v2.4 levers | 34.78 / 34.72 | 239.3 / 235.8 | 263.4 / 262.3 |
+| without kv12 | 34.78 / 34.75 | 236.8 / 239.0 | 263.6 / 262.0 |
+| without dwin | 35.05 / 34.57 | 235.2 / 238.0 | 257.0 / 261.7 |
+| all v2.4 levers off (the v2.3 configuration) | 34.56 / 34.77 | 230.3 / 228.0 | 260.4 / 256.7 |
+
+The levers cost nothing at c1 (+0.6 / -0.1 %, within noise); with all of them on, greedy c16 is +3.9 / +3.4 % on
+prose and +1.2 / +2.2 % on code.
+
+### Confirmation (both boxes, `bench/full.sh`)
+
+| | v2.3 (05 / 06) | v2.4 (05 / 06) |
+|---|---|---|
+| speedbench full, all 73 | 64.88 / 64.54 | 63.88 / 64.28 |
+| tokens per step / step ms (speedbench, c1) | 2.383 / 36.94 ; 2.383 / 37.14 | 2.383 / 37.51 ; 2.383 / 37.25 |
+| decode table prose c1 / c4 / c8 / c16 (median of both) | 53.4 / 110.0 / 156.5 / 232.9 | 52.9 / 107.3 / 159.6 / 236.4 |
+| decode table code / json c16 (median of both) | 256.0 / 268.3 | 261.3 / 275.4 |
+| thinking c1 / c8 / c24 | 68.1 / 223.6 / 423.0 ; 71.5 / 249.4 / 432.9 | 68.5 / 243.4 / 444.6 ; 68.0 / 236.5 / 434.1 |
+| cold prefill 1K / 8K / 32K / 128K | 2,933 / 5,238 / 4,926 / 3,694 ; 2,896 / 5,466 / 5,146 / 3,808 | 2,913 / 5,452 / 5,145 / 3,799 ; 2,965 / 5,461 / 5,152 / 3,811 |
+| decode at 128K | 42.8 / 43.4 | 48.2 / 48.2 |
+| decode at 32K (256 tokens x 2 documents) | 72.0 / 67.2 | 63.7 / 62.9 |
+| KV pool / MemAvailable lowest | 1,191,936 ; 1,175,808 / 17.8-18.2 GiB | 1,113,984 ; 1,117,184 / 15.6-16.0 GiB |
+| quality guard / sanity / needles 120K + 240K | 30/30 / 11/11 / PASS on both | 30/30 / 11/11 / PASS on both |
+
+The full-run speedbench is 0.9 % below v2.3 at identical tokens per step. The same-session ablation shows that this is
+run-to-run variation between boots, not the levers. Decode at 32K reads 63.3 vs 69.6 (median of both boxes); these
+cells are 256 tokens x 2 documents with a confidence interval of about +-25 %. A same-session 32K ablation on Spark_05
+(`results/screen-r2/AB32*`: 4 reps x cold + cached document, 512 tokens each, step time from the engine metrics) settles it:
+
+| arm | step ms (median of 8) | tokens per step (median) | decode tok/s |
+|---|---:|---:|---:|
+| v2.4 | 47.2 | 3.23 | 69.2 |
+| no drafter window | 47.7 | 3.49 | 75.3 |
+| no kv12 | 47.5 | 3.24 | 67.1 |
+| all four levers off (v2.3) | 47.3 | 3.16 | 71.6 |
+
+The step time is the same in all four arms; tok/s follows tokens per step, which varies with the salted documents'
+generated texts (2.3 to 5.5 per request), not with the levers. kv12 and the drafter window pay from 128K up.
+
+Long context (`results/V24-s06/K/`, `results/V24-s05/K/`): at 200K / 250K Spark_06 decodes 44.1 / 38.9 tok/s at c1
+(v2.3 on Spark_05: 38.1 / 35.1), cold prefill 3,142 / 2,799 tok/s, TTFT 65.4 / 91.2 s; Spark_05's 40.9 / 46.7 come
+from one cold and one cached request each and have confidence intervals too wide to use. Worst case for memory
+(thinking c24, 48 x 2,048 tokens, together with a cold 240,104-token needle prompt): lowest MemAvailable 14.8 GiB
+(Spark_06) / 15.6 GiB (Spark_05), KV pool 1,121,792 / 1,121,280 tokens, thinking 308.2 / 309.6 tok/s alongside the
+prefill, needle PASS on both.
+
+### Not adopted in v2.4
+
+- Draft sampling temperature below the request's (Spark_06): tau 0.7 66.5 / 218.7 / 417.6 and 67.8 / 223.6 / 415.0,
+  tau 0.8 70.0 / 216.1 / 413.2 vs controls 69.9 / 240.4 / 415.6 and 68.3 / 225.6 / 425.0 (thinking c1 / c8 / c24): no
+  gain or worse, also on top of block verification (above).
+- 4-bit draft MLP: speedbench quick 64.12 / 64.56 vs 63.84 / 63.65 (+0.9 %) and decode c1 +1-3 % on Spark_05, the same
+  pattern on Spark_06, but the gain is tokens per step only (2.225 vs 2.194); the step time is unchanged (Spark_06
+  34.70 / 34.86 vs 34.69 / 34.75 ms, Spark_05 34.72 / 34.47 vs 34.39 / 34.47 ms). The same configuration moves between
+  2.224 and 2.194 tokens per step from boot to boot, and an offline acceptance check on 1.6M tokens gives -0.17 % with a
+  confidence interval that includes 0.
+- Late kill of doomed verify rows from a mid-stack LM-head readout (after layer visit 17 / 29 / 41 of 48): on T=0
+  traces the readouts barely separate rows whose draft will be rejected (AUC 0.59-0.74, recall <= 1 % at 90 %
+  precision), so no rows can be dropped early.
+- Shared-prefix KV reads (one read of a common prefix for concurrent requests): L2 already absorbs the reuse.
+- Fused routed-expert epilogue: already fused on GB10.
+- Streaming NVFP4 MoE kernel: bit-identical and 2-5 % faster than the stock kernel per call, but not faster than the
+  shipped scale-code kernel (+0.14 / +0.53 / +1.63 ms per step at c1 / c8 / c24).
+- Centroid-clustered draft vocabulary: at most ~0.2 ms per c1 step saved in the byte model.
+- Verify-policy retunes on v2.3 (both boxes): theta 0.03 speedbench quick -1.4 %, theta 0.06 +0.2 to +0.9 % (noise),
+  the policy up to 48 requests with theta 0.02 above 16 no gain at thinking c24 (417.5 / 413.5 vs 419-423); decode
+  c4-c16 within +-3 %. theta 0.04 and `bsmax=16` stay.
+- 80K hot vocabulary: held-out coverage 99.5 vs 98.6 % at 64K, paid for with 25 % more draft head and fold rows.

@@ -50,6 +50,9 @@ It also adds the MoE dead-row remap, which no engine mode has.
 | `INKLING_VERIFY_CAP_FUSED` | `1` = remap is one Triton launch per MoE visit, bit-checked against `index_select` on the device at startup, with fallback; `0` = two `index_select` launches | 1 |
 | `INKLING_VERIFY_CAP_LOG_EVERY` | prints a stats line every N decode steps; `0` = no stats kernels at all | 500 |
 | `INKLING_VERIFY_CAP_UNION` | `1` = count the distinct experts at each MoE visit in target verify (graph-safe device counters, per layer, in the stats line). When unset or `0`, nothing is recorded. | 0 |
+| `INKLING_VERIFY_CAP_FASTPROBS` | `1` = the draft max probabilities (`conf`/`cost`/`policy`) and the sampled accept's draft probabilities come from one or two reads of the BF16 step logits, using the image's split softmax kernels (`fastprobs.py`). It is self-checked against the torch reference at startup and falls back to it on a mismatch. `0` = torch / FlashInfer as before. | 0 |
+| `INKLING_VERIFY_CAP_FUSED_ACCEPT` | `1` = plain-temperature sampled accepts (chain or block verification) are computed from the logits, with no materialised probabilities (`fused_accept.py`). It is self-checked at startup and falls back to the stock accept otherwise. | 0 |
+| `INKLING_VERIFY_CAP_BV` | Only with `--speculative-use-block-verification` (section "Block verification under the cap"). `mask` = hand the stock kernel the dead drafts as a stopped draft; `stock` = stock kernel over every row, then the usual cap. Both exact. | mask |
 
 The modes work like this:
 
@@ -91,7 +94,8 @@ The intended runtime is the recipe launch: `--tp 1 --ep 1 --attention-backend fa
 | `... : Inkling2Gate.forward` | Takes the `(weights, ids)` from `route_topk` and returns them gathered by `src_index[:M]`: `index_select` on rows, graph-safe. With UNION=1 it also adds the distinct-expert count to a device counter. |
 | `srt/speculative/dspark_components/dspark_verify.py: TargetVerifyExecutor.run_non_compact` | Runs right before the static verify replay, on the same stream. It writes the step's live lengths and remap index (no host sync), then calls the original. `Inkling2MTPVerifyExecutor` inherits it. |
 | `... : DsparkVerifyEpilogue._accept_static_greedy` | Records `self._accept(..., cutoff_verify_lens=verify_lens)` into the verify graph, so the folded greedy accept is capped by the device buffer `verify_lens_buf`. The fused accept tail never caps, so it is bypassed while the overlay is on. |
-| `... : accept_draft_tokens` (module function) | When the static path passes `cutoff_layout=None`, injects a cutoff whose `verify_lens` is the live-length buffer. This covers the eager accept (sampled steps, grammar, non-graph). |
+| `... : accept_draft_tokens` (module function) | When the static path passes `cutoff_layout=None`, injects a cutoff whose `verify_lens` is the live-length buffer. This covers the eager accept (sampled steps, grammar, non-graph). With `block_verification=True` and `INKLING_VERIFY_CAP_BV=mask` it also arms the draft mask for the call. |
+| `... : _draft_probs` (module function) | With the mask armed: `logic.mask_dead_draft_rows` on the draft probabilities (see "Block verification under the cap"). Otherwise a pass-through. Required only when block verification is on. |
 | `.../dspark_sampling_accept_graph.py: accept_draft_tokens` (imported name) | Same wrapper, for the sampling-accept CUDA-graph region (`SGLANG_OPT_DSV41_SAMPLING_ACCEPT_GRAPH`). |
 | `.../dspark_draft.py: DraftBlockProposer.propose` | Stashes the proposal (draft tokens, kept step logits, temperatures, greedy mask) for the verify step that follows. |
 | `.../dspark_worker_v2.py: DSparkWorkerV2.__init__` | After the original: validates the setup, allocates buffers, enables the overlay, and prints one startup line. |
@@ -113,7 +117,6 @@ Without an epilogue, the overlay uses its own buffer and the accept runs eagerly
   - Ragged mode is not `static`.
   - `SGLANG_SIMULATE_ACC_LEN` is set.
   - `SGLANG_DSPARK_SIMULATE_FOLD` is set.
-  - Block verification is on.
   - PP > 1.
   - Vocab-sharded accept.
   - No `Inkling2MoE` in the target.
@@ -193,9 +196,9 @@ Without an epilogue, the overlay uses its own buffer and the accept runs eagerly
    - A negative control that leaks the dead-row residual into the bonus is off by
      about 0.11, and the test asserts that it is detected.
 
-   Caveat: block verification (`BLOCK_VERIFICATION=True`, Sun et al.) makes each accept
-   decision from the whole block's probabilities, dead rows included. It is not exact
-   under the cap, so the overlay refuses `--speculative-use-block-verification`.
+   Block verification (`--speculative-use-block-verification`, Sun et al.) is exact
+   under the cap too. Earlier versions of this README said otherwise and refused it.
+   The proof is in the next section.
 
 5. **Full width is inert.** If no batch size can ever get `L < 8` (`fixed:8`, `conf:0`,
    or `cost:` with every `T = 0`), the overlay sets `capping=off (inert)` at startup:
@@ -210,6 +213,175 @@ Without an epilogue, the overlay uses its own buffer and the accept runs eagerly
    In capping modes, graph-padding requests (`L = 0`) are deliberately remapped to
    row 0 and capped to 0. Their outputs are discarded by the engine, and this only
    shrinks the union.
+
+## Block verification under the cap
+
+Block verification (Sun et al., "Block Verification Accelerates Speculative Decoding",
+ICLR 2025, Algorithm 2) is the engine's `BLOCK_VERIFICATION` branch of
+`speculative_sampling_classic_kernel`, which is used for sampled rows when the server
+runs with `--speculative-use-block-verification`. With drafts `X_1..X_g`, target rows
+`P_0..P_g` and draft rows `Q_0..Q_{g-1}` (row `i` is the law after `i` drafts), the
+kernel computes:
+
+```
+p_0 = 1,  p_i = min(p_{i-1} P_{i-1}(X_i) / Q_{i-1}(X_i), 1)     (0 if Q_{i-1}(X_i) is not in (0, 1])
+r_i = sum_x max(p_i P_i(x) - Q_i(x), 0),  h_i = r_i / (r_i + 1 - p_i)  (i < g),  h_g = p_g
+tau = the largest i with coin_i < h_i (0 if none); emit X_1..X_tau and a bonus Y
+Y ~ P_g if tau = g, else Y ~ max(p_tau P_tau - Q_tau, 0) normalized
+```
+
+Under the cap, request `r` verifies `L` rows (`g = L - 1` live drafts). `L` is a stopping
+rule: whether `X_k` is live depends on `X_1..X_{k-1}` only (point 4 of the previous
+section). Dead target rows (`>= L`) are wrong because of the expert remap.
+
+**Lemma.** For any target rows (wrong ones included), `P(tau >= i | X_1..X_i) = p_i`.
+Proof by backward induction. At `i = g` this is `h_g = p_g`. For `i < g`, the coins are
+independent, so
+
+`P(tau >= i | X_1..X_i) = 1 - (1 - h_i)(1 - E[P(tau >= i+1 | X_1..X_{i+1}) | X_1..X_i])`.
+
+By the induction hypothesis the inner term is
+`E[p_{i+1} | X_1..X_i] = sum_x Q_i(x) min(p_i P_i(x)/Q_i(x), 1) = sum_x min(p_i P_i(x), Q_i(x)) = p_i - r_i`.
+Since `1 - h_i = (1 - p_i) / (r_i + 1 - p_i)`, the whole expression equals `p_i`. The edge
+cases `p_i` in {0, 1} also hold. The induction uses only the fact that `P_i` is a
+probability vector and that the same `P_i` enters both `p_{i+1}` and `r_i`. The kernel
+reads one row for both.
+
+So `P(tau >= i | X_1..X_i) = p_i` and `P(tau = i | X_1..X_i) = p_i - (p_i - r_i) = r_i`.
+Both are functions of rows `< i+1` only. For `i <= L-1` that means live rows only.
+
+**Two exact ways to run it under the cap.**
+
+- `INKLING_VERIFY_CAP_BV=stock`: the stock kernel runs over all 8 rows, then the
+  existing cap applies (`correct = min(tau, L-1)`). When the cap trims, the bonus is
+  `predicts[accept_index[L-1]] = X_L`. What is emitted:
+  - `X_1..X_L` with probability `P(X_1..X_L) p_L`, where `p_L` uses live row `L-1`;
+  - `X_1..X_k, Y` (`k <= L-1`) with probability `P(X_1..X_k) r_k residual_k(Y)`.
+
+  This is the same law as a block verification that stops after `L-1` drafts, so the
+  dead rows cannot change it. Neither can the stopping rule, because `{L = l}` is
+  decided by `X_1..X_{l-1}` (the same argument as point 4). The earlier "not exact"
+  claim was wrong.
+- `INKLING_VERIFY_CAP_BV=mask` (default): before the kernel, `logic.mask_dead_draft_rows`
+  zeroes the draft row `L-1` and sets `q(X_j) = 0` for every dead draft. This is exactly
+  the draft of a chain that stops: after the stop it emits a token outside the
+  vocabulary (target probability 0) with probability 1. Over that augmented draft the
+  kernel is the stock fixed-length algorithm, so Sun et al.'s theorem applies directly:
+  - `p_i = 0` past the cut, so a dead level is never accepted and never scanned;
+  - `h_{L-1} = p_{L-1}`, because its residual mass is `p_{L-1} sum P_{L-1} - 0`;
+  - the bonus at `tau = L-1` comes from `P_{L-1}` alone.
+
+  The expected acceptance is the same as with `stock`: `sum_{k<L} E[p_k]` in both. `mask`
+  saves the kernel's full-vocabulary scans of dead levels. It also never reads a dead
+  target row, so it would stay exact even if dead rows were not finite. Its cost is one
+  row per request read and written (`index_select`/`index_copy_`) plus a `[bs, 7]`
+  gather/scatter. Graph-safe: fixed shapes, no host sync, reads the live-length buffer.
+  The overlay skips the mask on eager steps where every row is live (constant
+  full-width steps, e.g. above `bsmax`).
+
+**Tests.** `tests/vcap/test_block_verify.py` mirrors the kernel line by line in float64
+(`block_verify_ref`). It uses a 3-token Markov target and draft, garbage dead rows, and
+`L` from the max-probability rule, and it checks the joint law of the first three
+tokens (300k sequences). All errors are max abs over the 27 cells, with tolerance
+3.5e-3:
+
+| arm | max abs error |
+|---|---|
+| full width | 9.6e-4 |
+| `mask`, gamma 3 | 9.3e-4 |
+| `mask`, gamma 5 | 1.2e-3 |
+| `stock` + cap, gamma 3 | 7.4e-4 |
+| `stock` + cap, gamma 5 | 8.7e-4 |
+
+- With `mask` at gamma 3, the steps cover every case: accepted up to the cut, stopped
+  inside the live block, `L = 1`, and full width.
+- Accepted drafts per step: 0.978 with `mask`, 0.976 with `stock`.
+- Negative controls, both detected: a dead-row leak (on a trim, emit the dead row's
+  final sample) is off by 0.12; a look-ahead cut (on the proposed token's own
+  probability) is off by 0.17.
+
+`MaskTest` and `WrapperTest` cover the mask pattern and the accept/`_draft_probs`
+wrappers. `tools/gpu_check_bv.py` repeats the Monte Carlo on the GPU
+through the real `accept_draft_tokens` and the stock Triton kernel.
+
+## Draft statistics in fewer bytes (`INKLING_VERIFY_CAP_FASTPROBS=1`)
+
+The R7S profile (thinking, T = 0.8; 2026-11-22) found two vocabulary-wide eager costs
+between the graphs. Per-kernel times are from `tools/profile_eager.py`.
+
+- The policy rule's `m_j` (`logic.draft_token_probs`) makes about 8 FP32 passes over
+  `[bs*7, 201024]`: a copy, a division, amax twice, sub, exp and sum. That costs
+  2.0 ms per step at c8. It runs at every batch size the cap covers (bs <= 16), on
+  greedy rows too.
+- The accept's draft probabilities go through FlashInfer's softmax after a BF16-to-FP32
+  copy of the step logits: 0.28 ms for the copy alone at c8, 0.93 ms at c24.
+
+`fastprobs.py` replaces both with the image's own split kernels (`dspark_accept`'s
+`_softmax_temp_stats_kernel` and `_softmax_temp_write_kernel`, the ROCm path of
+`softmax_temp_triton`), run on CUDA:
+
+- `m_j` = 1 / sum exp(x/T - max), from one read of the BF16 logits;
+- q = softmax(x/T), from two reads of the BF16 logits and one FP32 write.
+
+Both compute the same function as before. They differ only in FP32 summation order:
+`m_j` only sets the live length, and q is the draft law up to FP32 rounding, exactly as
+FlashInfer's q is. They work with draft tau and with the block-verification mask
+(applied after).
+
+## Sampled accept from the logits (`INKLING_VERIFY_CAP_FUSED_ACCEPT=1`)
+
+The stock plain sampled accept materialises `[bs*8, V]` target probabilities and
+`[bs*7, V]` draft probabilities: FlashInfer softmax, two reads and one write each,
+plus an FP32 copy of the BF16 draft logits. It then reads a few values and one row
+pair per request. At c24 that is about 1.07 GB and 5 ms per step (R7S).
+
+`fused_accept.accept_core` reads every logit row about once:
+
+1. the lse of each target row (at T) and each draft row (at `T_d`), from the image's
+   split stats kernel;
+2. `p(d_j)` and `q(d_j)` as `exp(z/T - lse)`, `[bs, 7]` gathers;
+3. the walk:
+   - chain: the leading run of `u_j q_j < p_j`;
+   - block verification: the prefix probabilities, `r_i` only for the levels that
+     can accept (`_mass_kernel` skips every other row), `h_i`, and the backward walk;
+4. the bonus, drawn from `max(s P_tau - Q_tau, 0)` by an exponential race
+   (`_race_kernel`: argmax of `log w - log E`, `E ~ Exp(1)`, Philox). This selects `x`
+   with probability `w(x)/sum w`, in one pass with no normalisation.
+
+Under the cap the walk stops after the `g = L - 1` live drafts, and the bonus at
+`tau = g` comes from the target row `g` alone. That is the stopped-chain form, exact
+by the stopping-rule argument above, and nothing past row `g` is read. The law is the
+stock one: the same formulas, with FP32 rounding of p and q from lse, and a different
+exact sampler for the bonus. `cap_trim_lens` is 0, because the walk never verifies a
+dead draft, so the stats line's `mean_uncapped` equals `mean_commit` for these steps.
+
+Eligible calls: plain temperature (no top-k / top-p), a non-greedy draft, no vocab
+shard, no block-wise rejection noise, CUDA, not inside a graph capture. Everything
+else takes the stock path. Mixed batches combine with the stock greedy accept
+through `SelectMixedAccept`, as the engine does. Tests:
+
+- `tests/vcap/test_fused_accept.py`: law Monte Carlo through the torch primitives.
+  Max abs error 6e-4 to 1.4e-3 for chain and BV, capped and uncapped. A "no stop"
+  negative control is off by 0.15.
+- `tools/gpu_check_fused_accept.py` (GB10, 2026-11-22, all pass):
+  - the self-check passes;
+  - race law at V = 201024 across split boundaries: max abs error 0.0036 over 32k
+    samples, no off-support picks;
+  - `L = 1` with all-`-inf` draft rows: bonus law 0.0037 vs `P_0`;
+  - law Monte Carlo through the real `accept_draft_tokens`: chain and BV, capped and
+    uncapped, errors 4.8e-4 to 1.1e-3.
+  - an independent code review before the first GPU run: five findings, all fixed.
+
+Cold-L2 cost of one accept call, stock (FlashInfer probabilities + the classic
+kernel) vs fused, in us:
+
+| bs | 1 | 2 | 3 | 4 | 6 | 8 | 24 |
+|---|---|---|---|---|---|---|---|
+| chain | 163 / 302 | 317 / 338 | 532 / 382 | 748 / 429 | 1198 / 520 | 1649 / 612 | 5125 / 1372 |
+| BV | 272 / 516 | 500 / 534 | 732 / 586 | 950 / 632 | 1432 / 728 | 1893 / 817 | 5628 / 1584 |
+
+The fused path is launch-bound at bs 1-2, so it runs only from
+`INKLING_VERIFY_CAP_FUSED_ACCEPT_MIN_BS` (default 3).
 
 ## How dead rows shrink the expert union
 
@@ -468,7 +640,7 @@ cut. `tests/vcap/test_policy.py` checks this three ways:
 
 Data: `R2SL-s06` (Spark_06, 2026-11-21): 36,201 request-steps; thinking c1/c4/c8
 (sampled T = 0.8), decode table prose+code c1-c16 (greedy), speedbench quick c1.
-Replay tool: `bsreplay.py` (track directory). Step time `T = F(bs) + 0.97 ms x U`
+Replay tool: `bsreplay.py` (development tool, not shipped). Step time `T = F(bs) + 0.97 ms x U`
 (`U` = expert union per MoE visit; `F(1) = 33.3`, `F(8) = 59.6` ms from the c1 and
 c8 profiles, linear in between), plus 0.05 + 0.13 x bs ms for the draft-logit
 statistics of a dynamic rule. Mixed widths: the step's own measured fixed-width
@@ -505,3 +677,22 @@ Carlo and its negative control, `plan_step`, and greedy byte identity end to end
 for a per-request policy, a batch-aware policy and an inert policy on both accept
 paths with remap on and off). `test_policy.py` imports `bsreplay.py` from the
 overlay root for the reference rule.
+
+## Tests (round 3, sampled path)
+
+Running `python -m unittest discover -s tests/vcap` from the overlay root gives 51 tests.
+The round-3 files:
+
+- `test_block_verify.py`: kernel mirror, law Monte Carlo for `mask` and `stock`, negative
+  controls, the mask pattern, and the wrappers.
+- `test_fastprobs.py`: the combine math against the torch reference.
+- `test_fused_accept.py`: law Monte Carlo for chain and BV, capped and uncapped, plus the
+  no-stop negative control.
+
+GPU checks, run in the image: `tools/gpu_check_bv.py`, `tools/gpu_check_fastprobs.py`,
+`tools/gpu_check_fused_accept.py`. The last one includes the combined stacks: FASTPROBS q
+with the BV mask, and FASTPROBS with fused accept and BV, with the draft at tau x T. All
+passed on GB10 on 2026-11-22 (errors at most 1.5e-3).
+
+`tools/bench_fused_accept.py` times stock vs fused per batch size.
+`tools/profile_eager.py` lists a trace's eager kernels together with their CPU stacks.

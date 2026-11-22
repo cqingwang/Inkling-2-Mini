@@ -32,11 +32,20 @@ class StubLinear(nn.Module):
         return self.quant_method.apply(self, x, None), None
 
 
+class StubSelfAttn(nn.Module):
+    def __init__(self, layer_id, sliding_window_size):
+        super().__init__()
+        from sglang.srt.layers.attention.flashattention_backend import RadixAttention
+
+        self.attn = RadixAttention(layer_id, sliding_window_size, window_anchor_at_start=sliding_window_size >= 0)
+
+
 class StubLayer(nn.Module):
-    def __init__(self, hidden):
+    def __init__(self, hidden, layer_id=0, sliding_window_size=-1):
         super().__init__()
         self.qkv_proj = StubLinear(3 * hidden, hidden)
         self.o_proj = StubLinear(hidden, hidden)
+        self.self_attn = StubSelfAttn(layer_id, sliding_window_size)
 
 
 class LMHead(nn.Module):
@@ -108,7 +117,8 @@ class Inkling2ForConditionalGenerationMTP(nn.Module):
         self.markov_head = Inkling2MTPHead(padded, rank, hidden)
         self.markov_head.step_softcap = softcap
         self.markov_head.step_vocab_limit = limit
-        self.layers = nn.ModuleList([StubLayer(hidden) for _ in range(2)])
+        # layer 0 local (window), layer 1 global, like the drafter's local_layer_ids [0, 2] pattern
+        self.layers = nn.ModuleList([StubLayer(hidden, 0, 127), StubLayer(hidden, 1, -1)])
         self.lm_head = None
         self._org = org
 

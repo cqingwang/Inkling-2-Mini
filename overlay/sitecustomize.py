@@ -46,6 +46,9 @@ try:
     if _on("INKLING_VATTN"):  # target-verify attention: split-KV relative-bias kernel for all batch sizes
         import inkling_vattn
         inkling_vattn.install()
+    if _on("INKLING_KV12"):  # after vattn: global-layer KV read from a packed 12-bit side pool (exact)
+        import inkling_kv12
+        inkling_kv12.install()
 except BaseException as exc:  # noqa: BLE001
     sys.stderr.write("[inkling-overlay pid=%d] FATAL at startup: %r\n" % (os.getpid(), exc))
     sys.stderr.flush()

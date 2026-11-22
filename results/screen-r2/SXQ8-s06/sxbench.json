@@ -1,0 +1,170 @@
+{
+ "protocol": "usage: python3 scripts/bench.py OUT.json [--port 8020] [--compare results/ab/stock.json] [--no-vision]",
+ "canary": {
+  "http": 200,
+  "answer": "408"
+ },
+ "rows": [
+  {
+   "ttft_s": 0.2040865320013836,
+   "decode_tps": 72.08465905275479,
+   "usage": {
+    "prompt_tokens": 53,
+    "total_tokens": 213,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "b851c385d7192709754de72e8aa3620792fc34d2ff85cfe43f47ffc0fc938c5a",
+   "case": "code",
+   "repeat": 0
+  },
+  {
+   "ttft_s": 0.1597857830056455,
+   "decode_tps": 44.80346619734191,
+   "usage": {
+    "prompt_tokens": 54,
+    "total_tokens": 214,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "ff6342481893ec5e3dcf4afdaf43481da890bb2b95eac5d0ce1d931ccefaa81d",
+   "case": "prose",
+   "repeat": 0
+  },
+  {
+   "ttft_s": 0.20187012098904233,
+   "decode_tps": 65.45423142674925,
+   "usage": {
+    "prompt_tokens": 44,
+    "total_tokens": 204,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "e6ec672993d5b734278cc4ff6e4258cc38942f564f5dad84bfe1c048d4f79313",
+   "case": "math",
+   "repeat": 0
+  },
+  {
+   "ttft_s": 0.1647840810037451,
+   "decode_tps": 71.80455786719594,
+   "usage": {
+    "prompt_tokens": 53,
+    "total_tokens": 213,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "b851c385d7192709754de72e8aa3620792fc34d2ff85cfe43f47ffc0fc938c5a",
+   "case": "code",
+   "repeat": 1
+  },
+  {
+   "ttft_s": 0.1606594339973526,
+   "decode_tps": 44.780682076428,
+   "usage": {
+    "prompt_tokens": 54,
+    "total_tokens": 214,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "ff6342481893ec5e3dcf4afdaf43481da890bb2b95eac5d0ce1d931ccefaa81d",
+   "case": "prose",
+   "repeat": 1
+  },
+  {
+   "ttft_s": 0.20223172999976669,
+   "decode_tps": 65.5899462071595,
+   "usage": {
+    "prompt_tokens": 44,
+    "total_tokens": 204,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "e6ec672993d5b734278cc4ff6e4258cc38942f564f5dad84bfe1c048d4f79313",
+   "case": "math",
+   "repeat": 1
+  },
+  {
+   "ttft_s": 0.16443176800385118,
+   "decode_tps": 72.26496887309318,
+   "usage": {
+    "prompt_tokens": 53,
+    "total_tokens": 213,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "b851c385d7192709754de72e8aa3620792fc34d2ff85cfe43f47ffc0fc938c5a",
+   "case": "code",
+   "repeat": 2
+  },
+  {
+   "ttft_s": 0.16181063900876325,
+   "decode_tps": 44.94461816878907,
+   "usage": {
+    "prompt_tokens": 54,
+    "total_tokens": 214,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "ff6342481893ec5e3dcf4afdaf43481da890bb2b95eac5d0ce1d931ccefaa81d",
+   "case": "prose",
+   "repeat": 2
+  },
+  {
+   "ttft_s": 0.20113431500794832,
+   "decode_tps": 65.41726498337042,
+   "usage": {
+    "prompt_tokens": 44,
+    "total_tokens": 204,
+    "completion_tokens": 160,
+    "completion_tokens_details": {
+     "reasoning_tokens": 158
+    }
+   },
+   "finish": "length",
+   "text": "",
+   "output_sha256": "e6ec672993d5b734278cc4ff6e4258cc38942f564f5dad84bfe1c048d4f79313",
+   "case": "math",
+   "repeat": 2
+  }
+ ],
+ "median_decode_tps": 65.45423142674925,
+ "median_ttft_s": 0.1647840810037451,
+ "case_medians": {
+  "code": 72.08465905275479,
+  "prose": 44.80346619734191,
+  "math": 65.45423142674925
+ },
+ "mean_acceptance_length": 3.155844155844156
+}
