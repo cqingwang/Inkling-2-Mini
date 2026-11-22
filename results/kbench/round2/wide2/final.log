@@ -1,0 +1,125 @@
+KBRUN start 2026-11-21T23:28:41Z memavail=117GiB
+== cpu tests
+Ran 33 tests in 0.707s
+
+OK
+== kernel info
+fmt 0 M 128 mt 0 mg 1 (172, 0, 256)
+fmt 0 M 128 mt 0 mg 2 (126, 0, 512)
+fmt 0 M 192 mt 1 mg 1 (124, 0, 512)
+fmt 0 M 256 mt 1 mg 1 (122, 0, 512)
+fmt 2 M 128 mt 0 mg 1 (204, 0, 256)
+fmt 2 M 128 mt 0 mg 2 (128, 0, 512)
+fmt 2 M 192 mt 1 mg 1 (125, 0, 512)
+fmt 2 M 256 mt 1 mg 1 (128, 0, 512)
+== sk check + time
+sk device=NVIDIA GB10 cc=12.1 sms=48 torch=2.14.1+cu130
+sk ext reused in 0.2 s
+wide real weights layer=0 qkvr=(8600, 2304) splits=[3072, 1024, 1024, 384, 3072, 24] wo=(2304, 3072) head=(201024, 2304)
+sk weight qkvr [8600x2304] packed_MB=30.6 raw_tiles=1135/77400
+sk bits qkvr M=97 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL PASS
+sk accuracy qkvr M=97 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits qkvr M=100 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL rows[:97]==M97:IDENTICAL PASS
+sk accuracy qkvr M=100 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits qkvr M=128 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL rows[:100]==M100:IDENTICAL PASS
+sk accuracy qkvr M=128 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits qkvr M=129 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL rows[:128]==M128:IDENTICAL PASS
+sk accuracy qkvr M=129 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits qkvr M=160 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL rows[:129]==M129:IDENTICAL PASS
+sk accuracy qkvr M=160 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits qkvr M=192 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL rows[:160]==M160:IDENTICAL PASS
+sk accuracy qkvr M=192 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits qkvr M=200 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL rows[:192]==M192:IDENTICAL PASS
+sk accuracy qkvr M=200 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits qkvr M=256 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.942 (ctas 48 and 37) unsplit_cols=2968/8600 ==k_wide:IDENTICAL rows[:200]==M200:IDENTICAL PASS
+sk accuracy qkvr M=256 max_abs_err sk=1.559e-02 cublas=1.559e-02 max|sk-cublas|=1.562e-02 PASS
+sk stacked M=100 kept==per-source IDENTICAL layout=stock PASS
+sk time stacked M=100x3 cublas(cat 3M)_us=217.6 wide_us=209.8 sk_us=158.3 (193 GB/s) speedup_vs_cublas=1.37
+sk stacked M=128 kept==per-source IDENTICAL layout=stock PASS
+sk time stacked M=128x3 cublas(cat 3M)_us=227.9 wide_us=205.9 sk_us=166.0 (184 GB/s) speedup_vs_cublas=1.37
+sk stacked M=192 kept==per-source IDENTICAL layout=stock PASS
+sk time stacked M=192x3 cublas(cat 3M)_us=297.1 wide_us=232.0 sk_us=204.7 (150 GB/s) speedup_vs_cublas=1.45
+sk time qkvr M=96 cublas_us=186.4 wide_us=195.1 sk_mg1_us=149.5 sk_mg2_us=154.7 sk_raw_us=195.4 (205 GB/s packed) speedup_vs_cublas=1.25
+sk time qkvr M=128 cublas_us=194.6 wide_us=217.1 sk_mg1_us=160.7 sk_mg2_us=169.5 sk_raw_us=202.8 (190 GB/s packed) speedup_vs_cublas=1.21
+sk time qkvr M=160 cublas_us=194.7 wide_us=202.8 sk_mg1_us=173.2 sk_mg2_us=nan sk_raw_us=218.1 (177 GB/s packed) speedup_vs_cublas=1.12
+sk time qkvr M=192 cublas_us=196.6 wide_us=228.0 sk_mg1_us=199.7 sk_mg2_us=nan sk_raw_us=227.4 (153 GB/s packed) speedup_vs_cublas=0.98
+sk time qkvr M=256 cublas_us=206.4 wide_us=270.3 sk_mg1_us=281.5 sk_mg2_us=nan sk_raw_us=291.8 (109 GB/s packed) speedup_vs_cublas=0.73
+sk weight wo [2304x3072] packed_MB=10.9 raw_tiles=416/27648
+sk bits wo M=97 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL PASS
+sk accuracy wo M=97 max_abs_err sk=1.528e-02 cublas=1.528e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits wo M=100 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL rows[:97]==M97:IDENTICAL PASS
+sk accuracy wo M=100 max_abs_err sk=1.528e-02 cublas=1.528e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits wo M=128 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL rows[:100]==M100:IDENTICAL PASS
+sk accuracy wo M=128 max_abs_err sk=1.528e-02 cublas=1.528e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits wo M=129 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL rows[:128]==M128:IDENTICAL PASS
+sk accuracy wo M=129 max_abs_err sk=1.528e-02 cublas=1.528e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits wo M=160 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL rows[:129]==M129:IDENTICAL PASS
+sk accuracy wo M=160 max_abs_err sk=1.528e-02 cublas=1.528e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits wo M=192 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL rows[:160]==M160:IDENTICAL PASS
+sk accuracy wo M=192 max_abs_err sk=1.539e-02 cublas=1.539e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits wo M=200 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL rows[:192]==M192:IDENTICAL PASS
+sk accuracy wo M=200 max_abs_err sk=1.539e-02 cublas=1.539e-02 max|sk-cublas|=1.562e-02 PASS
+sk bits wo M=256 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.899 (ctas 48 and 37) unsplit_cols=0/2304 ==k_wide:IDENTICAL rows[:200]==M200:IDENTICAL PASS
+sk accuracy wo M=256 max_abs_err sk=1.554e-02 cublas=1.554e-02 max|sk-cublas|=1.562e-02 PASS
+sk time wo M=96 cublas_us=73.7 wide_us=72.8 sk_mg1_us=70.1 sk_mg2_us=73.7 sk_raw_us=82.9 (156 GB/s packed) speedup_vs_cublas=1.05
+sk time wo M=128 cublas_us=74.8 wide_us=82.1 sk_mg1_us=75.8 sk_mg2_us=77.8 sk_raw_us=85.6 (144 GB/s packed) speedup_vs_cublas=0.99
+sk time wo M=160 cublas_us=80.7 wide_us=90.2 sk_mg1_us=82.0 sk_mg2_us=nan sk_raw_us=97.4 (133 GB/s packed) speedup_vs_cublas=0.98
+sk time wo M=192 cublas_us=77.8 wide_us=98.4 sk_mg1_us=92.2 sk_mg2_us=nan sk_raw_us=102.4 (119 GB/s packed) speedup_vs_cublas=0.84
+sk time wo M=256 cublas_us=79.8 wide_us=124.8 sk_mg1_us=121.9 sk_mg2_us=nan sk_raw_us=127.5 (90 GB/s packed) speedup_vs_cublas=0.65
+sk weight head [201024x2304] packed_MB=715.1 raw_tiles=25591/1809216
+sk bits head M=128 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.025 (ctas 48 and 37) unsplit_cols=195136/201024 ==k_wide:IDENTICAL PASS
+sk accuracy head M=128 max_abs_err sk=1.970e-05 cublas=2.103e-05 max|sk-cublas|=1.001e-05 PASS
+sk bits head M=192 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.025 (ctas 48 and 37) unsplit_cols=195136/201024 ==k_wide:IDENTICAL rows[:128]==M128:IDENTICAL PASS
+sk accuracy head M=192 max_abs_err sk=1.970e-05 cublas=2.103e-05 max|sk-cublas|=1.001e-05 PASS
+sk bits head M=256 packed_vs_raw=IDENTICAL pdl=IDENTICAL graph=IDENTICAL other_mg=IDENTICAL counters_zero=True fp64_bound_worst=0.025 (ctas 48 and 37) unsplit_cols=195136/201024 ==k_wide:IDENTICAL rows[:192]==M192:IDENTICAL PASS
+sk accuracy head M=256 max_abs_err sk=1.999e-05 cublas=2.103e-05 max|sk-cublas|=1.121e-05 PASS
+sk time head M=96 cublas_us=4793.3 wide_us=3524.6 sk_mg1_us=3503.1 sk_mg2_us=3517.4 sk_raw_us=4872.7 (204 GB/s packed) speedup_vs_cublas=1.37
+sk time head M=128 cublas_us=4776.0 wide_us=3640.3 sk_mg1_us=3645.2 sk_mg2_us=3756.0 sk_raw_us=4821.8 (196 GB/s packed) speedup_vs_cublas=1.31
+sk time head M=160 cublas_us=4929.6 wide_us=4012.2 sk_mg1_us=3825.8 sk_mg2_us=nan sk_raw_us=5006.3 (187 GB/s packed) speedup_vs_cublas=1.29
+sk time head M=192 cublas_us=5183.6 wide_us=4049.9 sk_mg1_us=4059.1 sk_mg2_us=nan sk_raw_us=5174.3 (176 GB/s packed) speedup_vs_cublas=1.28
+sk time head M=256 cublas_us=5317.6 wide_us=4659.2 sk_mg1_us=5355.8 sk_mg2_us=nan sk_raw_us=5740.6 (134 GB/s packed) speedup_vs_cublas=0.99
+sk summary (us, L2 cold; GB/s: packed bytes for the packed kernels, raw for cuBLAS / sk raw)
+shape      M   cublas   wide_x   sk_mg1   sk_mg2   sk_raw   GB/s:cublas sk   cublas/sk wide/sk
+qkvr-st   100    217.6    209.8    158.3      nan      nan          182  193        1.37    1.33
+qkvr-st   128    227.9    205.9    166.0      nan      nan          174  184        1.37    1.24
+qkvr-st   192    297.1    232.0    204.7      nan      nan          133  150        1.45    1.13
+qkvr       96    186.4    195.1    149.5    154.7    195.4          213  205        1.25    1.30
+qkvr      128    194.6    217.1    160.7    169.5    202.8          204  190        1.21    1.35
+qkvr      160    194.7    202.8    173.2      nan    218.1          204  177        1.12    1.17
+qkvr      192    196.6    228.0    199.7      nan    227.4          202  153        0.98    1.14
+qkvr      256    206.4    270.3    281.5      nan    291.8          192  109        0.73    0.96
+wo         96     73.7     72.8     70.1     73.7     82.9          192  156        1.05    1.04
+wo        128     74.8     82.1     75.8     77.8     85.6          189  144        0.99    1.08
+wo        160     80.7     90.2     82.0      nan     97.4          175  133        0.98    1.10
+wo        192     77.8     98.4     92.2      nan    102.4          182  119        0.84    1.07
+wo        256     79.8    124.8    121.9      nan    127.5          177   90        0.65    1.02
+head       96   4793.3   3524.6   3503.1   3517.4   4872.7          193  204        1.37    1.01
+head      128   4776.0   3640.3   3645.2   3756.0   4821.8          194  196        1.31    1.00
+head      160   4929.6   4012.2   3825.8      nan   5006.3          188  187        1.29    1.05
+head      192   5183.6   4049.9   4059.1      nan   5174.3          179  176        1.28    1.00
+head      256   5317.6   4659.2   5355.8      nan   5740.6          174  134        0.99    0.87
+sk gpu_check result PASS (0 failed: )
+== k_wide regression
+wide gpu_check result PASS (0 failed: )
+== integration
+wide integ patched lm head  PASS
+wide integ patched _project_sources  PASS
+wide integ patched post_load_weights + forward (scope)  PASS
+wide integ scope modes decode/verify/extend=[True, True, False] PASS
+wide integ patched: ['unquant.sm12x_fp32_lm_head', 'Inkling2Attention._project_sources', 'Inkling2ForConditionalGeneration.forward (scope)', 'Inkling2ForConditionalGeneration.post_load_weights']
+[inkling_pico12 pid=253] active (target): dense: qkvr 1 (+kv 1) wo_ud 1, head [201024x2304] for lmhead; packed 763.9 MB extra beside 980.1 MB of BF16 originals (kept); patched unquant.sm12x_fp32_lm_head, Inkling2Attention._project_sources, Inkling2ForConditionalGeneration.post_load_weights; ext reused in 0.0 s (/root/.cache/inkling-pico12/227377f9786ac9d5); encode 0.1 s; max_m=16 stacked_max_m=16 wk=16 pdl=1
+[inkling_wide pid=253] active (target): dense: qkvr 1 (stacked 1) wo_ud 1, bf16x 2/2, head [201024x2304] bf16x; split-K workspace 12.6 MB; patched unquant.sm12x_fp32_lm_head, Inkling2Attention._project_sources, Inkling2ForConditionalGeneration.forward (scope), Inkling2ForConditionalGeneration.post_load_weights; ext reused in 0.0 s (/root/.cache/wide2-build/1f13a185d555f2d5); min_m=17 max_m=256 (qkvr=192,wo=32,head=256) scope=all fmt=auto pdl=1 mg=2 pfd=1 splitk=auto sk_min_m=97 sk_max_m=(qkvr=256,wo=256,head=192) sk_mg=1 sk_ctas=sms
+wide integ qkvr method WidePico12UnquantizedLinearMethod, fmt bf16x
+wide integ formats  PASS
+wide integ dispatch M=8 expected=pico wide_calls=0 PASS
+wide integ dispatch M=16 expected=pico wide_calls=0 PASS
+wide integ dispatch M=17 expected=wide wide_calls=3 PASS
+wide integ dispatch M=64 expected=wide wide_calls=3 PASS
+wide integ dispatch M=256 expected=wide wide_calls=3 PASS
+wide integ dispatch M=300 expected=stock wide_calls=0 PASS
+wide integ stacked M=24 layout=stock close=True wide_calls=1 PASS
+wide integ stacked graph M=24  PASS
+wide integ stacked M=64 layout=stock close=True wide_calls=1 PASS
+wide integ stacked graph M=64  PASS
+wide integration result PASS ()
+KBRUN end 2026-11-21T23:30:18Z rc=0 memavail=117GiB

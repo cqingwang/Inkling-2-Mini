@@ -22,6 +22,9 @@ try:
     if _on("INKLING_MOE2"):  # after inkling_kernels: per-token tile tables over moe_tiles' _tiles wrapper
         import inkling_moe2
         inkling_moe2.install()
+    if _on("INKLING_SCODES"):  # NVFP4 expert scale codes (exact; wraps nvfp4_expert_matmul)
+        import inkling_scodes
+        inkling_scodes.install()
     if _on("INKLING_PICO12"):  # after inkling_kernels: its _project_sources wrapper goes outside qkvr_gemv's
         import inkling_pico12
         inkling_pico12.install()

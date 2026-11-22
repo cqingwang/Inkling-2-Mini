@@ -45,6 +45,8 @@
   wikimedia/wikipedia (CC-BY-SA-4.0), juletxara/mgsm (CC-BY-SA-4.0) and llm-jp/oasst2-33k-ja (Apache-2.0); only token
   frequencies of the model's own outputs are shipped, no prompt text.
 - **thefullctx**: the KV page-size 16 measurement we screened (not adopted here).
+- **Christopher Owen** and B12X (MXFP4-CSF): the scale-code format idea behind `overlay/inkling_scodes/` (our
+  implementation, in a modified FlashInfer / CUTLASS mainloop).
 - **Christopher Owen, spark-ds41f** (Apache-2.0): the packed-BF16 vocabulary projection (b12x patch 0012) whose format
   we ported to Triton in a screen (not adopted, see docs/experiments.md).
 - **FlashInfer** (CUTLASS / CuTe DSL grouped GEMMs, the GEMVs) and **CUTLASS**: the kernels the MoE tile choice

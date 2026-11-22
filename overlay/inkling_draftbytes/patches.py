@@ -25,9 +25,9 @@ from typing import Optional
 
 import torch
 
-from . import ops
+from . import ops, w8gemv
 from ._hooks import when_imported
-from .quant import W8Pack, bf16_pack, quantize_mode
+from .quant import SCALE_E8M0, W8Pack, bf16_pack, quantize_mode
 
 logger = logging.getLogger("inkling_draftbytes")
 
@@ -349,6 +349,14 @@ def _w8_method_class(cls):
                 and x.shape[-1] == pack.k
                 and 0 < x.numel() // x.shape[-1] <= STATE.opts.w8_max_m
             ):
+                cfg = getattr(layer, "_idb_w8g", 0)
+                if cfg and x.numel() // x.shape[-1] <= w8gemv.MAX_ROWS and w8gemv.bias_ok(bias, pack.n):
+                    return w8gemv.linear(x, pack, bias, cfg)
+                if STATE.opts.w8tile:
+                    # mx: one MMA chain per output whatever the tile; row/gN scale each BK partial, so keep their BK
+                    mx = pack.scale_kind == SCALE_E8M0
+                    bk = (256 if pack.k <= 2304 else 128) if mx else STATE.opts.linear_bk
+                    return ops.w8_linear(x, pack, bias, x.dtype, bn=16, bk=bk, num_warps=STATE.opts.num_warps)
                 return ops.w8_linear(x, pack, bias, x.dtype)
             return inner_apply(self, layer, x, bias)
 
@@ -379,9 +387,15 @@ def _prepare_draftmx8(model, refresh: bool) -> int:
     linears = _draft_linears(model)
     if not linears and not refresh:
         raise RuntimeError("draftmx8: no BF16 unquantized linears found under model.layers")
+    if STATE.opts.w8gemv and not refresh:
+        w8gemv.load()
     for _, module in linears:
         old = getattr(module, "_idb_w8", None)
         module._idb_w8 = quantize_mode(module.weight.data, mode, out=old)
+        if STATE.opts.w8gemv:
+            pack = module._idb_w8
+            module._idb_w8g = (w8gemv.choose_cfg(pack.n, pack.k, STATE.opts.w8gemv_cfg)
+                               if w8gemv.eligible_pack(pack) else 0)
         if not refresh and not type(module.quant_method).__name__.startswith("DraftBytesW8"):
             method = copy.copy(module.quant_method)
             method.__class__ = _w8_method_class(type(module.quant_method))
@@ -435,6 +449,12 @@ def prepare(model, refresh: bool = False) -> None:
     if opts.draftmx8:
         size = _prepare_draftmx8(model, refresh)
         notes.append(f"draftmx8:{opts.draftmx8.label} {len(_draft_linears(model))} linears {_mb(size)}")
+        if opts.w8gemv:
+            cfgs = sorted({(m.weight.shape[0], m.weight.shape[1], getattr(m, "_idb_w8g", 0))
+                           for _, m in _draft_linears(model)})
+            notes.append("w8gemv <= 16 rows " + " ".join(f"{n}x{k}:{c or 'triton'}" for n, k, c in cfgs)
+                         + (f" (ext {'reused' if w8gemv.INFO.get('cached') else 'built'} "
+                            f"{w8gemv.INFO.get('seconds', 0):.1f} s)" if w8gemv.INFO else ""))
     if opts.gemv:
         notes.append(f"gemv (sm12x <=16 rows, own kernel <= {opts.gemv_max_m})")
     say(

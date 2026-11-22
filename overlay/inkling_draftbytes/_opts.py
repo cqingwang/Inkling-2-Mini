@@ -8,6 +8,12 @@ Comma list, any order, default empty (= the overlay does nothing):
   head8[:MODE]   draft base logits from an FP8 copy of the LM head (default row)
   draftmx8[:MODE] FP8 copies of the three draft layers' linears (default mx)
   hotvocab:N     draft proposes only from the first N ids of INKLING_DRAFT_HOTVOCAB_FILE
+  w8tile         with draftmx8: the draft linears' Triton launches (rows not taken by w8gemv, up to w8_max_m) use the
+                 narrow tile BN 16, BK 256 (K <= 2304) / 128 (mx; row/gN keep their BK) (GB10 sweep 2026-11-22: 195 vs 155 GB/s at
+                 8 rows); bit-identical to the default tile (the per-output chain does not depend on the tile)
+  w8gemv         with draftmx8 (mx): the draft linears at 1-16 rows through a CUDA weight-streaming GEMV (w8gemv.py,
+                 csrc/w8gemv.cu) instead of the Triton kernel; same per-output arithmetic (gated bit for bit on
+                 the GPU). Rows 17..w8_max_m keep the Triton kernel.
   wide8          this package's FP8 / BF16 kernels run one CTA per output tile for all 64-row blocks (mode 2:
                  one W load per K tile per CTA up to 384 rows; mode 1 / beyond 384: one per row block, L2-hit
                  after the first) instead of a CTA per 64-row block (which re-reads W from DRAM per block);
@@ -72,6 +78,9 @@ class Options:
     hotvocab: int = 0
     hotvocab_file: Optional[str] = None
     wide8: bool = False
+    w8gemv: bool = False
+    w8tile: bool = False
+    w8gemv_cfg: int = 0  # 0: the per-shape table in w8gemv.py
     # wide8 launches (more than one 64-row block), from the GB10 sweep of 2026-11-21 (tools/gpu_check_wide8.py
     # --tile-sweep; every configuration bit-identical to the default kernel): mode 1, BN 64, 8 warps, 3 stages
     wide8_mode: int = 1  # 1: row blocks outer (W tile re-read from L2); 2: K outer, <= 6 blocks (spills; slower)
@@ -120,6 +129,10 @@ class Options:
             parts.append(f"hotvocab:{self.hotvocab}")
         if self.wide8:
             parts.append(f"wide8(mode {self.wide8_mode})")
+        if self.w8tile:
+            parts.append("w8tile")
+        if self.w8gemv:
+            parts.append("w8gemv" + (f"(cfg {self.w8gemv_cfg})" if self.w8gemv_cfg else ""))
         return ",".join(parts) or "off"
 
 
@@ -155,12 +168,20 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
             kw["draftmx8"] = parse_mode(arg, "mx")
         elif name == "wide8":
             kw["wide8"] = True
+        elif name == "w8gemv":
+            kw["w8gemv"] = True
+        elif name == "w8tile":
+            kw["w8tile"] = True
         elif name == "hotvocab":
             if arg is None or not arg.isdigit() or int(arg) <= 0:
                 raise OptionError("hotvocab needs a positive size, e.g. hotvocab:32768")
             kw["hotvocab"] = int(arg)
         else:
             raise OptionError(f"unknown {ENV} option {item!r}")
+    if kw.get("w8tile") and kw.get("draftmx8") is None:
+        raise OptionError("w8tile needs draftmx8")
+    if kw.get("w8gemv") and (kw.get("draftmx8") is None or kw["draftmx8"].kind != "mx"):
+        raise OptionError("w8gemv needs draftmx8 in mx mode (draftmx8 or draftmx8:mx)")
     if kw.get("hotvocab"):
         path = environ.get(HOT_FILE_ENV, "").strip()
         if not path:
@@ -173,6 +194,9 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
     kw["linear_bn"] = _int_env("INKLING_DRAFT_LINEAR_BN", 32)
     kw["linear_bk"] = _int_env("INKLING_DRAFT_LINEAR_BK", 256)
     kw["num_warps"] = _int_env("INKLING_DRAFT_NUM_WARPS", 4)
+    kw["w8gemv_cfg"] = _int_env("INKLING_DRAFT_W8GEMV_CFG", 0)
+    if kw["w8gemv_cfg"] not in (0, 1142, 1144, 1182, 1184, 1242, 1244, 1282, 1284, 1442, 1444, 1482, 1484):
+        raise OptionError(f"INKLING_DRAFT_W8GEMV_CFG={kw['w8gemv_cfg']} is not a compiled variant (see w8gemv.py)")
     kw["wide8_mode"] = _int_env("INKLING_DRAFT_WIDE8_MODE", 1)
     kw["wide8_stages"] = _int_env("INKLING_DRAFT_WIDE8_STAGES", 3)
     kw["wide8_bn"] = _int_env("INKLING_DRAFT_WIDE8_BN", 64)

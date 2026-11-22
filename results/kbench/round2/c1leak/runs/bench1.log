@@ -1,0 +1,29 @@
+KBRUN start 2026-11-21T23:38:05Z memavail=118GiB
+bench1 device=NVIDIA GB10 torch=2.14.1+cu130
+pico ext loaded in 25.9 s
+pico L0 splits=[3072, 1024, 1024, 384, 3072, 24] kv=[3072:5120] MB full=30.61 kv=7.30 qonly=23.31 (bf16 full 39.63) raw_tiles full=1135/77400
+pico L0 M=4 full_us=134.1 (228 GB/s) qonly_us=105.5 (221 GB/s) kv_us=42.0 (174 GB/s) copy_us=6.1 stacked_today_us=140.8 ideal_qonly+kv_us=142.3 leak_us=-1.5
+pico L0 M=8 full_us=133.6 (229 GB/s) qonly_us=105.5 (221 GB/s) kv_us=44.1 (165 GB/s) copy_us=6.1 stacked_today_us=176.2 ideal_qonly+kv_us=143.4 leak_us=32.7
+pico L0 M=16 full_us=141.9 (216 GB/s) qonly_us=111.5 (209 GB/s) kv_us=81.0 (180 GB/s) copy_us=6.1 stacked_today_us=220.2 ideal_qonly+kv_us=185.3 leak_us=34.8
+pico L6 splits=[3072, 1024, 1024, 384, 3072, 24] kv=[3072:5120] MB full=30.66 kv=7.32 qonly=23.34 (bf16 full 39.63) raw_tiles full=1219/77400
+pico L6 M=4 full_us=135.2 (227 GB/s) qonly_us=89.2 (262 GB/s) kv_us=43.0 (170 GB/s) copy_us=6.1 stacked_today_us=142.3 ideal_qonly+kv_us=127.0 leak_us=15.3
+pico L6 M=8 full_us=135.2 (227 GB/s) qonly_us=90.1 (259 GB/s) kv_us=44.1 (166 GB/s) copy_us=6.1 stacked_today_us=178.2 ideal_qonly+kv_us=128.1 leak_us=50.1
+pico L6 M=16 full_us=143.2 (214 GB/s) qonly_us=97.3 (240 GB/s) kv_us=82.0 (178 GB/s) copy_us=6.1 stacked_today_us=221.2 ideal_qonly+kv_us=171.0 leak_us=50.2
+draft default tile (BN 32, BK 256, 4 warps, Triton default stages)
+draft default M=1 qkv=75.9us/160GB/s o=60.5us/121GB/s gate_up=223.2us/196GB/s down=173.1us/127GB/s ctxkv=41.1us/119GB/s | 4 layer linears 532.7 us 160 GB/s x3 layers = 1.598 ms
+draft default M=4 qkv=81.0us/150GB/s o=62.6us/117GB/s gate_up=228.4us/192GB/s down=177.2us/124GB/s ctxkv=41.1us/118GB/s | 4 layer linears 549.1 us 155 GB/s x3 layers = 1.647 ms
+draft default M=8 qkv=78.8us/154GB/s o=62.6us/117GB/s gate_up=228.3us/192GB/s down=177.3us/124GB/s ctxkv=42.0us/116GB/s | 4 layer linears 547.0 us 156 GB/s x3 layers = 1.641 ms
+draft default M=16 qkv=75.8us/161GB/s o=60.4us/121GB/s gate_up=223.4us/196GB/s down=173.2us/126GB/s ctxkv=41.0us/119GB/s | 4 layer linears 532.8 us 160 GB/s x3 layers = 1.598 ms
+draft sweep M=8 qkv bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=8 s=None ERROR OutOfResources
+Traceback (most recent call last):
+  File "/work/bench1.py", line 209, in <module>
+    draft_part()
+  File "/work/bench1.py", line 192, in draft_part
+    res.sort()
+TypeError: '<' not supported between instances of 'int' and 'NoneType'
+draft sweep M=8 qkv bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+KBRUN end 2026-11-21T23:38:49Z rc=1 memavail=116GiB

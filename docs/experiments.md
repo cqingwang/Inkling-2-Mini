@@ -394,3 +394,48 @@ Same-day A/B on Spark_05 (`results/screen-r2/R3C-s05`, `R3M-s05`, `R3Cb-s05`; v2
 Confirmed with full runs on both boxes (CHANGELOG v2.2). During the Spark_06 full run an unrelated CPU compile job
 ran on the host for 8 minutes (thinking c24 and long-context cells; MemAvailable down to 4.05 GiB); those cells agree
 with Spark_05 within run noise and every check passed, but they are the less clean of the two.
+
+## v2.3: scale codes and two c1 byte leaks
+
+**NVFP4 expert scale codes** (`results/kbench/round2/scodes/`). On all 20 NVFP4 layers, 11,794,049 of 11,796,480
+expert rows use at most 31 distinct scale bytes; they are stored as a row base byte plus 5-bit codes. The other 2,431
+rows (0.02 %) mark the words they cannot code with an escape code, read from the stock scales that stay resident.
+Scales 1,274.0 -> 808.1 MB (-4.06 % of NVFP4 expert bytes); encode / decode round trip exact on all 40 tensors. The
+patch replaces only the collective mainloop of FlashInfer's SM120 NVFP4 grouped GEMM (CUTLASS): the producer loads a
+640-byte code chunk per 128 rows x 128 K instead of the 1,024-byte scale block, the consumer threads expand it into
+the same shared-memory scale bytes, and the MMAs run unchanged. 350 / 350 tile comparisons bit-identical to stock on
+real weights and routing at 8 / 64 / 192 tokens (layers 0, 6, 17, 19, w13 and w2, all five tiles, escapes forced),
+CUDA-graph replay included. Cold-L2 GEMM time -3.5 to -4.5 % per call (layer 17, with the most escape rows, -2.2 to
+-3 %).
+
+A/B on Spark_05 (`results/screen-r2/R4C-s05`, `R4S-s05`, `R4Cb-s05`):
+
+| | control (2 runs) | scale codes |
+|---|---|---|
+| speedbench quick c1 | 61.10 / 60.69 | 61.47 |
+| decode prose c8 / c16 | 159.7, 153.7 / 227.5, 227.3 | 161.8 / 232.3 |
+| decode code / structured / json c8 | 171.6, 171.4 / 167.5, 171.7 / 177.3, 178.8 | 176.4 / 180.4 / 180.2 |
+| thinking c8 / c24 | 223.1, 215.2 / 410.6, 316.5 (second run's c24 an outlier) | 225.5 / 427.6 |
+
+**pico stacked q/k/v** (`results/kbench/round2/c1leak/`). At c1 the looped layers' stacked projection has 3 x 8 rows;
+the q-source call read all 8,600 coded rows, including the k / v rows it discards, and the k / v call then read a
+second coded copy of those rows (7.3 MB x 28 visits = 204 MB per step). `stack1` runs pico's unmodified kernel body
+over column ranges of the one coded matrix: 178 -> 144 us per stacked call at 8 rows (layer 0), bit-identical.
+**Draft MXFP8 layers**: the o / down shapes (2,304 outputs) streamed at 117-124 GB/s with 32-wide output tiles; 16-wide
+tiles reach 198 GB/s per layer, bit-identical (48 / 48 configurations checked).
+
+A/B on Spark_05 (`R6C-s05` control, `R6L-s05` stack1 + w8tile): speedbench quick 62.35 / 62.22 vs 60.48 / 61.05
+(+2.5 %), decode c1 prose / code / structured / json 52.1 / 61.3 / 68.9 / 61.2 vs 51.1 / 60.3 / 67.8 / 60.0, c4-c16
+unchanged (these paths only run at <= 16 rows per source).
+
+**Screened, not adopted**
+
+- Stream-K packed GEMM for 97-192 rows (`R5W-s05` vs `R5C-s05`): 1.21-1.45x cuBLAS on qkvr in isolation, in serving
+  speedbench quick 60.15 vs 60.81, thinking c8 / c24 214.1 / 402.5 vs 220.6 / 426.2, decode c8 -1 to -3 %, c16 +1 to
+  +3 %. A shared-memory tile design (weights decoded once into shared memory, cp.async pipeline) lost to cuBLAS at
+  every row count. The released kernel stays at <= 96 rows.
+- Prefill glue round 3 (faster mix-kernel configs, gate + sink in the attention epilogue, K/V conv + clip + norm in
+  one kernel; -70 ms per 8K chunk in isolation): `R4P-s06` vs `R4PC-s06` cold prefill 1K / 8K / 32K / 128K
+  2,870 / 5,523 / 5,200 / 3,884 vs 2,928 / 5,619 / 5,214 / 3,853 tok/s, flat.
+
+Confirmed with full runs on both boxes (CHANGELOG v2.3).

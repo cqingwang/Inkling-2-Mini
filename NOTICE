@@ -14,6 +14,12 @@ Third-party code vendored in this repository:
 - overlay/inkling_cert/csrc/cert_ext.cu compiles kernels/gemv16.cu from overlay/inkling_pico12/third_party/pico/ (above)
   into its own extension; no further copy.
 
+- overlay/inkling_scodes/csrc/scodes_sm120_mma_array.hpp: derived from CUTLASS's SM120 block-scaled grouped-GEMM
+  collective mainloop (NVIDIA CORPORATION & AFFILIATES, BSD-3-Clause, licence text kept in the file header),
+  modified to expand coded scale factors; scodes_group_gemm.cuh reduces FlashInfer 0.7.4's
+  include/flashinfer/gemm/group_gemm_nvfp4_groupwise_sm120.cuh (Apache-2.0, Copyright (c) 2026 FlashInfer team)
+  to the configuration SGLang uses and swaps in that mainloop.
+
 The serving engines run from their published container images, pinned by digest in scripts/launch.sh:
 - SGLang (sgl-project/sglang), lmsysorg/sglang:inkling-2-mini, Apache-2.0.
 - vLLM (vllm-project/vllm), vllm/vllm-openai:inkling-2-mini, Apache-2.0.

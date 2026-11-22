@@ -24,11 +24,15 @@ class Settings:
     stacked_max_m = 16  # rows per source of a stacked qkvr call taken by pico (<= MAX_ROWS)
     wk = 16  # warps along K per CTA (pico's GemvCfg.wk; the probe's setting)
     pdl = True  # launch with programmatic stream serialization (as the probe did)
+    stack1 = False  # `stack1`: stacked calls of more than 16 rows read the one coded qkvr once (range kernels, no kv pack)
+    stack1_kv_mt = 1  # n-tiles of 8 rows per warp in the stack1 k/v range call (2 needs k/v bounds that are multiples of 16)
+    stack1_fuse = False  # stack1 at M <= 8 rows a source: the q and the k/v range in one launch (gemv_stacked)
     require_cuda = True  # CPU unit tests turn this off and install a stand-in EXT
 
 
 SET = Settings()
 EXT = None  # the built extension (build.load), or a stand-in in tests
+RANGE_EXT = None  # `stack1`: the range extension (build.load_range), or a stand-in in tests
 _batch_invariant = None  # sglang's is_batch_invariant_mode_enabled, set by the patches
 _warned = set()
 LOG = None  # callable(str), set by the package
@@ -205,8 +209,8 @@ def kv_bounds(split_sizes):
 
 
 def stacked_needs_kv(stacked_max_m):
-    """A kv pack is only read when a stacked call has more than 16 rows (3M > 16)."""
-    return 3 * stacked_max_m > MAX_ROWS
+    """A kv pack is only read when a stacked call has more than 16 rows (3M > 16), and never with `stack1`."""
+    return 3 * stacked_max_m > MAX_ROWS and not SET.stack1
 
 
 def stacked_eligible(sources, plan, m_max=None):
@@ -218,7 +222,7 @@ def stacked_eligible(sources, plan, m_max=None):
     m = q.shape[0]
     if not 0 < m <= (SET.stacked_max_m if m_max is None else m_max):
         return False
-    if 3 * m > MAX_ROWS and plan.kv is None:
+    if 3 * m > MAX_ROWS and plan.kv is None and not (SET.stack1 and plan.kv_hi > plan.kv_lo):
         return False
     return x_ok(q, plan.full.k) and mode_ok()
 
@@ -231,12 +235,31 @@ def stacked_project(stacked, m, plan):
     3M > 16: the q rows over all N columns, then the k and v rows (2M, in calls of <= 16 rows) over the kv
     pack only, copied into out[M:3M, kv_lo:kv_hi]. Elements outside those (k rows on q/r/gate/sink columns, v
     rows likewise) are left unwritten; _project_sources never returns them. Each written element has the bits
-    of the plain per-source call (pico's per-element sums do not depend on M, mt or the other rows)."""
+    of the plain per-source call (pico's per-element sums do not depend on M, mt or the other rows).
+
+    3M > 16 with `stack1` (plan.kv is None): the same elements from the one coded copy, each coded byte read
+    once: the q rows over the columns outside [kv_lo, kv_hi), then the k and v rows (calls of <= 16 rows) over
+    [kv_lo, kv_hi) only, both written in place into out (no kv pack, no copy); at M <= 8 with stack1_fuse both
+    in one launch. The range kernels run pico's kernel body unchanged on the CTAs of their range, so each written
+    element has the same bits again."""
     full = plan.full
     x = as_rows(stacked, full.k)
     out = torch.empty((3 * m, full.n), dtype=torch.bfloat16, device=stacked.device)
     if 3 * m <= MAX_ROWS:
         return gemv(x, full, out)
+    if plan.kv is None:
+        lo, hi = plan.kv_lo, plan.kv_hi
+        if SET.stack1_fuse and m <= 8:
+            RANGE_EXT.gemv_stacked(x, full.buf, full.n, full.k, out, full.raw_tiles, m, SET.wk, SET.pdl, lo, hi)
+            return out
+        q_mt, kv_mt = _range_mt(full.mt, lo, hi), _range_mt(SET.stack1_kv_mt, lo, hi)
+        RANGE_EXT.gemv_range(x[:m], full.buf, full.n, full.k, out[:m], full.raw_tiles, q_mt, SET.wk, SET.pdl, lo, hi,
+                             False)
+        for r0 in range(m, 3 * m, MAX_ROWS):
+            r1 = min(3 * m, r0 + MAX_ROWS)
+            RANGE_EXT.gemv_range(x[r0:r1], full.buf, full.n, full.k, out[r0:r1], full.raw_tiles, kv_mt, SET.wk, SET.pdl,
+                                 lo, hi, True)
+        return out
     gemv(x[:m], full, out[:m])
     kv = plan.kv
     xkv = x[m:]
@@ -246,6 +269,12 @@ def stacked_project(stacked, m, plan):
         gemv(xkv[r0:r1], kv, tmp[r0:r1])
     out[m:, plan.kv_lo : plan.kv_hi].copy_(tmp)
     return out
+
+
+def _range_mt(mt, lo, hi):
+    """mt for a range call: the asked one when [lo, hi) is made of whole CTAs of 8 * mt rows, else 1 (bounds are
+    multiples of 8). pico's per-element bits do not depend on mt."""
+    return mt if lo % (8 * mt) == 0 and hi % (8 * mt) == 0 else 1
 
 
 def split_like_stock(out, split_sizes):

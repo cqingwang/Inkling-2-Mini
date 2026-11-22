@@ -1,0 +1,129 @@
+KBRUN start 2026-11-21T23:40:30Z memavail=117GiB
+bench1 device=NVIDIA GB10 torch=2.14.1+cu130
+draft default tile (BN 32, BK 256, 4 warps, Triton default stages)
+draft default M=1 qkv=75.9us/160GB/s o=60.5us/121GB/s gate_up=223.2us/196GB/s down=173.1us/127GB/s ctxkv=42.1us/116GB/s | 4 layer linears 532.7 us 160 GB/s x3 layers = 1.598 ms
+draft default M=4 qkv=81.4us/149GB/s o=61.6us/118GB/s gate_up=227.3us/193GB/s down=179.2us/122GB/s ctxkv=42.1us/116GB/s | 4 layer linears 549.6 us 155 GB/s x3 layers = 1.649 ms
+draft default M=8 qkv=81.9us/149GB/s o=61.6us/119GB/s gate_up=226.3us/194GB/s down=179.3us/122GB/s ctxkv=42.0us/116GB/s | 4 layer linears 549.1 us 155 GB/s x3 layers = 1.647 ms
+draft default M=16 qkv=75.8us/161GB/s o=59.5us/123GB/s gate_up=223.3us/196GB/s down=173.2us/126GB/s ctxkv=42.0us/116GB/s | 4 layer linears 531.7 us 160 GB/s x3 layers = 1.595 ms
+draft sweep M=8 qkv bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=8 qkv bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=8 qkv bn=16 bk=256 warps=4 stages=3 67.6 us 180 GB/s bits=SAME
+draft sweep M=8 qkv bn=16 bk=256 warps=4 stages=None 67.7 us 180 GB/s bits=SAME
+draft sweep M=8 qkv bn=16 bk=128 warps=2 stages=3 68.6 us 177 GB/s bits=SAME
+draft sweep M=8 qkv bn=16 bk=128 warps=4 stages=None 69.4 us 175 GB/s bits=SAME
+draft sweep M=8 qkv bn=16 bk=128 warps=4 stages=3 69.6 us 175 GB/s bits=SAME
+draft sweep M=8 qkv: 48 configs, 0 not bit-identical to the default
+draft sweep M=8 o bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=8 o bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=8 o bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=8 o bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=8 o bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=8 o bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=8 o bn=16 bk=128 warps=4 stages=3 41.0 us 178 GB/s bits=SAME
+draft sweep M=8 o bn=16 bk=128 warps=2 stages=3 41.0 us 178 GB/s bits=SAME
+draft sweep M=8 o bn=16 bk=128 warps=4 stages=None 41.1 us 178 GB/s bits=SAME
+draft sweep M=8 o bn=16 bk=128 warps=2 stages=None 41.1 us 178 GB/s bits=SAME
+draft sweep M=8 o bn=16 bk=256 warps=2 stages=None 42.1 us 173 GB/s bits=SAME
+draft sweep M=8 o: 48 configs, 0 not bit-identical to the default
+draft sweep M=8 gate_up bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=8 gate_up bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=8 gate_up bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=8 gate_up bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=8 gate_up bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=8 gate_up bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=8 gate_up bn=16 bk=256 warps=2 stages=3 206.8 us 212 GB/s bits=SAME
+draft sweep M=8 gate_up bn=16 bk=256 warps=4 stages=None 206.9 us 212 GB/s bits=SAME
+draft sweep M=8 gate_up bn=16 bk=256 warps=4 stages=3 207.9 us 211 GB/s bits=SAME
+draft sweep M=8 gate_up bn=16 bk=128 warps=2 stages=3 208.9 us 210 GB/s bits=SAME
+draft sweep M=8 gate_up bn=16 bk=128 warps=2 stages=None 211.0 us 208 GB/s bits=SAME
+draft sweep M=8 gate_up: 48 configs, 0 not bit-identical to the default
+draft sweep M=8 down bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=8 down bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=8 down bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=8 down bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=8 down bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=8 down bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=8 down bn=16 bk=128 warps=4 stages=None 114.8 us 191 GB/s bits=SAME
+draft sweep M=8 down bn=16 bk=128 warps=2 stages=3 114.8 us 191 GB/s bits=SAME
+draft sweep M=8 down bn=16 bk=128 warps=4 stages=3 114.8 us 191 GB/s bits=SAME
+draft sweep M=8 down bn=16 bk=256 warps=4 stages=None 115.7 us 189 GB/s bits=SAME
+draft sweep M=8 down bn=16 bk=256 warps=4 stages=3 115.7 us 189 GB/s bits=SAME
+draft sweep M=8 down: 48 configs, 0 not bit-identical to the default
+draft sweep M=8 ctxkv bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=8 ctxkv bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=8 ctxkv bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=8 ctxkv bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=8 ctxkv bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=8 ctxkv bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=8 ctxkv bn=16 bk=128 warps=2 stages=None 32.8 us 149 GB/s bits=SAME
+draft sweep M=8 ctxkv bn=16 bk=128 warps=2 stages=3 32.8 us 149 GB/s bits=SAME
+draft sweep M=8 ctxkv bn=16 bk=128 warps=4 stages=None 32.8 us 149 GB/s bits=SAME
+draft sweep M=8 ctxkv bn=16 bk=128 warps=4 stages=3 32.8 us 149 GB/s bits=SAME
+draft sweep M=8 ctxkv bn=16 bk=256 warps=2 stages=3 32.8 us 149 GB/s bits=SAME
+draft sweep M=8 ctxkv: 48 configs, 0 not bit-identical to the default
+draft sweep M=16 qkv bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=16 qkv bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=16 qkv bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=16 qkv bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=16 qkv bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=16 qkv bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=16 qkv bn=16 bk=256 warps=4 stages=3 67.6 us 180 GB/s bits=SAME
+draft sweep M=16 qkv bn=16 bk=256 warps=4 stages=None 67.7 us 180 GB/s bits=SAME
+draft sweep M=16 qkv bn=64 bk=128 warps=2 stages=3 69.6 us 175 GB/s bits=SAME
+draft sweep M=16 qkv bn=64 bk=128 warps=4 stages=3 69.6 us 175 GB/s bits=SAME
+draft sweep M=16 qkv bn=16 bk=128 warps=4 stages=None 69.7 us 174 GB/s bits=SAME
+draft sweep M=16 qkv: 48 configs, 0 not bit-identical to the default
+draft sweep M=16 o bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=16 o bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=16 o bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=16 o bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=16 o bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=16 o bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=16 o bn=16 bk=128 warps=4 stages=None 41.0 us 178 GB/s bits=SAME
+draft sweep M=16 o bn=16 bk=128 warps=4 stages=3 41.1 us 178 GB/s bits=SAME
+draft sweep M=16 o bn=16 bk=128 warps=2 stages=None 41.1 us 178 GB/s bits=SAME
+draft sweep M=16 o bn=16 bk=128 warps=2 stages=3 41.1 us 178 GB/s bits=SAME
+draft sweep M=16 o bn=16 bk=256 warps=4 stages=None 43.0 us 170 GB/s bits=SAME
+draft sweep M=16 o: 48 configs, 0 not bit-identical to the default
+draft sweep M=16 gate_up bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=16 gate_up bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=16 gate_up bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=16 gate_up bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=16 gate_up bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=16 gate_up bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=16 gate_up bn=16 bk=256 warps=4 stages=None 208.9 us 210 GB/s bits=SAME
+draft sweep M=16 gate_up bn=16 bk=256 warps=2 stages=3 209.0 us 210 GB/s bits=SAME
+draft sweep M=16 gate_up bn=16 bk=256 warps=4 stages=3 209.0 us 210 GB/s bits=SAME
+draft sweep M=16 gate_up bn=16 bk=128 warps=2 stages=None 209.9 us 209 GB/s bits=SAME
+draft sweep M=16 gate_up bn=16 bk=128 warps=2 stages=3 211.0 us 208 GB/s bits=SAME
+draft sweep M=16 gate_up: 48 configs, 0 not bit-identical to the default
+draft sweep M=16 down bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=16 down bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=16 down bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=16 down bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=16 down bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=16 down bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=16 down bn=16 bk=128 warps=4 stages=3 114.8 us 191 GB/s bits=SAME
+draft sweep M=16 down bn=16 bk=256 warps=4 stages=None 115.9 us 189 GB/s bits=SAME
+draft sweep M=16 down bn=16 bk=128 warps=2 stages=3 115.9 us 189 GB/s bits=SAME
+draft sweep M=16 down bn=16 bk=256 warps=2 stages=3 116.5 us 188 GB/s bits=SAME
+draft sweep M=16 down bn=16 bk=128 warps=2 stages=None 116.5 us 188 GB/s bits=SAME
+draft sweep M=16 down: 48 configs, 0 not bit-identical to the default
+draft sweep M=16 ctxkv bn=64 bk=512 w=2 s=None ERROR OutOfResources
+draft sweep M=16 ctxkv bn=64 bk=512 w=2 s=3 ERROR OutOfResources
+draft sweep M=16 ctxkv bn=64 bk=512 w=4 s=None ERROR OutOfResources
+draft sweep M=16 ctxkv bn=64 bk=512 w=4 s=3 ERROR OutOfResources
+draft sweep M=16 ctxkv bn=64 bk=512 w=8 s=None ERROR OutOfResources
+draft sweep M=16 ctxkv bn=64 bk=512 w=8 s=3 ERROR OutOfResources
+draft sweep M=16 ctxkv bn=16 bk=128 warps=2 stages=None 32.8 us 149 GB/s bits=SAME
+draft sweep M=16 ctxkv bn=16 bk=128 warps=2 stages=3 32.8 us 149 GB/s bits=SAME
+draft sweep M=16 ctxkv bn=16 bk=128 warps=4 stages=None 32.8 us 149 GB/s bits=SAME
+draft sweep M=16 ctxkv bn=16 bk=128 warps=4 stages=3 32.8 us 149 GB/s bits=SAME
+draft sweep M=16 ctxkv bn=16 bk=256 warps=4 stages=3 32.9 us 148 GB/s bits=SAME
+draft sweep M=16 ctxkv: 48 configs, 0 not bit-identical to the default
+bench1 done
+KBRUN end 2026-11-21T23:41:49Z rc=0 memavail=117GiB

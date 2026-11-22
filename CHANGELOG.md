@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.3 (2026-11-22)
+
+Three exact levers. Median of both boxes, `bench/full.sh` (`results/V23-s05/`, `results/V23-s06/`), against v2.2:
+speedbench full c1 64.7 (61.8, +5 %), prose 54.4 (51.9); decode prose c1 / c2 / c4 / c8 / c16 53.4 / 72.5 / 110.0 /
+156.5 / 232.9 (51.0 / 69.6 / 107.0 / 154.1 / 228.8), code c8 178.3 (171.4); thinking c1 / c8 / c24 69.8 / 236.5 /
+427.9 (67.1 / 219.6 / 419.6); prefill within run noise; KV pool 1.18-1.19M tokens (-2 %: +0.81 GB resident scales);
+quality guard 30/30, sanity 11/11, needles PASS on both boxes.
+
+- `inkling_scodes` (new, `SCODES=1`): NVFP4 expert block scales as row base + 5-bit codes, expanded inside a
+  modified FlashInfer SM120 grouped-GEMM mainloop; -4.06 % of expert bytes, bit-identical outputs.
+- `inkling_pico12` `stack1`: the stacked q/k/v of the looped layers in one pass over the coded weight (no kv pack).
+- `inkling_draftbytes` `w8tile`: narrow-N tiles for the MXFP8 draft layers (bit-identical).
+- Screened, not adopted: stream-K packed GEMM for 97-192 rows, prefill glue round 3 (both flat in serving).
+
 ## v2.2 (2026-11-22)
 
 GB10 tile tables for the routed-expert GEMMs (`overlay/inkling_moe2`, default `MOE2=tiles`; bit-identical outputs).

@@ -74,6 +74,13 @@ def _ext():
     return ops.EXT
 
 
+def _range_ext():
+    if ops.RANGE_EXT is None:
+        cfg = STATE["cfg"]
+        ops.RANGE_EXT = build.load_range(cfg["cache_dir"], cfg["std"], verbose=cfg["verbose"])
+    return ops.RANGE_EXT
+
+
 # ---- quant method subclass ----------------------------------------------------------------------------
 
 _METHOD_CLASSES = {}
@@ -264,7 +271,8 @@ def _mb(n):
 
 def _settings_text():
     s = ops.SET
-    return f"max_m={s.max_m} stacked_max_m={s.stacked_max_m} wk={s.wk} pdl={int(s.pdl)}"
+    text = f"max_m={s.max_m} stacked_max_m={s.stacked_max_m} wk={s.wk} pdl={int(s.pdl)}"
+    return text + (f" stack1 (kv_mt={s.stack1_kv_mt} fuse={int(s.stack1_fuse)})" if s.stack1 else "")
 
 
 def _ext_text(t_ext):
@@ -279,6 +287,8 @@ def prepare_target(model):
     levers = STATE["levers"]
     t0 = time.monotonic()
     _ext()
+    if ops.SET.stack1 and "dense" in levers and 3 * ops.SET.stacked_max_m > ops.MAX_ROWS:
+        _range_ext()
     t_ext = time.monotonic() - t0
     total = raw = 0
     parts, skipped = [], {}

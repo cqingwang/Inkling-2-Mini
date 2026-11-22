@@ -16,6 +16,8 @@ touched. Nothing here has run on a GPU yet. The CPU tests pass (23/23).
 | `head8[:row\|gN\|mx]` | FP8 copy of the LM head for the draft base logits, own kernel. It is the fallback if `--speculative-dspark-lm-head-dtype mxfp8` (FlashInfer cute-dsl) does not run on sm_121. It stands down when that flag is set. | 926 -> 464 MB | -2.1 ms | +464 MB |
 | `draftmx8[:mx\|row]` | MXFP8 (default) copies of every BF16 linear in the 3 draft layers (qkv 5120x2304, o 2304x3072, gate_up 18432x2304, down 2304x9216, kv_proj_ctx 2048x2304), made in memory after load. Rows <= `INKLING_DRAFT_W8_MAX_M` (64) use the FP8 kernel. Larger batches use the stock BF16 path. | ~524 -> ~270 MB | -1.1 ms | +270 MB (BF16 kept) |
 | `hotvocab:N` | The draft proposes only from the first N ids of `INKLING_DRAFT_HOTVOCAB_FILE`, which must be frequency-ranked (see `build_hotvocab.py`). The base logits read N LM-head rows, and the fold reads N fold rows. Stacks with `fold8`, `head8` and `gemv`. | N=32768: 1647 -> ~210 MB with fold8 (~135 MB with head8 too) | -6.3 to -6.9 ms, minus the acceptance lost to misses | +151 MB (N=32K, BF16 head rows) + 8-17 MB |
+| `w8tile` | With `draftmx8`: the draft linears' Triton launches use a narrow tile (BN 16, BK 256 for K = 2304 / 128 for K = 3072, 9216; `row`/`gN` keep their BK) instead of BN 32 / BK 256: twice the CTAs on the narrow-N shapes (o, down: 2304 rows). Bit-identical (the MX path is one MMA chain per output whatever the tile; gated on the GPU at 8, 16, 24, 32, 64 rows). Recommended with `draftmx8`. | same bytes, better streaming | GB10 L2-cold, 8 rows, the 4 linears of one layer: 549 -> 430 us (155 -> 198 GB/s): -0.36 ms per c1 step (below) | 0 |
+| `w8gemv` | With `draftmx8` (mx): the draft linears at 1-16 rows through `csrc/w8gemv.cu`, a CUDA weight-streaming GEMV on the same MXFP8 pack (no new copy): one warp per 8 weight rows over the whole K, weights 4-8 steps ahead in registers, activations 2-4 steps ahead; Triton's per-output arithmetic (one ascending-k MMA chain, its kWidth-4 operand order, exact dequant, FP32 accumulation). Rows above 16 keep Triton (`w8tile` applies there). `INKLING_DRAFT_W8GEMV_CFG` forces a variant. Built at draft prepare (`INKLING_DRAFT_W8GEMV_CACHE`). **Experimental, not recommended:** bit-identical to the Triton kernel (gated), but slower than `w8tile` on GB10 (8 rows, one layer's 4 linears: 478 vs 430 us; o 49 vs 41 us, down 135 vs 113 us). | same bytes | none over `w8tile` | 0 |
 | `wide8` | For calls of more than 64 rows (batched verify / draft blocks, e.g. the head at c24: 192 rows), this package's kernels run one CTA per output tile over ALL 64-row blocks (row blocks outer, `_acc_tile` unchanged; the CTA's W tile is re-read from L2) with a wider tile (BN 64, 8 warps, 3 stages), instead of one CTA per 64-row block re-reading W from DRAM. Calls of <= 64 rows launch exactly as before. Output bit-identical to the default kernel (gated on the GPU for head8 row/mx, fold8, the BF16 head, the hot step). | head at 192 rows: 3 x 464 MB -> 464 MB from DRAM | head8:row 192 rows 6.16 -> 3.52 ms, 384 rows 12.3 -> 6.9 ms; fold8 192 rows 1.03 -> 0.60 ms | 0 |
 
 Byte math at 220 GB/s: LM head 201024x2304x2 = 926 MB; fold 201024x256x2 = 103 MB,
@@ -35,6 +37,31 @@ also bit-identical but spills and is slower), `INKLING_DRAFT_WIDE8_BN` (64), `IN
 `INKLING_DRAFT_WIDE8_STAGES` (3), from `tools/gpu_check_wide8.py --tile-sweep` (2026-11-21, GB10: every
 configuration bit-identical to the default kernel). Check: `tools/gpu_check_wide8.py --ref <pre-wide8 _triton.py>`
 (modes, graph replay, hot step) and `--ops` (the package's dispatch, wide8 off vs on).
+
+### `w8tile` / `w8gemv` measurements (GB10, L2-cold, random MXFP8 packs of the draft shapes, `results/kbench/round2/c1leak/bench2.py`, 2026-11-22)
+
+us per call; GB/s of FP8 + scale bytes. Triton default = BN 32 / BK 256 / 4 warps (today); `w8tile` = BN 16 / BK 256
+(K 2304) or 128 (K 3072, 9216); `w8gemv` = its best variant per cell.
+
+| rows | shape [N x K] (MB) | default | `w8tile` | `w8gemv` |
+|---|---|---|---|---|
+| 8 | qkv 5120 x 2304 (12.2) | 81.4 (149) | 68.7 (177) | 70.7 (172) |
+| 8 | o 2304 x 3072 (7.3) | 61.6 (119) | 41.0 (178) | 49.3 (148) |
+| 8 | gate_up 18432 x 2304 (43.8) | 228.4 (192) | 208.0 (211) | 222.4 (197) |
+| 8 | down 2304 x 9216 (21.9) | 177.2 (124) | 112.8 (194) | 135.2 (162) |
+| 8 | kv_proj_ctx 2048 x 2304 (4.9) | 42.0 (116) | 30.9 (158) | 35.0 (139) |
+| 8 | one layer's 4 linears | 548.6 (155) | 430.4 (198) | 477.5 (178) |
+| 1 / 16 | one layer's 4 linears | 531.6 / 531.0 | 434.3 / 436.3 | 471.2 / 490.1 |
+| 24 / 32 / 64 | o | 75.9 / 71.8 / 90.2 | 41.0 / 43.0 / 55.3 | - |
+| 24 / 32 / 64 | down | 215.0 / 200.7 / 260.2 | 114.8 / 116.8 / 157.7 | - |
+| 24 / 32 / 64 | qkv, gate_up | 113 / 98 / 137, 336 / 289 / 413 | 78 / 76 / 125, 246 / 238 / 414 | - |
+
+Bits: `w8tile` == default at 8, 16, 24, 32, 64 rows on every shape (the tile sweep at 8 and 16 rows: all 48
+configurations identical); `w8gemv` == default at 1-16 rows, every variant, with and without bias, strided
+activations, MX scales 2^-54 .. 2^8 and an all-zero block (it reproduces Triton's kWidth-4 MMAv2 operand order).
+At c1 (8-row draft block, 3 layers) `w8tile` takes the 12 draft-layer GEMMs from 1.65 to 1.29 ms (-0.36 ms per
+step, the profile's 1.64 ms at 156 GB/s), plus ~-0.03 ms on the three kv_proj_ctx calls. Neither reaches 220 GB/s
+on the narrow shapes (o, down: 2304 output rows): `w8tile` is the recommended setting.
 
 ## Patch points
 

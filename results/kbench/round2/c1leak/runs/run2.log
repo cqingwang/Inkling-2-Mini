@@ -1,0 +1,72 @@
+KBRUN start 2026-11-21T23:50:54Z memavail=118GiB
+== cpu tests pico12
+Ran 35 tests in 2.712s
+
+FAILED (failures=5, skipped=1)
+== cpu tests draftbytes
+Ran 27 tests in 11.177s
+
+FAILED (failures=2, skipped=1)
+== bench2
+bench2 device=NVIDIA GB10 torch=2.14.1+cu130
+pico ext+range loaded in 36.3 s (/root/.cache/c1leak-pico12/range-1c64566dbd8ff99b)
+pico stack1 L0 3x6 fuse=1 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L0 3x6 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L0 3x6 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L0 3x6 today=178.2us one_full_call=136.4us fuse1/kvmt1=142.3us(215GB/s) fuse0/kvmt1=143.4us(214GB/s) fuse0/kvmt2=143.4us(214GB/s)  [coded bytes once = 30.61 MB; today reads 37.91 MB]
+pico stack1 L0 3x8 fuse=1 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L0 3x8 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L0 3x8 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L0 3x8 today=178.7us one_full_call=135.2us fuse1/kvmt1=142.9us(214GB/s) fuse0/kvmt1=143.9us(213GB/s) fuse0/kvmt2=144.0us(213GB/s)  [coded bytes once = 30.61 MB; today reads 37.91 MB]
+pico stack1 L0 3x12 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L0 3x12 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L0 3x12 today=221.2us one_full_call=143.4us fuse0/kvmt1=182.8us(168GB/s) fuse0/kvmt2=184.3us(166GB/s)  [coded bytes once = 30.61 MB; today reads 45.21 MB]
+pico stack1 L0 3x16 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L0 3x16 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L0 3x16 today=223.2us one_full_call=144.0us fuse0/kvmt1=187.5us(163GB/s) fuse0/kvmt2=187.5us(163GB/s)  [coded bytes once = 30.61 MB; today reads 45.21 MB]
+pico stack1 L6 3x6 fuse=1 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L6 3x6 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L6 3x6 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L6 3x6 today=157.7us one_full_call=114.6us fuse1/kvmt1=125.0us(245GB/s) fuse0/kvmt1=122.0us(251GB/s) fuse0/kvmt2=122.0us(251GB/s)  [coded bytes once = 30.66 MB; today reads 37.97 MB]
+pico stack1 L6 3x8 fuse=1 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L6 3x8 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L6 3x8 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L6 3x8 today=158.2us one_full_call=114.7us fuse1/kvmt1=124.9us(245GB/s) fuse0/kvmt1=122.9us(249GB/s) fuse0/kvmt2=122.9us(249GB/s)  [coded bytes once = 30.66 MB; today reads 37.97 MB]
+pico stack1 L6 3x12 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L6 3x12 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L6 3x12 today=201.7us one_full_call=123.9us fuse0/kvmt1=159.9us(192GB/s) fuse0/kvmt2=161.6us(190GB/s)  [coded bytes once = 30.66 MB; today reads 45.29 MB]
+pico stack1 L6 3x16 fuse=0 kv_mt=1 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico stack1 L6 3x16 fuse=0 kv_mt=2 old_vs_per=True new_vs_per_and_old=True sentinel_kept=True sentinel_untouched=True graph=True PASS
+pico time L6 3x16 today=203.8us one_full_call=124.9us fuse0/kvmt1=162.9us(188GB/s) fuse0/kvmt2=161.8us(189GB/s)  [coded bytes once = 30.66 MB; today reads 45.29 MB]
+w8gemv ext loaded in 27.1 s (/root/.cache/c1leak-w8gemv/0a4ef14122cb87f4)
+w8gemv scale byte range per pack: qkv=[113,115] o=[73,135] gate_up=[113,116] down=[113,115] ctxkv=[113,115]
+w8gemv bits qkv [5120x2304] vs_triton ['M=1 strided=False bias=False cfg=114 ndiff=1 maxabs=6.104e-05', 'M=1 strided=False bias=False cfg=118 ndiff=1 maxabs=6.104e-05', 'M=1 strided=False bias=False cfg=124 ndiff=1 maxabs=6.104e-05', 'M=1 strided=False bias=False cfg=128 ndiff=1 maxabs=6.104e-05'] FAIL
+w8gemv graph qkv  FAIL
+w8gemv bits o [2304x3072] vs_triton ['M=1 strided=False bias=False cfg=114 ndiff=1 maxabs=4.441e-16', 'M=1 strided=False bias=False cfg=118 ndiff=1 maxabs=4.441e-16', 'M=1 strided=False bias=False cfg=124 ndiff=1 maxabs=4.441e-16', 'M=1 strided=False bias=False cfg=128 ndiff=1 maxabs=4.441e-16'] FAIL
+w8gemv graph o  FAIL
+w8gemv bits gate_up [18432x2304] vs_triton ['M=2 strided=False bias=False cfg=114 ndiff=1 maxabs=2.980e-08', 'M=2 strided=False bias=False cfg=118 ndiff=1 maxabs=2.980e-08', 'M=2 strided=False bias=False cfg=124 ndiff=1 maxabs=2.980e-08', 'M=2 strided=False bias=False cfg=128 ndiff=1 maxabs=2.980e-08'] FAIL
+w8gemv graph gate_up  FAIL
+w8gemv bits down [2304x9216] vs_triton ['M=3 strided=False bias=True cfg=114 ndiff=2 maxabs=7.629e-06', 'M=3 strided=False bias=True cfg=118 ndiff=2 maxabs=7.629e-06', 'M=3 strided=False bias=True cfg=124 ndiff=2 maxabs=7.629e-06', 'M=3 strided=False bias=True cfg=128 ndiff=2 maxabs=7.629e-06'] FAIL
+w8gemv graph down  FAIL
+w8gemv bits ctxkv [2048x2304] vs_triton ['M=2 strided=False bias=True cfg=114 ndiff=1 maxabs=6.104e-05', 'M=2 strided=False bias=True cfg=118 ndiff=1 maxabs=6.104e-05', 'M=2 strided=False bias=True cfg=124 ndiff=1 maxabs=6.104e-05', 'M=2 strided=False bias=True cfg=128 ndiff=1 maxabs=6.104e-05'] FAIL
+w8gemv graph ctxkv  FAIL
+w8gemv time M=1 qkv [5120x2304] 12.17 MB: triton_default=76.8us (158 GB/s) triton_bn16=69.6us (175 GB/s) | 114=69.7us/175 148=70.8us/172 118=71.3us/171 128=71.7us/170 214=71.7us/170 224=71.7us/170 | all: 114:70 118:71 124:100 128:72 144:100 148:71 214:72 218:73 224:72 228:73 244:72 248:73
+w8gemv time M=1 o [2304x3072] 7.30 MB: triton_default=60.4us (121 GB/s) triton_bn16=43.0us (170 GB/s) | 118=53.2us/137 128=54.2us/135 148=54.2us/135 248=54.3us/134 218=54.8us/133 228=55.3us/132 | all: 114:66 118:53 124:96 128:54 144:96 148:54 214:55 218:55 224:55 228:55 244:55 248:54
+w8gemv time M=1 gate_up [18432x2304] 43.79 MB: triton_default=224.4us (195 GB/s) triton_bn16=209.9us (209 GB/s) | 118=225.3us/194 148=225.3us/194 128=226.3us/194 248=227.3us/193 218=228.4us/192 228=228.4us/192 | all: 114:239 118:225 124:256 128:226 144:256 148:225 214:230 218:228 224:232 228:228 244:230 248:227
+w8gemv time M=1 down [2304x9216] 21.90 MB: triton_default=175.2us (125 GB/s) triton_bn16=114.8us (191 GB/s) | 118=146.4us/150 128=146.4us/150 148=146.4us/150 224=154.6us/142 228=154.6us/142 218=154.6us/142 | all: 114:168 118:146 124:269 128:146 144:268 148:146 214:156 218:155 224:155 228:155 244:155 248:155
+w8gemv time M=1 ctxkv [2048x2304] 4.87 MB: triton_default=42.1us (116 GB/s) triton_bn16=30.8us (158 GB/s) | 128=38.0us/128 148=38.1us/128 118=39.0us/125 228=40.0us/122 248=40.1us/121 218=40.8us/119 | all: 114:47 118:39 124:70 128:38 144:70 148:38 214:41 218:41 224:41 228:40 244:41 248:40
+w8gemv time M=8 qkv [5120x2304] 12.17 MB: triton_default=78.8us (154 GB/s) triton_bn16=68.6us (177 GB/s) | 148=71.7us/170 118=72.2us/169 128=72.7us/167 244=72.7us/167 248=72.8us/167 214=72.8us/167 | all: 114:84 118:72 124:111 128:73 144:111 148:72 214:73 218:75 224:74 228:74 244:73 248:73
+w8gemv time M=8 o [2304x3072] 7.30 MB: triton_default=62.5us (117 GB/s) triton_bn16=43.0us (170 GB/s) | 148=54.4us/134 128=55.3us/132 118=55.3us/132 214=55.4us/132 244=55.4us/132 228=56.3us/130 | all: 114:74 118:55 124:109 128:55 144:109 148:54 214:55 218:57 224:57 228:56 244:55 248:56
+w8gemv time M=8 gate_up [18432x2304] 43.79 MB: triton_default=232.5us (188 GB/s) triton_bn16=210.9us (208 GB/s) | 118=227.8us/192 248=230.4us/190 148=231.4us/189 218=231.4us/189 128=232.4us/188 228=235.6us/186 | all: 114:240 118:228 124:269 128:232 144:272 148:231 214:236 218:231 224:239 228:236 244:237 248:230
+w8gemv time M=8 down [2304x9216] 21.90 MB: triton_default=179.2us (122 GB/s) triton_bn16=114.7us (191 GB/s) | 148=146.4us/150 118=146.5us/149 128=148.5us/147 224=155.8us/141 228=156.7us/140 248=156.7us/140 | all: 114:203 118:146 124:311 128:148 144:311 148:146 214:158 218:157 224:156 228:157 244:158 248:157
+w8gemv time M=8 ctxkv [2048x2304] 4.87 MB: triton_default=42.1us (116 GB/s) triton_bn16=32.3us (151 GB/s) | 128=39.9us/122 148=40.0us/122 118=40.0us/122 228=40.1us/121 214=41.0us/119 224=41.0us/119 | all: 114:47 118:40 124:76 128:40 144:74 148:40 214:41 218:41 224:41 228:40 244:41 248:41
+w8gemv time M=16 qkv [5120x2304] 12.17 MB: triton_default=76.8us (158 GB/s) triton_bn16=69.6us (175 GB/s) | 248=73.8us/165 244=73.8us/165 214=73.8us/165 118=74.7us/163 128=74.8us/163 218=74.8us/163 | all: 114:84 118:75 124:115 128:75 144:115 148:75 214:74 218:75 224:76 228:75 244:74 248:74
+w8gemv time M=16 o [2304x3072] 7.30 MB: triton_default=60.6us (121 GB/s) triton_bn16=43.0us (170 GB/s) | 128=57.3us/127 244=57.5us/127 118=57.9us/126 148=58.4us/125 228=58.4us/125 248=58.4us/125 | all: 114:80 118:58 124:117 128:57 144:117 148:58 214:59 218:61 224:62 228:58 244:57 248:58
+w8gemv time M=16 gate_up [18432x2304] 43.79 MB: triton_default=225.4us (194 GB/s) triton_bn16=212.0us (207 GB/s) | 248=231.5us/189 118=232.4us/188 228=232.5us/188 214=233.5us/188 148=233.5us/188 218=233.7us/187 | all: 114:243 118:232 124:280 128:236 144:282 148:234 214:233 218:234 224:240 228:232 244:234 248:232
+w8gemv time M=16 down [2304x9216] 21.90 MB: triton_default=173.1us (127 GB/s) triton_bn16=114.8us (191 GB/s) | 128=152.6us/144 118=153.6us/143 148=154.6us/142 228=159.8us/137 244=159.8us/137 248=160.8us/136 | all: 114:225 118:154 124:335 128:153 144:336 148:155 214:162 218:163 224:165 228:160 244:160 248:161
+w8gemv time M=16 ctxkv [2048x2304] 4.87 MB: triton_default=42.0us (116 GB/s) triton_bn16=30.8us (158 GB/s) | 128=40.0us/122 118=40.0us/122 148=40.0us/122 214=41.0us/119 244=41.0us/119 218=42.0us/116 | all: 114:51 118:40 124:80 128:40 144:80 148:40 214:41 218:42 224:43 228:42 244:41 248:42
+w8gemv layer sum M=1: triton_default=536.8us (159 GB/s) triton_bn16=437.3us (195 GB/s) w8gemv_best=494.7us (172 GB/s); x3 layers saves 0.126 ms vs default
+w8gemv layer sum M=8: triton_default=553.1us (154 GB/s) triton_bn16=437.2us (195 GB/s) w8gemv_best=500.3us (170 GB/s); x3 layers saves 0.158 ms vs default
+w8gemv layer sum M=16: triton_default=535.8us (159 GB/s) triton_bn16=439.4us (194 GB/s) w8gemv_best=515.2us (165 GB/s); x3 layers saves 0.062 ms vs default
+c1leak bench2 result FAIL (10 failed: ['w8gemv bits qkv [5120x2304]', 'w8gemv graph qkv', 'w8gemv bits o [2304x3072]', 'w8gemv graph o', 'w8gemv bits gate_up [18432x2304]', 'w8gemv graph gate_up'])
+KBRUN end 2026-11-21T23:52:33Z rc=0 memavail=116GiB

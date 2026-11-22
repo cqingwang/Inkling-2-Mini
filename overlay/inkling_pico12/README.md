@@ -20,7 +20,9 @@ Status (2026-11-21): written and CPU-tested (35 tests, stand-in extension); buil
 
 | env | default | meaning |
 |---|---|---|
-| `INKLING_PICO12` | empty (off) | comma list: `dense` (qkvr + wo_ud), `lmhead` (target FP32 head), `drafthead` (the draft's BF16 projection through the target head), `draft` (the draft's own BF16 linears), or `all` |
+| `INKLING_PICO12` | empty (off) | comma list: `dense` (qkvr + wo_ud), `lmhead` (target FP32 head), `drafthead` (the draft's BF16 projection through the target head), `draft` (the draft's own BF16 linears), or `all`; plus `stack1` (with `dense`, not part of `all`): stacked q/k/v calls read the coded qkvr once (below) |
+| `INKLING_PICO12_STACK1_KV_MT` | 1 | `stack1`: n-tiles per warp of the k/v range call (1 or 2; same bits, same time on GB10) |
+| `INKLING_PICO12_STACK1_FUSE` | 0 | `stack1`: 1 = the q and k/v parts in one launch at <= 8 rows a source (same bits; within +-2 us of two launches on GB10) |
 | `INKLING_PICO12_MAX_M` | 16 | rows of a plain call taken by pico (1-16) |
 | `INKLING_PICO12_STACKED_MAX_M` | 16 | rows per source of a stacked q/k/v call taken by pico (0-16); 0 leaves stacked calls to the stock / `qkvr_gemv` path; <= 5 needs no kv pack (see below) |
 | `INKLING_PICO12_WK` | 16 | warps along K per CTA (pico's `GemvCfg.wk`; the probe's setting) |
@@ -66,6 +68,34 @@ source: k; v source: v). The pico path:
 Bytes per layer at M = 6-8: 8600 + 2048 coded rows (~38 MB) against `qkvr_gemv`'s 8600 BF16 rows (39.6 MB) or
 stock cuBLAS's 8600 BF16 rows at a lower rate; at M = 9-16 the kv pack is read twice (~45 MB).
 `STACKED_MAX_M=8` keeps 9-16 on `qkvr_gemv` if the GPU check shows it faster there.
+
+#### `stack1`: each coded byte read once
+
+The path above reads 2048 rows twice per stacked visit at M = 6-8: the q rows' call goes over all 8600 rows of the
+coded qkvr, k and v rows included (their outputs are discarded), and the k/v rows' call reads the kv pack, a second
+coded copy of the same rows. At c1 (8 rows a source, 28 stacked visits a step) that is 28 x 7.3 MB = 204 MB per
+step, plus a `copy_` each. With `stack1` the stacked call reads the one coded copy of the whole matrix once:
+
+- the q rows over the columns outside the k/v rows [3072, 5120), the k and v rows (calls of at most 16 rows) over
+  those only, both written in place into the [3M, N] output: no kv pack (~175 MB less memory), no copy;
+- the kernels (`csrc/pico12_range.cu`, a second small extension built only when `stack1` is on) are pico's own
+  kernel body (`gemv16_body`, reached by including pico's `gemv16.cu` verbatim) with the template arguments,
+  launch bounds, block, shared memory and PDL launch of `gemv_bf16x`'s kernels, plus one test in front: a CTA
+  whose output rows lie outside the asked range returns before reading or writing anything. So every element it
+  writes has `gemv_bf16x`'s bits (gated: kept elements == the kv-pack path == the per-source calls, bit for bit,
+  layers 0 and 6, M = 6, 8, 12, 16, both mt, fused and not; nothing outside the kept columns written; graph replay);
+- M <= 5 (one call) is unchanged; the views returned are the stock ones as before.
+
+GB10, real layer weights, L2-cold (`results/kbench/round2/c1leak/bench2.py`, 2026-11-22), us per stacked call:
+
+| M per source | layer 0: today -> stack1 | layer 6: today -> stack1 | one full 8600-row call (shared visits) |
+|---|---|---|---|
+| 6 | 178.2 -> 143.4 | 157.7 -> 122.0 | 136.4 / 114.6 |
+| 8 | 178.7 -> 143.9 | 158.2 -> 122.9 | 135.2 / 114.7 |
+| 12 | 221.2 -> 182.8 | 201.7 -> 159.9 | 143.4 / 123.9 |
+| 16 | 223.2 -> 187.5 | 203.8 -> 162.9 | 144.0 / 124.9 |
+
+At c1 (M = 8, 28 stacked visits per step): ~35 us a visit, ~1.0 ms per step (~2.5 % of the 39.9 ms step).
 
 Both packages patch `_project_sources`. `sitecustomize` installs `inkling_kernels` first, so its post-import hook
 runs first and pico wraps it. If the hooks ever run the other way round, the pico hook applies `qkvr_gemv`'s patch
@@ -197,10 +227,12 @@ about -2.5 ms per c1 step beyond the Triton pack12 estimate.
 | path | origin | licence |
 |---|---|---|
 | `third_party/pico/kernels/gemv16.cu`, `common.cuh`, `dsk.h`, `third_party/pico/common/check.h` | pico (dsgx10 `ds41f-4xgx10-switchless/engine/`, commit `f2117916`), copied from an earlier standalone probe's vendored copies | MIT, Copyright (c) 2026 Andy Shu, `third_party/pico/LICENSE`. Each file carries a 2-line header naming its origin; the rest is unmodified (sha256 of the bodies equal the originals': gemv16.cu `3699c898...`, common.cuh `8b3a3c8d...`, dsk.h `16d78ecc...`, check.h `c607dcc1...`) |
-| `csrc/pico12_ext.cu`, `*.py` | ours | the repository's licence |
+| `csrc/pico12_ext.cu`, `csrc/pico12_range.cu`, `*.py` | ours | the repository's licence |
 
-Only pico's public API (`dsk.h`) is called: `bf16x_encode`, `bf16x_check`, `gemv_bf16x`, `gemv_bf16` (the last
-for the GPU check's raw comparison).
+The default extension calls only pico's public API (`dsk.h`): `bf16x_encode`, `bf16x_check`, `gemv_bf16x`,
+`gemv_bf16` (the last for the GPU check's raw comparison). The `stack1` extension (`csrc/pico12_range.cu`, built
+only with `stack1`) includes pico's `gemv16.cu` unmodified to launch its internal `gemv16_body` over a range of
+CTAs.
 
 ## Limits
 

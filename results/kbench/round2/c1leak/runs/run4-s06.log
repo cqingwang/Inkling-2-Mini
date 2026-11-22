@@ -1,0 +1,37 @@
+KBRUN start 2026-11-22T01:15:49Z memavail=118GiB
+bench2 device=NVIDIA GB10 torch=2.14.1+cu130 triton=3.8.0
+w8gemv ext loaded in 27.9 s (/root/.cache/c1leak-w8gemv/b6a9373ffc8198e7)
+w8gemv scale byte range per pack: qkv=[113,116] o=[73,135] gate_up=[113,116] down=[113,115] ctxkv=[113,115]
+w8gemv bits qkv [5120x2304] vs_triton IDENTICAL PASS
+w8gemv graph qkv  PASS
+w8gemv bits o [2304x3072] vs_triton IDENTICAL PASS
+w8gemv graph o  PASS
+w8gemv bits gate_up [18432x2304] vs_triton IDENTICAL PASS
+w8gemv graph gate_up  PASS
+w8gemv bits down [2304x9216] vs_triton IDENTICAL PASS
+w8gemv graph down  PASS
+w8gemv bits ctxkv [2048x2304] vs_triton IDENTICAL PASS
+w8gemv graph ctxkv  PASS
+w8gemv time M=1 qkv [5120x2304] 12.17 MB: triton_default=75.8us (161 GB/s) triton_bn16=68.6us (177 GB/s) | 1242=69.8us/174 1444=70.7us/172 1142=70.8us/172 1442=70.8us/172 1482=72.8us/167 1184=74.7us/163 | all: 1142:71 1144:75 1182:75 1184:75 1242:70 1244:75 1282:75 1284:75 1442:71 1444:71 1482:73 1484:75
+w8gemv time M=1 o [2304x3072] 7.30 MB: triton_default=60.5us (121 GB/s) triton_bn16=41.1us (178 GB/s) | 1142=47.1us/155 1242=47.2us/155 1284=48.1us/152 1182=48.2us/151 1282=48.3us/151 1184=48.3us/151 | all: 1142:47 1144:49 1182:48 1184:48 1242:47 1244:49 1282:48 1284:48 1442:49 1444:49 1482:48 1484:50
+w8gemv time M=1 gate_up [18432x2304] 43.79 MB: triton_default=222.3us (197 GB/s) triton_bn16=209.9us (209 GB/s) | 1144=221.2us/198 1184=222.2us/197 1244=222.2us/197 1182=222.3us/197 1282=222.3us/197 1284=222.3us/197 | all: 1142:225 1144:221 1182:222 1184:222 1242:225 1244:222 1282:222 1284:222 1442:226 1444:222 1482:223 1484:223
+w8gemv time M=1 down [2304x9216] 21.90 MB: triton_default=173.0us (127 GB/s) triton_bn16=114.7us (191 GB/s) | 1144=133.1us/164 1444=135.1us/162 1244=135.2us/162 1242=135.2us/162 1142=135.2us/162 1442=135.3us/162 | all: 1142:135 1144:133 1182:137 1184:138 1242:135 1244:135 1282:138 1284:138 1442:135 1444:135 1482:138 1484:138
+w8gemv time M=1 ctxkv [2048x2304] 4.87 MB: triton_default=41.0us (119 GB/s) triton_bn16=30.7us (158 GB/s) | 1144=34.8us/140 1244=34.8us/140 1444=34.8us/140 1142=34.9us/139 1442=34.9us/139 1242=34.9us/139 | all: 1142:35 1144:35 1182:36 1184:36 1242:35 1244:35 1282:36 1284:36 1442:35 1444:35 1482:36 1484:36
+w8gemv time M=8 qkv [5120x2304] 12.17 MB: triton_default=81.4us (149 GB/s) triton_bn16=68.7us (177 GB/s) | 1242=70.7us/172 1442=70.7us/172 1142=71.7us/170 1444=71.7us/170 1482=72.7us/167 1244=75.9us/160 | all: 1142:72 1144:76 1182:79 1184:79 1242:71 1244:76 1282:80 1284:80 1442:71 1444:72 1482:73 1484:79
+w8gemv time M=8 o [2304x3072] 7.30 MB: triton_default=61.6us (119 GB/s) triton_bn16=41.0us (178 GB/s) | 1242=49.3us/148 1484=50.3us/145 1182=50.7us/144 1442=51.2us/143 1144=51.2us/143 1184=51.2us/143 | all: 1142:51 1144:51 1182:51 1184:51 1242:49 1244:51 1282:52 1284:51 1442:51 1444:51 1482:52 1484:50
+w8gemv time M=8 gate_up [18432x2304] 43.79 MB: triton_default=228.4us (192 GB/s) triton_bn16=208.0us (211 GB/s) | 1144=222.4us/197 1444=223.4us/196 1244=224.2us/195 1284=224.4us/195 1184=224.5us/195 1182=225.2us/194 | all: 1142:225 1144:222 1182:225 1184:225 1242:226 1244:224 1282:226 1284:224 1442:227 1444:223 1482:227 1484:225
+w8gemv time M=8 down [2304x9216] 21.90 MB: triton_default=177.2us (124 GB/s) triton_bn16=112.8us (194 GB/s) | 1242=135.2us/162 1142=135.2us/162 1144=135.3us/162 1244=135.3us/162 1444=135.3us/162 1442=137.2us/160 | all: 1142:135 1144:135 1182:140 1184:140 1242:135 1244:135 1282:139 1284:138 1442:137 1444:135 1482:140 1484:140
+w8gemv time M=8 ctxkv [2048x2304] 4.87 MB: triton_default=42.0us (116 GB/s) triton_bn16=30.9us (158 GB/s) | 1242=35.0us/139 1184=35.9us/136 1282=35.9us/136 1284=36.0us/135 1144=36.9us/132 1442=36.9us/132 | all: 1142:37 1144:37 1182:37 1184:36 1242:35 1244:37 1282:36 1284:36 1442:37 1444:37 1482:38 1484:37
+w8gemv time M=16 qkv [5120x2304] 12.17 MB: triton_default=75.8us (161 GB/s) triton_bn16=68.6us (177 GB/s) | 1142=72.1us/169 1442=72.8us/167 1144=78.8us/154 1244=78.9us/154 1242=79.0us/154 1184=80.9us/150 | all: 1142:72 1144:79 1182:81 1184:81 1242:79 1244:79 1282:82 1284:81 1442:73 1444:81 1482:83 1484:81
+w8gemv time M=16 o [2304x3072] 7.30 MB: triton_default=60.4us (121 GB/s) triton_bn16=41.1us (178 GB/s) | 1142=51.2us/143 1442=51.2us/143 1282=52.2us/140 1484=52.2us/140 1242=52.3us/140 1482=52.3us/139 | all: 1142:51 1144:53 1182:53 1184:52 1242:52 1244:53 1282:52 1284:53 1442:51 1444:53 1482:52 1484:52
+w8gemv time M=16 gate_up [18432x2304] 43.79 MB: triton_default=222.8us (197 GB/s) triton_bn16=212.0us (207 GB/s) | 1142=225.5us/194 1442=226.4us/193 1242=227.3us/193 1144=227.3us/193 1444=228.4us/192 1184=230.1us/190 | all: 1142:225 1144:227 1182:230 1184:230 1242:227 1244:232 1282:233 1284:233 1442:226 1444:228 1482:232 1484:232
+w8gemv time M=16 down [2304x9216] 21.90 MB: triton_default=172.0us (127 GB/s) triton_bn16=114.7us (191 GB/s) | 1244=141.3us/155 1144=141.3us/155 1142=142.8us/153 1242=143.4us/153 1444=143.4us/153 1442=143.5us/153 | all: 1142:143 1144:141 1182:146 1184:145 1242:143 1244:141 1282:146 1284:145 1442:143 1444:143 1482:147 1484:144
+w8gemv time M=16 ctxkv [2048x2304] 4.87 MB: triton_default=42.1us (116 GB/s) triton_bn16=31.0us (157 GB/s) | 1142=38.9us/125 1242=38.9us/125 1284=38.9us/125 1484=38.9us/125 1244=38.9us/125 1144=39.0us/125 | all: 1142:39 1144:39 1182:40 1184:39 1242:39 1244:39 1282:40 1284:39 1442:39 1444:41 1482:42 1484:39
+triton M=24 default->bn16: qkv=113.2->77.8us(same) o=75.9->41.0us(same) gate_up=335.9->246.0us(same) down=215.0->114.8us(same) ctxkv=57.6->30.8us(same)
+triton M=32 default->bn16: qkv=98.3->75.9us(same) o=71.8->43.0us(same) gate_up=288.8->238.2us(same) down=200.7->116.8us(same) ctxkv=51.3->32.8us(same)
+triton M=64 default->bn16: qkv=136.7->125.1us(same) o=90.2->55.3us(same) gate_up=412.7->413.7us(same) down=260.2->157.7us(same) ctxkv=67.7->44.5us(same)
+w8gemv layer sum M=1: triton_default=531.6us (160 GB/s) triton_bn16=434.3us (196 GB/s) w8gemv_best=471.2us (181 GB/s); x3 layers saves 0.181 ms vs default
+w8gemv layer sum M=8: triton_default=548.6us (155 GB/s) triton_bn16=430.4us (198 GB/s) w8gemv_best=477.5us (178 GB/s); x3 layers saves 0.213 ms vs default
+w8gemv layer sum M=16: triton_default=531.0us (160 GB/s) triton_bn16=436.3us (195 GB/s) w8gemv_best=490.1us (174 GB/s); x3 layers saves 0.123 ms vs default
+c1leak bench2 result PASS (0 failed: [])
+KBRUN end 2026-11-22T01:16:41Z rc=0 memavail=117GiB

@@ -7,11 +7,17 @@ lmhead     the target's FP32-logit LM head (unquant.sm12x_fp32_lm_head) at M <= 
 drafthead  the DSpark draft's BF16 projection through the target head (inkling2_mtp.project_through_lm_head)
 draft      the draft's own BF16 linears (draft model .layers)
 all        all four
+stack1     (with dense; not part of `all`) stacked q/k/v calls of more than 16 rows read the one coded qkvr once: the
+           q rows over the columns outside the k/v rows and the k/v rows over those only, by a range launch of
+           pico's kernel (a second small extension); no kv pack (~175 MB less), no copy; the same bits
 
 Other settings (env):
   INKLING_PICO12_MAX_M          rows of a plain call pico takes (1..16, default 16)
   INKLING_PICO12_STACKED_MAX_M  rows per source of a stacked qkvr call pico takes (0..16, default 16; 0 = leave
                                 stacked calls to the stock / qkvr_gemv path; <= 5 needs no kv pack)
+  INKLING_PICO12_STACK1_KV_MT   n-tiles per warp of the stack1 k/v range call (1 or 2, default 1; same bits)
+  INKLING_PICO12_STACK1_FUSE    0 (default): stack1 runs q and k/v as two launches; 1: one launch at <= 8 rows a
+                                source (same bits; GB10 2026-11-22: within +-2 us of two launches)
   INKLING_PICO12_WK             warps along K per CTA (1..16, default 16 = the probe's setting)
   INKLING_PICO12_PDL            1 (default): launch with programmatic dependent launch, as the probe; 0: plain
   INKLING_PICO12_CACHE          extension build cache (default ~/.cache/inkling-pico12)
@@ -31,6 +37,7 @@ import os
 import sys
 
 LEVERS = ("dense", "lmhead", "drafthead", "draft")
+OPT_LEVERS = ("stack1",)  # named explicitly only (not part of `all`)
 STATE = {"installed": False, "levers": (), "cfg": None}
 
 # Files (relative to the sglang package) and strings each lever relies on.
@@ -97,6 +104,8 @@ def config_from_env(env=None):
     stacked = _int_env(env, "INKLING_PICO12_STACKED_MAX_M", 16, 0, 16)
     wk = _int_env(env, "INKLING_PICO12_WK", 16, 1, 16)
     pdl = _int_env(env, "INKLING_PICO12_PDL", 1, 0, 1)
+    kv_mt = _int_env(env, "INKLING_PICO12_STACK1_KV_MT", 1, 1, 2)
+    fuse = _int_env(env, "INKLING_PICO12_STACK1_FUSE", 0, 0, 1)
     std = env.get("INKLING_PICO12_STD", "c++20").strip() or "c++20"
     if std not in ("c++17", "c++20"):
         raise ValueError(f"INKLING_PICO12_STD={std!r}: c++17 or c++20")
@@ -109,6 +118,8 @@ def config_from_env(env=None):
         "stacked_max_m": stacked,
         "wk": wk,
         "pdl": bool(pdl),
+        "stack1_kv_mt": kv_mt,
+        "stack1_fuse": bool(fuse),
         "std": std,
         "cache_dir": cache,
         "verbose": verbose,
@@ -125,10 +136,14 @@ def parse_levers(value):
     for v in items:
         if v == "all":
             out.extend(LEVERS)
-        elif v in LEVERS:
+        elif v in LEVERS or v in OPT_LEVERS:
             out.append(v)
         else:
-            raise RuntimeError(f"inkling_pico12: unknown INKLING_PICO12 entry {v!r}; known: {', '.join(LEVERS)}, all")
+            raise RuntimeError(
+                f"inkling_pico12: unknown INKLING_PICO12 entry {v!r}; known: {', '.join(LEVERS + OPT_LEVERS)}, all"
+            )
+    if "stack1" in out and "dense" not in out:
+        raise RuntimeError("inkling_pico12: stack1 needs dense (it changes how dense's stacked qkvr calls read)")
     return tuple(dict.fromkeys(out))
 
 
@@ -148,7 +163,7 @@ def _sglang_root():
 
 def check_sources(levers, root=None):
     root = root or _sglang_root()
-    for lever in ("common", *levers):
+    for lever in ("common", *(v for v in levers if v not in OPT_LEVERS)):
         for rel, needles in _SOURCE_CHECKS[lever]:
             path = os.path.join(root, rel)
             try:
@@ -187,6 +202,9 @@ def _configure():
         cfg = STATE["cfg"]
         ops.SET.max_m, ops.SET.stacked_max_m = cfg["max_m"], cfg["stacked_max_m"]
         ops.SET.wk, ops.SET.pdl = cfg["wk"], cfg["pdl"]
+        ops.SET.stack1 = "stack1" in STATE["levers"]
+        ops.SET.stack1_kv_mt = cfg.get("stack1_kv_mt", 1)
+        ops.SET.stack1_fuse = cfg.get("stack1_fuse", False)
         ops.LOG = _log
         patches.STATE.update(levers=STATE["levers"], cfg=cfg, log=_log)
     return patches

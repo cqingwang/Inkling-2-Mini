@@ -1,0 +1,2 @@
+{"label":"R6L-s05","ready_utc":"2026-11-22T01:54:03Z","startup_s":292,"memavail_ready_gib":18.0,"kv":"[2026-11-22 01:54:02 PID105] max_total_num_tokens=1210880, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=18.61 GB"}
+{"memavail_end_gib":17.8}
