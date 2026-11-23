@@ -9,8 +9,8 @@ settings, and fourteen overlay packages (`overlay/`) that cut the bytes read per
 global-layer KV at long context), the kernel time of the concurrent verify batches and of the sampled accept, and the
 work per prefill chunk. Against the stock cookbook cell, speedbench is +59 % at c1, concurrent prose decode is
 +28 to +43 % at c4-c16, thinking load is +21 to +37 %, cold prefill is +34 to +61 %, and decode at 128K is +25 %.
-The default KV pools hold about 1.59M global-layer tokens; the opt-in packed KV store (`KV12S=1`, see "Packed global
-KV store") holds 2.17M. The target distribution is unchanged. v2.7 adds the certified head for 17-192-row verify
+The default KV pools hold about 1.59M global-layer tokens; the experimental packed KV store (`KV12S=1`, see "Packed
+global KV store"; not for real work yet) holds 2.17M. The target distribution is unchanged. v2.7 adds the certified head for 17-192-row verify
 batches, a long-prefix prefill fix (1.4-1.5x per global layer at 512K-1M prefixes) and a measured 512K / 1M-context
 option. The speed tables below are the v2.6 full runs; a v2.7 quick check of the default build matches them (greedy
 texts identical to v2.6 on 32/32 speedbench quick prompts), and full v2.7 runs follow.
@@ -22,7 +22,7 @@ texts identical to v2.6 on 32/32 speedbench quick prompts), and full v2.7 runs f
 | thinking load c1 / c8 / c24 (effort high, T=0.8) | 52.3 / 193.6 / 374.9 | **71.5 / 236.4 / 451.9** |
 | cold prefill, 8K / 128K tokens, tok/s | 3,399 / 2,422 | **5,478 / 3,805** |
 | decode at 128K context, c1, tok/s | 37.1 | **46.4** |
-| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **1.59M / 6.3 GiB** (`KV12S=1`: 2.17M / 6.9 GiB) |
+| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **1.59M / 6.3 GiB** |
 
 ## Speed
 
@@ -416,7 +416,7 @@ the cold prefills below faster):
 A single 1M prompt takes two thirds of the default pool and, while it prefills, concurrent requests slow down (thinking
 c24 fell to 62 tok/s aggregate). With the packed store (`KV12S=1`) the 1M option is not verified yet.
 
-### Packed global KV store (opt-in, `KV12S=1`)
+### Packed global KV store (experimental, `KV12S=1`)
 
 `KV12S=1` stores the global-layer KV only in the exactly coded 12-bit form that `KV12` reads (sign and mantissa
 bytes, a 4-bit exponent code with 64 escape entries per page and head, a raw slot for the rare overflowing head) and
@@ -437,9 +437,10 @@ both prefill loaders), and the packed decode reads are 1.16-1.23x faster than th
 
 Known issues, to be fixed in v2.7.1, which is why it is not the default:
 
-- Exactness of the served text is under investigation: greedy speedbench quick texts match v2.6 on 27 of 32
-  prompts (the default store matches 32/32). The difference is deterministic and not explained yet; the target
-  model's weights and arithmetic are unchanged.
+- **Do not use `KV12S=1` for real work yet.** Greedy traces show that in live serving it computes different target
+  logits in decode / verify steps than the default store (beyond floating-point-order noise; prefill output is
+  identical), although every packed store and read is bit-identical in the isolated GPU checks. Greedy speedbench
+  quick texts match v2.6 on 27 of 32 prompts. The cause is being isolated; the default store is not affected.
 - Cold prefill above ~120K tokens was about 2x slower in the first build (120K needle 72 s vs 33 s); the shipped
   build reads the packed prefix through a bounded BF16 scratch, which is bit-identical but not yet measured end to end.
 - The 512K / 1M option is not verified with it yet.

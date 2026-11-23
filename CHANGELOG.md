@@ -19,8 +19,8 @@ global KV store. All defaults are exact; the default store's greedy speedbench q
   decode 24.5 tok/s at 491K and 14.0 tok/s at 1.02M, lowest MemAvailable 4.9-5.5 GiB (default store).
 - `inkling_kv12s` (new, opt-in `KV12S=1`): global-layer KV stored only in the exactly coded 12-bit form, 2,168,320
   KV tokens (+40 %), speedbench quick 63.16 vs 63.49, sanity 11/11, needles 120K / 240K PASS, lowest MemAvailable
-  4.2 GiB. Every packed store and read is bit-identical in the GPU checks, but served greedy texts match v2.6 on
-  27/32 prompts (under investigation), and long cold prefills and the 1M option are not yet measured with it;
+  4.2 GiB. Every packed store and read is bit-identical in the GPU checks, but in live serving it computes different
+  target logits in decode / verify (found after the release; experimental, not for real work), and long cold prefills and the 1M option are not yet measured with it;
   therefore not the default. Fixes follow in v2.7.1.
 - Screened, not adopted: verify-policy refit on fresh full-width v2.6 logs (-0.22 %, CI -0.52..+0.71 %), split-K
   small kernels for router / conv projection / controllers (flat in serving), INT8 draft weights (flat), dropping
