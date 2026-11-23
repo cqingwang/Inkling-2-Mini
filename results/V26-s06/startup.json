@@ -1,0 +1,2 @@
+{"label":"V26F-s06","ready_utc":"2026-11-23T11:27:32Z","startup_s":121,"memavail_ready_gib":4.3,"kv":"[2026-11-23 11:27:27 PID105] max_total_num_tokens=1587840, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=4.60 GB"}
+{"memavail_end_gib":4.1}

@@ -736,3 +736,50 @@ needle passed.
 `bench.py` sends 9 greedy requests x 160 tokens at effort low. The 65.45 tok/s median reproduces the published
 66.72 within 2 %. The q8 recipe's `max-num-seqs` of 8 caps the c16 cell. Thinking c1 / c8 on q8 was 59.6 /
 216.2 tok/s.
+
+## v2.6: KV pool sizing
+
+With the radix cache on, budget one 1,024-token window plus one 128-token page per running request and two
+8,192-token prefill chunks in flight. At 48 requests that is `48 x (1,024 + 128) + 2 x 8,192 = 71,680` tokens.
+The image's 0.1 ratio gave 110,592 sliding-window tokens from a 1.1M-token global-layer pool (16.9 GB target +
+0.84 GB draft in the sliding-window pool), with ~35K tokens never needed. `SWA_RATIO=0.05`
+(`--swa-full-tokens-ratio 0.05`) gives 75-79K sliding-window tokens in the larger pools.
+
+The stress run pairs thinking c24 (48 x 2,048 tokens) with a cold 240,104-token needle prefill. MemAvailable was
+logged every 5 s from container start. The sliding-window ratio was 0.1 at 0.81, 0.055 at 0.86 and 0.88, and 0.05
+from 0.91 up. The pairs below are Spark_05 / Spark_06. Raw files are in `results/screen-r2/`: `KVa-s0*` (0.86), `KVb-s0*` (0.88), `KVd-s0*` (0.91), `KVf093-s0*`
+(0.93) and `KVg-s0*` (0.945), plus `results/V25-s05/`, `results/V25-s06/`, `results/V26-s05/` and `results/V26-s06/`. The 0.94 stress
+runs are in the `K/` subdirectories of the v2.6 runs.
+
+| `MEM_FRACTION` | global-layer pool tokens | MemAvailable after start (GiB) | lowest under stress (GiB) | needle (both boxes) |
+|---|---:|---:|---:|---|
+| 0.81 (v2.5) | 1,105,792 / 1,106,816 | 16.6 / 16.5 | 14.1 / 14.5 | PASS |
+| 0.86 | 1,376,256 / 1,380,992 | 13.5 / 12.9 | 12.1 / 12.1 | PASS |
+| 0.88 | 1,424,256 / 1,422,848 | 11.0 / 10.3 | 10.2 / 10.1 | PASS |
+| 0.91 | 1,513,344 / 1,508,352 | 7.4 / 8.0 | 6.8 / 7.9 | PASS |
+| **0.93 (v2.6)** | **1,551,104 / 1,557,120** | **5.8 / 6.1** | **5.2 / 5.4** | PASS |
+| 0.94 | 1,568,384-1,568,896 / 1,582,720-1,587,840 | 5.0-5.3 / 4.3-4.6 | 4.9 / 3.7 | PASS |
+| 0.945 | 1,590,656 / 1,588,224 | 4.8 / 4.7 | 4.8 / 4.0 | PASS |
+
+Throughput was flat across the sweep. Thinking c24 alongside the prefill ran at 297-314 tok/s and thinking c8
+at 221-238 tok/s. At 200K / 250K, c1 decode was 40-47 / 34-40 tok/s, varying with the generated text. The full
+`bench/full.sh` speed and quality runs used `MEM_FRACTION=0.94` on both boxes.
+
+Other GB10 memory-cliff measurements put the worst-case target at 3.5 GiB MemAvailable. At 0.94, Spark_06 had
+only 0.2 GiB of margin, and MemAvailable after start varied by up to ~1 GiB between boots at the same fraction.
+The release uses 0.93 for that spread, with a 3.5 GiB memory guard floor and 40 % more global-layer KV than v2.5.
+Both pool sizing changes preserve exactness.
+
+### Screened on v2.5
+
+- **INT8 draft weights.** The speedbench quick differences tracked the generated text. Thinking and decode
+  throughput were flat, so the INT8 variant was dropped.
+- **Small kernels.** Router / wproj split-K and controller re-tiling saved 0.35 ms per c1 step in the microbench.
+  Serving was flat on Spark_05 and Spark_06, so the kernel variant was dropped. The screen drew on Thien Tran's
+  [vLLM PR #69168](https://github.com/vllm-project/vllm/pull/69168).
+
+### Future work
+
+A packed-only global KV store is in development. The design uses ~24.6 KB per token vs 32 KB for BF16, making
+the lossless packed format the primary store for committed global-layer pages. The serving check packed 15.5M
+page-heads with 0 escape overflows.

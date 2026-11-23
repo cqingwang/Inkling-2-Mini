@@ -24,6 +24,10 @@ of silently running the stock path.
 | `inkling_scodes/` | `INKLING_SCODES` | NVFP4 expert scales stored as a row base + 5-bit codes and expanded inside a modified FlashInfer SM120 grouped-GEMM mainloop (escapes read the resident stock scales). | none (bit-identical to the stock kernel) |
 | `inkling_kv12/` | `INKLING_KV12`, `INKLING_KV12_MAX_PAGES` | Full, committed KV pages of the global attention layers also kept in a packed 12-bit side pool (sign + mantissa byte, 4-bit exponent code, escapes; slots follow the pages being decoded); decode / verify attention decodes packed tiles in registers. Install after `inkling_vattn`. | none (decoded tiles equal the BF16 cache; attention partials bit-identical to stock) |
 
+The v2.6 launch defaults use `MEM_FRACTION=0.93`, `SWA_RATIO=0.05` (`--swa-full-tokens-ratio 0.05`) and
+`MIN_AVAIL_GIB=3.5`. The global-layer KV pool holds 1.55M tokens. The `inkling_kv12` side pool uses 6.1 GiB.
+See the [v2.6 memory sweep](../docs/experiments.md#v26-kv-pool-sizing) for the launch settings and measurements.
+
 Measured effect of each package and of the stack: `docs/experiments.md`.
 
 ## Layout

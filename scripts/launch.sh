@@ -19,7 +19,7 @@ MODEL_DIR=${MODEL_DIR:-$HOME/models/Inkling-2-Mini}
 CACHE_DIR=${CACHE_DIR:-$HOME/.cache/inkling-2-mini-$ENGINE}   # JIT / Triton / FlashInfer caches: faster restarts
 SERVED=${SERVED:-inkling-2-mini}
 CTX=${CTX:-262144}
-MIN_AVAIL_GIB=${MIN_AVAIL_GIB:-4}      # memory guard: stop the container below this MemAvailable during start-up
+MIN_AVAIL_GIB=${MIN_AVAIL_GIB:-3.5}      # memory guard: stop the container below this MemAvailable during start-up
 GUARD_SECONDS=${GUARD_SECONDS:-1200}   # how long the guard watches after `up`
 
 # Pinned images (multi-arch index digests; Docker picks linux/arm64 on the Spark) and model revision.
@@ -28,7 +28,8 @@ VLLM_IMAGE=${VLLM_IMAGE:-vllm/vllm-openai@sha256:c2dc759f5984f69c1e2418c6af7c26e
 MODEL_REVISION=ed40e7da625f594fc9c4990f5f66be24873c22d7
 
 # SGLang profile
-MEM_FRACTION=${MEM_FRACTION:-0.81}
+MEM_FRACTION=${MEM_FRACTION:-0.93}
+SWA_RATIO=${SWA_RATIO:-0.05}                                 # sliding-window pool / full pool tokens (image default 0.1; 48 requests need ~72K)
 LOAD_NOMMAP=${LOAD_NOMMAP:-1}                               # read the checkpoint in one pass instead of mmap page faults (start-up ~265 -> ~130 s)
 # Speed overlays (overlay/, see overlay/README.md). OVERLAY=0 runs the stock image exactly as the cookbook does.
 OVERLAY=${OVERLAY:-1}
@@ -129,7 +130,7 @@ if [[ $ENGINE == sglang ]]; then
        ${spec[@]+"${spec[@]}"}
        --mem-fraction-static "$MEM_FRACTION" --context-length "$CTX"
        --grammar-backend xgrammar --reasoning-parser inkling --tool-call-parser inkling2
-       --enable-metrics --host "$HOST" --port "$PORT" ${nommap_arg[@]+"${nommap_arg[@]}"} $SGLANG_ARGS "$@")
+       --enable-metrics --host "$HOST" --port "$PORT" ${nommap_arg[@]+"${nommap_arg[@]}"} --swa-full-tokens-ratio "$SWA_RATIO" $SGLANG_ARGS "$@")
 elif [[ $ENGINE == vllm ]]; then
   specj='{"method":"dspark","num_speculative_tokens":7,"draft_sample_method":"probabilistic"}'
   spec=(--speculative-config "$specj")

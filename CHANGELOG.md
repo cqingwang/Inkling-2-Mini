@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.6 (2026-11-23)
+
+Larger exact KV pools. `MEM_FRACTION` goes from 0.81 to 0.93 and `SWA_RATIO=0.05` halves the image's
+sliding-window ratio. The global-layer pool grows by 40 %, from 1,105,792 / 1,106,816 to 1,551,104 / 1,557,120
+tokens (Spark_05 / Spark_06). MemAvailable is 5.8 / 6.1 GiB after start and 5.2 / 5.4 GiB under the combined
+thinking and cold needle load. The memory guard defaults to `MIN_AVAIL_GIB=3.5` and accepts decimal GiB.
+The [memory sweep](docs/experiments.md#v26-kv-pool-sizing) covers the choice of defaults.
+
+Throughput stays within run-to-run variation. The full runs used `MEM_FRACTION=0.94` on both boxes
+(`bench/full.sh`, `results/V26-s05/`, `results/V26-s06/`). Median speedbench full c1 was 64.4 (v2.5 64.2),
+prose decode c4 / c8 / c16 was 107.5 / 161.8 / 239.1 tok/s and json c16 was 280.5 tok/s. Thinking c1 / c8 / c24
+reached 71.5 / 236.4 / 451.9 tok/s (70.5 / 235.6 / 445.2). Cold prefill was within run noise and 32K / 128K
+decode was 71.0 / 46.4 tok/s. Warm start-up took 121-137 s. Both boxes scored 30/30 on the quality guard and
+11/11 on sanity, and passed the needles at 120,097 and 240,104 tokens.
+
 ## v2.5 (2026-11-23)
 
 One-pass checkpoint loading, a cheaper draft Markov walk and full-context draft attention by default. Median of

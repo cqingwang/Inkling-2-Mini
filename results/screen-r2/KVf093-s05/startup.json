@@ -1,0 +1,2 @@
+{"label":"KVf-s05","ready_utc":"2026-11-23T10:41:37Z","startup_s":131,"memavail_ready_gib":5.8,"kv":"[2026-11-23 10:41:35 PID107] max_total_num_tokens=1551104, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=6.86 GB"}
+{"memavail_end_gib":5.2}
