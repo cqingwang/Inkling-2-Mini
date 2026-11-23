@@ -1,0 +1,2 @@
+{"label":"DLon3-s06","ready_utc":"2026-11-22T22:24:49Z","startup_s":237,"memavail_ready_gib":17.1,"kv":"[2026-11-22 22:24:44 PID105] max_total_num_tokens=1113344, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=17.58 GB"}
+{"memavail_end_gib":16.6}

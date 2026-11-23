@@ -132,6 +132,65 @@ def hot_sampled():
     return {"ok": ok}
 
 
+def rnnhoist_compare():
+    """rnnhoist (+ any other env options) vs the same options without it, through the draft loop; plus the
+    per-step rnn_proj output vs the stock Linear and the fallback for a call outside the prepared walk."""
+    from inkling_draftbytes import patches, rnnhoist
+    from sglang.srt.speculative.dspark_components import dspark_draft as dd
+
+    opts, m, model = _setup()
+    head = model.markov_head
+    out = {"patched": patches.STATE.patched}
+    temps = torch.tensor([0.0, 0.8, 1.0])
+    tokens, logits = _block(model, dd, bs=3, temps=temps)
+    calls = {"hoisted": 0}
+    orig_hp = rnnhoist.hoisted_proj
+
+    def counting(*a, **k):
+        calls["hoisted"] += 1
+        return orig_hp(*a, **k)
+
+    rnnhoist.hoisted_proj = counting
+    _block(model, dd, bs=3, temps=temps)
+    rnnhoist.hoisted_proj = orig_hp
+    out["hoisted_calls"] = calls["hoisted"]
+    packs = head._idb_rnn
+    head._idb_rnn = None  # every step runs stock
+    tokens_ref, logits_ref = _block(model, dd, bs=3, temps=temps)
+    head._idb_rnn = packs
+    out["tokens_equal"] = bool(torch.equal(tokens, tokens_ref))
+    fin = torch.isfinite(logits_ref.float())
+    d = (logits.float() - logits_ref.float())[fin].abs()
+    out["logits_exact_frac"] = (d == 0).float().mean().item()
+    out["logits_within_1ulp"] = (d <= logits_ref.float()[fin].abs() * 2 ** -7).float().mean().item()
+    out["neginf_match"] = bool((torch.isneginf(logits.float()) == torch.isneginf(logits_ref.float())).all())
+    # per-step projection vs the stock BF16 Linear
+    g = torch.Generator().manual_seed(9)
+    bs, gamma = 4, 7
+    dh = torch.randn(bs, gamma, 128, generator=g).to(torch.bfloat16)
+    f_rnn = torch.randn(bs, 128, generator=g).to(torch.bfloat16)
+    walk = rnnhoist.begin_walk(packs, dh, f_rnn, 16)
+    state = torch.randn(bs, 64, generator=g).to(torch.bfloat16)
+    prev = torch.randint(0, 3000, (bs,), generator=g)
+    worst = 0.0
+    idx = []
+    for s in range(gamma):
+        idx.append(rnnhoist.step_index(walk, dh[:, s], f_rnn))
+        ref = head.rnn_proj(torch.cat([state, head.markov_w1(prev), dh[:, s], f_rnn], -1)).float()
+        got = rnnhoist.hoisted_proj(packs, walk, s, state, prev, head.markov_w1.weight).float()
+        worst = max(worst, float(((got - ref).abs() / (ref.abs() * 2 ** -7 + 1e-30)).max()))
+    out["step_index"] = idx
+    out["proj_worst_ulp"] = worst
+    out["outside_walk"] = [
+        rnnhoist.step_index(walk, dh[:, 0].clone(), f_rnn),  # another tensor
+        rnnhoist.step_index(walk, dh[:2, 0], f_rnn),  # other rows
+        rnnhoist.step_index(walk, dh[:, 0], f_rnn.clone()),  # other f_rnn
+        rnnhoist.step_index(None, dh[:, 0], f_rnn),
+    ]
+    out["too_many_rows"] = rnnhoist.begin_walk(packs, dh, f_rnn, 3) is None
+    return out
+
+
 def head_compare():
     """gemv/head8 via project_through_lm_head vs stock matmul."""
     from inkling_draftbytes import patches

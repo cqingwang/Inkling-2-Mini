@@ -19,6 +19,10 @@ Comma list, any order, default empty (= the overlay does nothing):
                  after the first) instead of a CTA per 64-row block (which re-reads W from DRAM per block);
                  same per-element math (gated bit for bit on the GPU). Applies to whatever head8 / fold8 /
                  foldk / hotvocab / draftmx8 / gemv route through them.
+  rnnhoist       Markov walk: the step-invariant 90 % of rnn_proj (the hidden_s and f_rnn inputs, 4608 of 5120
+                 columns) runs as one FP32-output GEMM over all 7 steps when the walk starts; each step then reads
+                 only the 768 x 512 state/prev-token slice and adds the hoisted partial before the stock BF16
+                 rounding (same math up to FP32 summation order). Up to INKLING_DRAFT_RNNHOIST_MAX_BS rows (16).
   tau:X          the draft samples at X times the request temperature (sampled rows only; the accept reads
                  q at the same X x T, so the output law is unchanged). Also INKLING_DRAFT_TAU=X (alone it
                  needs sitecustomize to call install(); with any other option it rides along). X in
@@ -91,6 +95,8 @@ class Options:
     w8gemv: bool = False
     w8tile: bool = False
     w8gemv_cfg: int = 0  # 0: the per-shape table in w8gemv.py
+    rnnhoist: bool = False
+    rnnhoist_max_bs: int = 16
     tau: float = 1.0  # draft temperature factor (tau.py); 1.0 = stock
     dwin: int = 0  # tokens kept at the tail of the drafter's global layer (0 = off)
     dwin_sink: int = 128  # tokens kept at the start (sink)
@@ -123,6 +129,7 @@ class Options:
             or self.hotvocab
             or self.tau != 1.0
             or self.dwin
+            or self.rnnhoist
         )
 
     @property
@@ -149,6 +156,8 @@ class Options:
             parts.append("w8tile")
         if self.w8gemv:
             parts.append("w8gemv" + (f"(cfg {self.w8gemv_cfg})" if self.w8gemv_cfg else ""))
+        if self.rnnhoist:
+            parts.append(f"rnnhoist(<= {self.rnnhoist_max_bs} rows)")
         if self.tau != 1.0:
             parts.append(f"tau:{self.tau:g}")
         if self.dwin:
@@ -208,6 +217,8 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
             kw["w8gemv"] = True
         elif name == "w8tile":
             kw["w8tile"] = True
+        elif name == "rnnhoist":
+            kw["rnnhoist"] = True
         elif name == "tau":
             kw["tau"] = _parse_tau(arg, "tau")
         elif name == "dwin":
@@ -240,6 +251,9 @@ def parse(text: Optional[str] = None, environ=None) -> Options:
         if not path:
             raise OptionError(f"hotvocab needs {HOT_FILE_ENV} (a JSON list of token ids)")
         kw["hotvocab_file"] = path
+    kw["rnnhoist_max_bs"] = _int_env("INKLING_DRAFT_RNNHOIST_MAX_BS", 16)
+    if not 1 <= kw["rnnhoist_max_bs"] <= 64:
+        raise OptionError("INKLING_DRAFT_RNNHOIST_MAX_BS must be in [1, 64]")
     kw["dwin_maxk"] = _int_env("INKLING_DRAFT_DWIN_MAXK", 1) != 0
     kw["gemv_max_m"] = _int_env("INKLING_DRAFT_GEMV_MAX_M", 16)
     kw["w8_max_m"] = _int_env("INKLING_DRAFT_W8_MAX_M", 64)

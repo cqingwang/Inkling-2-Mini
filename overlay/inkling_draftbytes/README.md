@@ -2,9 +2,10 @@
 
 An import-time overlay for `lmsysorg/sglang:inkling-2-mini` (sglang
 0.0.0.dev1+g03fde9cc3.d20261120). It changes **only what the Inkling2 MTP draft
-proposes**. The target forward, the verify and the accept rule are not
-touched. Nothing here has run on a GPU yet. The CPU tests pass (23/23).
+proposes**. The target verifies and accepts proposals with the same rule.
 `gpu_check.py` and `bench_draft.py` run inside the image on a Spark with the server stopped (copies in overlay/tools/).
+The launcher's default draft switches are
+`gemv,fold8,head8,draftmx8,hotvocab:65536,wide8,w8tile,rnnhoist`.
 
 ## Options (`INKLING_DRAFT_BYTES`, comma list; unset or empty = no-op)
 
@@ -17,10 +18,15 @@ touched. Nothing here has run on a GPU yet. The CPU tests pass (23/23).
 | `draftmx8[:mx\|row]` | MXFP8 (default) copies of every BF16 linear in the 3 draft layers (qkv 5120x2304, o 2304x3072, gate_up 18432x2304, down 2304x9216, kv_proj_ctx 2048x2304), made in memory after load. Rows <= `INKLING_DRAFT_W8_MAX_M` (64) use the FP8 kernel. Larger batches use the stock BF16 path. | ~524 -> ~270 MB | -1.1 ms | +270 MB (BF16 kept) |
 | `hotvocab:N` | The draft proposes only from the first N ids of `INKLING_DRAFT_HOTVOCAB_FILE`, which must be frequency-ranked (see `build_hotvocab.py`). The base logits read N LM-head rows, and the fold reads N fold rows. Stacks with `fold8`, `head8` and `gemv`. | N=32768: 1647 -> ~210 MB with fold8 (~135 MB with head8 too) | -6.3 to -6.9 ms, minus the acceptance lost to misses | +151 MB (N=32K, BF16 head rows) + 8-17 MB |
 | `w8tile` | With `draftmx8`: the draft linears' Triton launches use a narrow tile (BN 16, BK 256 for K = 2304 / 128 for K = 3072, 9216; `row`/`gN` keep their BK) instead of BN 32 / BK 256: twice the CTAs on the narrow-N shapes (o, down: 2304 rows). Bit-identical (the MX path is one MMA chain per output whatever the tile; gated on the GPU at 8, 16, 24, 32, 64 rows). Recommended with `draftmx8`. | same bytes, better streaming | GB10 L2-cold, 8 rows, the 4 linears of one layer: 549 -> 430 us (155 -> 198 GB/s): -0.36 ms per c1 step (below) | 0 |
+| `rnnhoist` | Precompute the `hidden_s` and `f_rnn` contribution to `rnn_proj` in FP32 once per walk (`rnnhoist.py`). Each step projects the 768x512 slice for state and previous-token embedding, adds the partial in FP32, rounds once to BF16 and calls the stock gates. `INKLING_DRAFT_RNNHOIST_MAX_BS` defaults to 16 rows. | projection weights ~55 -> ~13 MB over seven steps | cold L2, CUDA graph, 1 / 8 / 16 rows: 584 -> 320 / 661 -> 454 / 782 -> 596 us | ~7.9 MB for weight slices + FP32 partials |
 | `w8gemv` | With `draftmx8` (mx): the draft linears at 1-16 rows through `csrc/w8gemv.cu`, a CUDA weight-streaming GEMV on the same MXFP8 pack (no new copy): one warp per 8 weight rows over the whole K, weights 4-8 steps ahead in registers, activations 2-4 steps ahead; Triton's per-output arithmetic (one ascending-k MMA chain, its kWidth-4 operand order, exact dequant, FP32 accumulation). Rows above 16 keep Triton (`w8tile` applies there). `INKLING_DRAFT_W8GEMV_CFG` forces a variant. Built at draft prepare (`INKLING_DRAFT_W8GEMV_CACHE`). **Experimental, not recommended:** bit-identical to the Triton kernel (gated), but slower than `w8tile` on GB10 (8 rows, one layer's 4 linears: 478 vs 430 us; o 49 vs 41 us, down 135 vs 113 us). | same bytes | none over `w8tile` | 0 |
 | `wide8` | For calls of more than 64 rows (batched verify / draft blocks, e.g. the head at c24: 192 rows), this package's kernels run one CTA per output tile over ALL 64-row blocks (row blocks outer, `_acc_tile` unchanged; the CTA's W tile is re-read from L2) with a wider tile (BN 64, 8 warps, 3 stages), instead of one CTA per 64-row block re-reading W from DRAM. Calls of <= 64 rows launch exactly as before. Output bit-identical to the default kernel (gated on the GPU for head8 row/mx, fold8, the BF16 head, the hot step). | head at 192 rows: 3 x 464 MB -> 464 MB from DRAM | head8:row 192 rows 6.16 -> 3.52 ms, 384 rows 12.3 -> 6.9 ms; fold8 192 rows 1.03 -> 0.60 ms | 0 |
 | `tau:X` (or `INKLING_DRAFT_TAU=X`) | Draft temperature. Sampled rows draft at X x T instead of T. `resolve_draft_params` scales both the sampling temperature and the temperature the accept uses to build q, by the same FP32 product. The target keeps T. Greedy rows and all-greedy batches are unchanged. X in [0.05, 4]; 1 = off. Refuses the sampling-accept CUDA graph, which reads the draft temperatures as the target's. Credit: the idea comes from our DeepSeek recipe's draft-temperature finding (0.7-0.8 best there). | same | acceptance only: expect +1-2 % on thinking (T = 0.8) at tau 0.7-0.8, 0 at T = 0 | 0 |
-| `dwin:W[:S]` | The drafter's global attention layer (layer 1; `local_layer_ids = [0, 2]`) reads the first S tokens (sink, default 128 = one page; 0 = none) plus every page holding one of the last W tokens of its own K/V instead of the whole context (`dwin.py`). Whole pages: `ceil(W/128)+1` window columns, W <= kept tail < W+128. Identity below about S + W. The FA4 call gets the window's static `max_seqlen_k` (SplitKV planning; `INKLING_DRAFT_DWIN_MAXK=0` = stock bound). A wrapper on `FlashAttentionBackend.forward_extend` swaps in a gathered page table / lengths for that layer only (TARGET_VERIFY, topk 1); built by device tensor ops, CUDA-graph safe. Draft-only: outputs exact, cost is acceptance only. | 4,096 B per context token -> (S + W) x 4,096 B: 128K 537 MB -> 67 MB (W 16K) | GB10, FA4 graph replay, bs 1: 128K 2.30 -> 0.32 ms, 256K 4.47 -> 0.32 ms (W 16K; W 8K 0.17 ms); +~22 us of metadata ops at any context | 0 |
+| `dwin:W[:S]` | Off by default. The drafter's global attention layer (layer 1; `local_layer_ids = [0, 2]`) reads the first S tokens (sink, default 128 = one page; 0 = none) plus every page holding one of the last W tokens of its own K/V instead of the whole context (`dwin.py`). Whole pages: `ceil(W/128)+1` window columns, W <= kept tail < W+128. Identity below about S + W. The FA4 call gets the window's static `max_seqlen_k` (SplitKV planning; `INKLING_DRAFT_DWIN_MAXK=0` = stock bound). A wrapper on `FlashAttentionBackend.forward_extend` swaps in a gathered page table / lengths for that layer only (TARGET_VERIFY, topk 1); built by device tensor ops, CUDA-graph safe. | 4,096 B per context token -> (S + W) x 4,096 B: 128K 537 MB -> 67 MB (W 16K) | GB10, FA4 graph replay, bs 1: 128K 2.30 -> 0.32 ms, 256K 4.47 -> 0.32 ms (W 16K; W 8K 0.17 ms); +~22 us of metadata ops at any context | 0 |
+
+With `dwin:16384`, the draft loses far-context copying. Net decode at 32K / 64K / 128K / 250K is
+-11 / -7 / -3 / +7 % against full-context draft attention. Use the optional window for workloads mostly above 200K tokens
+([serving measurements](../../docs/experiments.md#drafter-global-attention-window-off-by-default)).
 
 Byte math at 220 GB/s: LM head 201024x2304x2 = 926 MB; fold 201024x256x2 = 103 MB,
 read 7 times = 720 MB; draft linears 165 MB per layer x 3. The ms figures are the
@@ -76,7 +82,8 @@ which is before any CUDA graph capture.
 |---|---|---|
 | `srt/models/inkling2_mtp.py: Inkling2ForConditionalGenerationMTP.attach_shared_modules` | any | runs the stock attach first, then `prepare()`: FP8 packs, hot subsets, draft-linear packs, and one log line |
 | `srt/models/inkling2_mtp.py: project_through_lm_head` (the name this module imported from `models/dspark.py`, so only the Inkling2 draft is affected) | gemv, head8 | GEMV / FP8 kernel. It stands down if the LM head is quantized or `--speculative-dspark-lm-head-dtype` is set |
-| `srt/models/inkling2_mtp.py: Inkling2MTPHead.step_bias` | fold8, foldk | same `_rnn_step`, then the fold kernel instead of `torch.addmm`, then the same `_gather_logits` crop |
+| `srt/models/inkling2_mtp.py: Inkling2MTPHead.init_state / _rnn_step` | rnnhoist | prepare the FP32 partials at walk init, then use the matching partial at each step and call the stock gates. Calls outside the prepared walk or above the row cap use the stock projection |
+| `srt/models/inkling2_mtp.py: Inkling2MTPHead.step_bias` | fold8, foldk | calls `_rnn_step`, then the fold kernel instead of `torch.addmm`, then the same `_gather_logits` crop |
 | `srt/models/inkling2_mtp.py: Inkling2MTPHead.refresh_fold` | any | after a weight refresh, re-prepares the packs in place, so captured graphs keep valid pointers |
 | `srt/models/inkling2_mtp.py: Inkling2ForConditionalGenerationMTP.compute_base_logits` | hotvocab | base logits on the N hot rows, scattered into a full-width [M, V] buffer that is -inf elsewhere |
 | `srt/speculative/dspark_components/dspark_draft.py: _draft_step` | hotvocab | if the head has a hot state: `_rnn_step`, then one fused kernel (fold on the hot rows + base + the stock roundings + softcap + vocab limit, scattered into a -inf row), then the **stock** `MarkovSampleStep` with a zero bias and no softcap. It writes the kept step logits and picks the token. Otherwise it calls the stock step |
@@ -148,8 +155,17 @@ hidden_out(latent_s)) / mult`. Folding the bias into one pass would read the
 already the cheapest form. The remaining levers are fewer bytes per read (FP8)
 and fewer rows (hotvocab). With hotvocab plus fold8 at N = 32768, the fold is
 8.4 MB, and it may stay in L2 across the 7 steps (GB10 L2 size not confirmed
-here). The rnn_proj weight (7.9 MB, an `nn.Linear`) is also read 7 times per
-step (~55 MB). It is left alone.
+here).
+
+`rnnhoist` splits `rnn_proj` into the 4,608 input columns known before the walk
+(`hidden_s` for every step and `f_rnn`) and the 512 columns that depend on the
+previous state and token. The known GEMM contribution is computed up front
+in FP32. The dependent projection and add keep FP32 until the single BF16
+round before the stock gates. Against FP64, 99.9 % of elements round correctly
+(stock cuBLAS 62 % at 8-16 rows). The draft proposals can change. The target
+distribution is unchanged. The projection split is ours, following the
+walk-fusion idea from [vLLM PR #62958](https://github.com/vllm-project/vllm/pull/62958)
+([tie-pilot-qxw/dspark-markov-walk](https://github.com/tie-pilot-qxw/dspark-markov-walk), MIT).
 
 ## Numerics (CPU reference, fold-shaped data: 8192 x 256, 8 latent rows)
 
@@ -211,7 +227,7 @@ idempotent and does not import sglang.
    before a serving arm.
 4. **Hot list:** collect output traces on the Spark (SGLang `/generate` with
    `output_ids` is best, since it includes special tokens exactly as drafted, or
-   OpenAI responses including `reasoning_content`). Then run
+   Chat Completions responses including `reasoning_content`). Then run
    `python3 build_hotvocab.py --tokenizer /model --out hot.json traces/*.jsonl`
    and read the held-out coverage at 8K/16K/32K/64K. Pick N where held-out
    coverage is >= ~99 %.
@@ -234,6 +250,7 @@ idempotent and does not import sglang.
   - `_hooks.py`: post-import hooks
   - `patches.py`: patches and `prepare()`
   - `ops.py`: CUDA/Triton vs torch-reference dispatch
+  - `rnnhoist.py`: FP32 Markov projection partials and dependent slice
   - `_triton.py`: the `w8_mm` and `hot_step` kernels
   - `quant.py`: FP8 packs and reference math
   - `timing.py`: graph-replay timing with L2 flush

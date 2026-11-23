@@ -28,12 +28,13 @@ VLLM_IMAGE=${VLLM_IMAGE:-vllm/vllm-openai@sha256:c2dc759f5984f69c1e2418c6af7c26e
 MODEL_REVISION=ed40e7da625f594fc9c4990f5f66be24873c22d7
 
 # SGLang profile
-MEM_FRACTION=${MEM_FRACTION:-0.80}
+MEM_FRACTION=${MEM_FRACTION:-0.81}
+LOAD_NOMMAP=${LOAD_NOMMAP:-1}                               # read the checkpoint in one pass instead of mmap page faults (start-up ~265 -> ~130 s)
 # Speed overlays (overlay/, see overlay/README.md). OVERLAY=0 runs the stock image exactly as the cookbook does.
 OVERLAY=${OVERLAY:-1}
 OVERLAY_DIR=${OVERLAY_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/overlay}
 VERIFY_CAP=${VERIFY_CAP:-policy:/opt/inkling-overlay/inkling_vcap/policies/r2-theta004.json,bsmax=16}  # verify-width policy (off = stock)
-DRAFT_BYTES=${DRAFT_BYTES:-gemv,fold8,head8,draftmx8,hotvocab:65536,wide8,w8tile,dwin:16384}  # draft-side byte cuts (empty = stock)
+DRAFT_BYTES=${DRAFT_BYTES:-gemv,fold8,head8,draftmx8,hotvocab:65536,wide8,w8tile,rnnhoist}  # draft-side byte cuts (empty = stock)
 HOTVOCAB_FILE=${HOTVOCAB_FILE:-/opt/inkling-overlay/inkling_draftbytes/hotvocab/inkling2-mini-hot-r2.json}  # ranked draft vocabulary
 KERNELS=${KERNELS:-moe_tiles,qkvr_gemv}                     # target-side kernel choices (empty = stock)
 PREFILL=${PREFILL:-qkvr_split,bias_layout,quant_once,partial_bf16}  # exact prefill levers (empty = stock)
@@ -96,6 +97,9 @@ common=(docker run -d --name "$NAME" --gpus all --ipc=host --network host --shm-
         -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1)
 
 if [[ $ENGINE == sglang ]]; then
+  nommap_arg=(); nommap_env=()
+  # one-pass checkpoint read; large frees go straight back to the OS so the KV pool is sized on the real free memory
+  [[ $LOAD_NOMMAP == 1 ]] && { nommap_arg=(--weight-loader-disable-mmap); nommap_env=(-e MALLOC_MMAP_THRESHOLD_=1048576); }
   spec=()
   [[ $SPEC == dspark ]] && spec=(--speculative-algorithm DSPARK --speculative-num-draft-tokens 8)
   [[ $SPEC == dspark && $OVERLAY == 1 && $VCAP_BV == 1 ]] && spec+=(--speculative-use-block-verification)
@@ -118,13 +122,14 @@ if [[ $ENGINE == sglang ]]; then
        -e SGLANG_OPT_DSV41_DSPARK_PREPARE_INPUTS_ONCE=1
        -e SGLANG_OPT_DSV41_DSPARK_SKIP_PREFILLED_INPUTS=1
        ${SGLANG_ENV:-}
+       ${nommap_env[@]+"${nommap_env[@]}"}
        --entrypoint python3 "$SGLANG_IMAGE"
        -m sglang.launch_server --model-path /model --served-model-name "$SERVED"
        --tp 1 --ep 1 --attention-backend fa4 --dtype bfloat16 --page-size 128
        ${spec[@]+"${spec[@]}"}
        --mem-fraction-static "$MEM_FRACTION" --context-length "$CTX"
        --grammar-backend xgrammar --reasoning-parser inkling --tool-call-parser inkling2
-       --enable-metrics --host "$HOST" --port "$PORT" $SGLANG_ARGS "$@")
+       --enable-metrics --host "$HOST" --port "$PORT" ${nommap_arg[@]+"${nommap_arg[@]}"} $SGLANG_ARGS "$@")
 elif [[ $ENGINE == vllm ]]; then
   specj='{"method":"dspark","num_speculative_tokens":7,"draft_sample_method":"probabilistic"}'
   spec=(--speculative-config "$specj")

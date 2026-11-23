@@ -508,7 +508,7 @@ before.
 | Spark_06 | 128K | 59.5 | **58.1** | unchanged |
 | Spark_06 | 250K | 80.0 | **75.2** | unchanged |
 
-32K is flat (the window saves at most 67 MB per step there).
+32K step time is flat (the window saves at most 67 MB per step there).
 `dwin:8192` gave a similar step time with fewer tokens per step at 32K.
 
 ### Packed 12-bit global-layer KV (`inkling_kv12`)
@@ -591,8 +591,8 @@ cells are 256 tokens x 2 documents with a confidence interval of about +-25 %. A
 | no kv12 | 47.5 | 3.24 | 67.1 |
 | all four levers off (v2.3) | 47.3 | 3.16 | 71.6 |
 
-The step time is the same in all four arms; tok/s follows tokens per step, which varies with the salted documents'
-generated texts (2.3 to 5.5 per request), not with the levers. kv12 and the drafter window pay from 128K up.
+The step time is the same in all four arms. Tokens per step vary with the salted documents' generated texts (2.3
+to 5.5 per request). The v2.5 window screen below measures the effect on acceptance with more requests per cell.
 
 Long context (`results/V24-s06/K/`, `results/V24-s05/K/`): at 200K / 250K Spark_06 decodes 44.1 / 38.9 tok/s at c1
 (v2.3 on Spark_05: 38.1 / 35.1), cold prefill 3,142 / 2,799 tok/s, TTFT 65.4 / 91.2 s; Spark_05's 40.9 / 46.7 come
@@ -623,3 +623,116 @@ prefill, needle PASS on both.
   the policy up to 48 requests with theta 0.02 above 16 no gain at thinking c24 (417.5 / 413.5 vs 419-423); decode
   c4-c16 within +-3 %. theta 0.04 and `bsmax=16` stay.
 - 80K hot vocabulary: held-out coverage 99.5 vs 98.6 % at 64K, paid for with 25 % more draft head and fold rows.
+
+## v2.5: draft Markov walk, one-pass checkpoint load, full draft context
+
+Same boxes, image and harness. Full runs with the release defaults (`results/V25-s05/`, `results/V25-s06/`) use
+`rnnhoist`, `LOAD_NOMMAP=1`, `MEM_FRACTION=0.81` and full-context draft attention.
+
+### Draft Markov walk (`rnnhoist`)
+
+Each of the seven steps projects [state, previous-token embedding, hidden_s, f_rnn] through `rnn_proj`. The
+`hidden_s` of every step and `f_rnn` are known before the walk (4,608 of the 5,120 input columns). Compute their
+GEMM contribution in FP32 up front. Each step runs the 768x512 slice for the state and previous-token embedding,
+adds the precomputed partial in FP32, rounds once to BF16 as stock does, and calls the stock gates. Against FP64,
+99.9 % of projection elements round correctly (stock cuBLAS 62 % at 8-16 rows). The target distribution is unchanged.
+
+| rows | stock walk us | `rnnhoist` walk us |
+|---:|---:|---:|
+| 1 | 584 | 320 |
+| 8 | 661 | 454 |
+| 16 | 782 | 596 |
+
+Seven steps, CUDA graph, cold L2. Same-session serving (`sbquick`, c1 step ms = tokens per step / tok/s):
+
+| box | `rnnhoist` step ms | control step ms |
+|---|---|---|
+| Spark_06 | 34.46 / 34.55 | 34.79 / 34.82 / 35.12 |
+| Spark_05 | 34.53 / 34.78 / 34.67 / 34.59 | 34.61 / 34.65 / 35.04 / 34.90 |
+
+Our implementation follows the walk-fusion idea of the one-kernel DSpark Markov walk in
+[vLLM PR #62958](https://github.com/vllm-project/vllm/pull/62958)
+([tie-pilot-qxw/dspark-markov-walk](https://github.com/tie-pilot-qxw/dspark-markov-walk), MIT).
+
+### One-pass checkpoint load (`LOAD_NOMMAP=1`)
+
+`--weight-loader-disable-mmap` is SGLang's one-pass safetensors read. In the screen, warm start-up went from
+263-268 s to 131-137 s and target weight load from 160 s to 22-34 s. With the flag alone the KV pool lost 6 %.
+`MALLOC_MMAP_THRESHOLD_=1048576` lets large frees return to the OS before SGLang sizes the pool, leaving a 2.6 %
+loss at the same fraction. The default `MEM_FRACTION` goes from 0.80 to 0.81. The load strategy follows sxuff's
+127 -> 45 s warm start with vLLM's `--safetensors-load-strategy eager` on this checkpoint, found with 0xSero's
+inference-optimisation skill (CREDITS.md).
+
+### Drafter global-attention window off by default
+
+Both boxes, 2-3 rounds of on/off, 6-24 requests of 512 tokens per cell with salted documents
+(`results/screen-r2/DW*`, `DL*`, `AB32*`). The v2.4 screen judged tokens per step from 1-2 requests per cell.
+
+| context | tokens per step, `dwin:16384` / off | step ms, `dwin:16384` / off | decode tok/s change |
+|---|---:|---:|---:|
+| 32K | 3.16 / 3.54 | 45.6 / 45.6 | -11 % |
+| 64K | 3.10 / 3.34 | 48.6 / 50.3 | -7 % |
+| 128K | 2.88 / 3.09 | 55.7 / 57.8 | -3 % |
+| 250K | 2.75 / 2.75 | 69.6 / 74.6 | +7 % |
+
+The draft's global layer loses far-context copying with the 16K window. At 32K-128K the drop in tokens per step
+outweighs the time saved per step. With `dwin:65536`, decode equals off through 64K, is -2 % at 128K and +3 % at
+250K. The default uses the whole context. `DRAFT_BYTES=...,dwin:16384` remains an option for workloads mostly above
+200K tokens.
+
+### Confirmation (both boxes, `bench/full.sh`)
+
+Medians of both boxes except where noted. Tables from `python3 bench/report.py results/V25-s05 results/V25-s06`
+and `python3 bench/report.py results/V24-s05 results/V24-s06`.
+
+| | v2.4 | v2.5 |
+|---|---|---|
+| speedbench full, all 73 | 64.1 | 64.2 |
+| tokens per step / step ms (speedbench, c1) | 2.383 / 37.4 | 2.383 / 37.1 |
+| decode table prose c1 / c4 / c8 / c16 | 52.9 / 107.3 / 159.6 / 236.4 | 53.0 / 107.7 / 161.9 / 238.9 |
+| decode table code / json c16 | 261.3 / 275.4 | 260.4 / 277.1 |
+| thinking c1 / c8 / c24 | 68.2 / 239.9 / 439.4 | 70.5 / 235.6 / 445.2 |
+| cold prefill 1K / 8K / 32K / 128K | 2,939 / 5,456 / 5,148 / 3,805 | 2,893 / 5,464 / 5,143 / 3,806 |
+| decode at 32K / 128K | 63.3 / 48.2 | 71.0 / 46.4 |
+| KV pool (Spark_05 / Spark_06) | 1,113,984 / 1,117,184 | 1,105,792 / 1,106,816 |
+| lowest MemAvailable in the full runs | 15.6-16.0 GiB | 16.1-16.3 GiB |
+| quality guard / sanity / needles 120K + 240K | 30/30 / 11/11 / PASS on both | 30/30 / 11/11 / PASS on both |
+
+Warm start-up was 137 / 131 s (Spark_05 / Spark_06), with 16.5-16.6 GiB MemAvailable after start. The global-layer
+KV pool ranges from 1.11M to 1.13M tokens across boots. On Spark_06 (`results/V25-s06/K/`), c1 at 200K / 250K
+decoded at 43.8 / 37.9 tok/s and cold prefill reached 3,105 / 2,655 tok/s. With thinking c24 (48 x 2,048 tokens)
+alongside a cold 240K-token needle prefill, MemAvailable reached 14.5 GiB, thinking ran at 309.2 tok/s, and the
+needle passed.
+
+### Screened and not adopted
+
+- **Humming MoE** ([vllm-project/humming](https://github.com/vllm-project/humming) 0.1.20, Apache-2.0, vLLM
+  `--moe-backend humming`): same W4A4 block-scaled MMA, 0 mismatches in 102 comparisons against FlashInfer on real
+  weights and routing. Per call 1.5-2.4 % faster than stock FlashInfer, generally 0-3 % slower than scale codes,
+  at 223-234 GB/s. Layer 0, cold L2, Humming vs scale codes: c1 w13 471 vs 464 us, c1 w2 243 vs 236 us, c8 w13
+  1,259 vs 1,223 us, c24 w2 835 vs 843-864 us. The tuning sweep was within ~1 % of scale codes.
+- **INT8 per-row draft weights** (sxuff's format, in place of FP8 / MXFP8): 2-3x lower weight error (head 0.94
+  vs 2.64 % relative error). On 12,358 real draft blocks the best combination gave +0.0015 tokens per step
+  (95 % CI -0.0048 to +0.0076), and BF16 gave -0.0028. The byte count equals FP8, leaving no byte-driven step-time gain.
+- **Context n-gram proposals spliced into DSpark** (prompt lookup / suffix decoding): offline replay at full width
+  with the rule fixed in advance gave +0.046 tokens per step overall (CI +0.01 to +0.09) and -0.04 on code. The
+  best-of-both oracle gave +0.17. The rule fell below our +0.15 bar and was not built.
+- **Extra draft vocabulary rows per step** ([vLLM PR #67238](https://github.com/vllm-project/vllm/pull/67238)):
+  only 3.1 % of rejections are hot-vocabulary misses, bounding the gain at +0.058 tokens per step. Not built.
+
+### Other recipes, same harness
+
+[sxuff/inkling-2-mini-spark](https://github.com/sxuff/inkling-2-mini-spark) (vLLM + DSpark + INT8 draft,
+`serve.sh q8`, pinned image) and our v2.4 recipe ran on Spark_06 the same day
+(`results/screen-r2/SXQ8-s06`, `results/screen-r2/SXOUR-s06`).
+
+| | sxuff q8 | our v2.4 |
+|---|---|---|
+| sxuff `bench.py` median tok/s (code / prose / math) | 65.45 (72.1 / 44.8 / 65.5) | 67.77 (67.8 / 63.6 / 77.7) |
+| speedbench quick tok/s | 45.84 / 45.95 | 63.10 / 63.05 |
+| speedbench quick step ms / tokens per step | 54.6 / 2.41 | 36.5 / 2.19 |
+| decode prose c1 / c4 / c8 / c16 | 36.1 / 81.4 / 123.2 / 133.6 | 52.7 / 107.9 / 156.1 / 239.3 |
+
+`bench.py` sends 9 greedy requests x 160 tokens at effort low. The 65.45 tok/s median reproduces the published
+66.72 within 2 %. The q8 recipe's `max-num-seqs` of 8 caps the c16 cell. Thinking c1 / c8 on q8 was 59.6 /
+216.2 tok/s.

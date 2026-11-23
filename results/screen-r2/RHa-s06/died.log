@@ -1,0 +1,60 @@
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/model_runner_components/cuda_graph_setup.py", line 855, in capture_decode_graph
+    runner = GraphRunnerCls(model_runner)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 687, in __init__
+    self.capture()
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 1312, in capture
+    self._capture()
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 1374, in _capture
+    self._capture_one_stream()
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 1429, in _capture_one_stream
+    self.capture_one_shape(
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 1571, in capture_one_shape
+    self.backend.capture_one(
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner_backend/full_cuda_graph_backend.py", line 172, in capture_one
+    output = forward_fn()
+             ^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 1540, in run_once
+    capture_hook(self, out, forward_batch, num_tokens)
+  File "/sgl-workspace/sglang/python/sglang/srt/speculative/draft_worker_common.py", line 163, in capture_hook
+    draft_sampler(out.hidden_states, forward_batch.input_ids)
+  File "/sgl-workspace/sglang/python/sglang/srt/speculative/dspark_components/dspark_draft_sampler.py", line 198, in __call__
+    draft_tokens, confidence_features = self._draft_strategy.run(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/srt/kernel_plugins/nvidia/dspark_binding.py", line 39, in run
+    return stock(model_hidden, sample_hidden, anchor_tokens, batch_size)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/srt/speculative/dspark_components/dspark_draft_sampler.py", line 243, in _markov_block
+    draft_tokens, _ = draft_markov_block(
+                      ^^^^^^^^^^^^^^^^^^^
+  File "/sgl-workspace/sglang/python/sglang/srt/speculative/dspark_components/dspark_draft.py", line 293, in draft_markov_block
+    state = markov_head.init_state(draft_hidden)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-overlay/inkling_draftbytes/patches.py", line 190, in init_state
+    self._idb_walk = rnnhoist.begin_walk(packs, hidden_states, state[1], STATE.opts.rnnhoist_max_bs)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-overlay/inkling_draftbytes/rnnhoist.py", line 74, in begin_walk
+    pre = ops.w8_linear(flat, packs.wh, None, torch.float32).view(bs, gamma, -1)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/inkling-overlay/inkling_draftbytes/ops.py", line 79, in w8_linear
+    _triton().w8_mm(x2, pack, bias, out, **kw)
+  File "/opt/inkling-overlay/inkling_draftbytes/_triton.py", line 383, in w8_mm
+    LAST["w8_mm"] = _w8_mm_kernel[grid](
+                    ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sglang/lib/python3.12/site-packages/triton/runtime/jit.py", line 374, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sglang/lib/python3.12/site-packages/triton/runtime/jit.py", line 778, in run
+    launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sglang/lib/python3.12/site-packages/triton/compiler/compiler.py", line 496, in launch_metadata
+    self._init_handles()
+  File "/opt/sglang/lib/python3.12/site-packages/triton/compiler/compiler.py", line 468, in _init_handles
+    raise_(OutOfResources(self.metadata.shared, max_shared, "shared memory"))
+  File "/opt/sglang/lib/python3.12/site-packages/triton/compiler/compiler.py", line 460, in raise_
+    raise err
+triton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 131072, Hardware limit: 101376. Reducing block sizes or `num_stages` may help.
+
+[2026-11-22 18:13:30] Received sigquit from a child process. It usually means the child failed.
+[2026-11-22 18:13:30] kill_process_tree called: parent_pid=1, include_parent=True, pid=1
+[2026-11-22 18:13:30] kill_process_tree called: parent_pid=1, include_parent=False, pid=1

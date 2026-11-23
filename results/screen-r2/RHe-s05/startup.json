@@ -1,0 +1,2 @@
+{"label":"RHe-s05","ready_utc":"2026-11-23T07:14:45Z","startup_s":233,"memavail_ready_gib":16.9,"kv":"[2026-11-23 07:14:41 PID107] max_total_num_tokens=1109248, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=16.43 GB"}
+{"memavail_end_gib":16.7}

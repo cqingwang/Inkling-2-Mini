@@ -1,0 +1,2 @@
+{"label":"RHa2-s06","ready_utc":"2026-11-22T18:55:09Z","startup_s":262,"memavail_ready_gib":17.2,"kv":"[2026-11-22 18:55:06 PID105] max_total_num_tokens=1109760, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=17.59 GB"}
+{"memavail_end_gib":16.1}

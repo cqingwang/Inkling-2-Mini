@@ -18,6 +18,14 @@
   [inkling-2-mini-vllm-dgx-spark](https://github.com/thefullctx/inkling-2-mini-vllm-dgx-spark): the first published
   SGLang vs vLLM head-to-head on one Spark (vLLM slightly ahead on short c1 decode, SGLang ~2x on long prefill, faster
   long-context decode and much lower memory use), which set the arms of our comparison.
+- **sxuff**, [inkling-2-mini-spark](https://github.com/sxuff/inkling-2-mini-spark) (Apache-2.0): the vLLM + DSpark
+  + INT8 draft recipe and benchmark used for the same-harness comparison, and the `--safetensors-load-strategy eager`
+  result (127 -> 45 s) that prompted our one-pass checkpoint load with SGLang's own flag.
+- **0xSero**, [inference-optimisation skill](https://github.com/sybil-solutions/inference-optimisation-skill) (MIT):
+  the method behind sxuff's eager-load finding.
+- **tie-pilot-qxw**, [dspark-markov-walk](https://github.com/tie-pilot-qxw/dspark-markov-walk) (MIT), and
+  [vLLM PR #62958](https://github.com/vllm-project/vllm/pull/62958): the one-kernel DSpark Markov walk that
+  inspired `rnnhoist`. Our projection split is an independent implementation.
 - **nick398** on the [NVIDIA developer forum thread](https://forums.developer.nvidia.com/t/inkling-2-mini/389745): the
   first FP8-KV serving notes for this model (vLLM `--kv-cache-dtype fp8` on an RTX 5090: about half the KV memory per
   token, described there as a quality trade-off).
@@ -38,8 +46,8 @@
 - **Sun et al.**, "Block Verification Accelerates Speculative Decoding" (ICLR 2025): the block-verification algorithm
   that sampled requests use (`VCAP_BV`). Running it under the verify cap (dead drafts as a stopped draft) and its
   logits-only form in the fused accept are ours.
-- **Xiao et al.**, "Efficient Streaming Language Models with Attention Sinks" (StreamingLLM, 2023): the attention
-  sink kept by the drafter's global-attention window (`dwin`, 128 sink tokens plus the last 16,384).
+- **Xiao et al.**, StreamingLLM (2023): the attention sink kept by the optional drafter global-attention window
+  (`dwin`, 128 sink tokens by default).
 - **Lossless float compression by exponent coding** (ZipNN, Hershcovitch et al., 2024; SplitZip) and **Andy Shu's
   exactly coded 12-bit `bf16x` format**: the inspiration for the packed 12-bit global-layer KV in
   `overlay/inkling_kv12/` (sign + mantissa byte, 4-bit exponent code, escapes). The KV format, packer and attention

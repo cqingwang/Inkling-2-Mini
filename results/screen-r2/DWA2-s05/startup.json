@@ -1,0 +1,2 @@
+{"label":"DWA2-s05","ready_utc":"2026-11-22T19:24:34Z","startup_s":237,"memavail_ready_gib":16.4,"kv":"[2026-11-22 19:24:30 PID108] max_total_num_tokens=1119872, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=16.68 GB"}
+{"memavail_end_gib":16.0}

@@ -1,0 +1,2 @@
+{"label":"DLoff2-s06","ready_utc":"2026-11-22T21:51:25Z","startup_s":267,"memavail_ready_gib":16.3,"kv":"[2026-11-22 21:51:19 PID107] max_total_num_tokens=1119616, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=48, context_len=262144, available_gpu_mem=16.66 GB"}
+{"memavail_end_gib":15.5}

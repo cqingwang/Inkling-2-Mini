@@ -296,6 +296,19 @@ class PatchTests(unittest.TestCase):
     def test_hotvocab_sampled_rows(self):
         self.assertTrue(run_scenario("hot_sampled", "hotvocab:2000")["ok"])
 
+    def test_rnnhoist(self):
+        for opt in ("rnnhoist", "rnnhoist,fold8,hotvocab:2500"):
+            r = run_scenario("rnnhoist_compare", opt)
+            self.assertIn("Inkling2MTPHead._rnn_step", r["patched"], opt)
+            self.assertIn("Inkling2MTPHead.init_state", r["patched"], opt)
+            self.assertEqual(r["hoisted_calls"], 7, opt)  # every step of the walk took the hoisted path
+            self.assertEqual(r["step_index"], list(range(7)), opt)
+            self.assertEqual(r["outside_walk"], [-1, -1, -1, -1], opt)
+            self.assertTrue(r["too_many_rows"], opt)
+            self.assertLessEqual(r["proj_worst_ulp"], 1.0, opt)  # FP32 order only: at most one BF16 ulp
+            self.assertTrue(r["neginf_match"], opt)
+            self.assertGreater(r["logits_within_1ulp"], 0.999, opt)
+
     def test_gemv_cpu_falls_back_to_stock(self):
         r = run_scenario("head_compare", "gemv")
         self.assertLess(r["rel_err"], 1e-5)  # CPU BLAS summation order differs by platform

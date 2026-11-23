@@ -7,6 +7,7 @@ Patch points (all draft-side; the target model and the accept path are untouched
     Inkling2ForConditionalGenerationMTP.compute_base_logits    -> hotvocab
     Inkling2MTPHead.step_bias                                  -> fold8 / foldk
     Inkling2MTPHead.refresh_fold                               -> re-prepare in place on weight updates
+    Inkling2MTPHead.init_state / _rnn_step                     -> rnnhoist (rnnhoist.py)
     project_through_lm_head (the name inkling2_mtp imported)   -> gemv / head8
   sglang.srt.speculative.dspark_components.dspark_draft
     _draft_step                                                -> hotvocab
@@ -33,7 +34,7 @@ from typing import Optional
 
 import torch
 
-from . import dwin, ops, tau as tau_mod, w8gemv
+from . import dwin, ops, rnnhoist, tau as tau_mod, w8gemv
 from ._hooks import when_imported
 from .quant import SCALE_E8M0, W8Pack, bf16_pack, quantize_mode
 
@@ -98,6 +99,9 @@ def patch_inkling2_mtp(mod) -> None:
     )
     head_cls = mod.Inkling2MTPHead
     model_cls = mod.Inkling2ForConditionalGenerationMTP
+    _rnn_gates = getattr(mod, "rnn_gates", None)
+    if opts.rnnhoist and _rnn_gates is None:
+        _fail(f"rnnhoist: rnn_gates not found in {MTP_MODULE}; the image changed")
     _require(head_cls, ["step_bias", "refresh_fold", "_rnn_step", "attach_fold"], "Inkling2MTPHead")
     _require(model_cls, ["compute_base_logits", "attach_shared_modules"], "Inkling2ForConditionalGenerationMTP")
 
@@ -171,6 +175,33 @@ def patch_inkling2_mtp(mod) -> None:
             return bias, (state, f_rnn)
 
         _replace(head_cls, "step_bias", step_bias, "Inkling2MTPHead.step_bias")
+
+    if opts.rnnhoist:
+        _require(head_cls, ["init_state"], "Inkling2MTPHead")
+        orig_init = head_cls.init_state
+        orig_rnn = head_cls._rnn_step
+
+        @functools.wraps(orig_init)
+        def init_state(self, hidden_states):
+            state = orig_init(self, hidden_states)
+            packs = getattr(self, "_idb_rnn", None)
+            self._idb_walk = None
+            if packs is not None and isinstance(state, tuple) and len(state) == 2:
+                self._idb_walk = rnnhoist.begin_walk(packs, hidden_states, state[1], STATE.opts.rnnhoist_max_bs)
+            return state
+
+        @functools.wraps(orig_rnn)
+        def _rnn_step(self, state, prev_tokens, hidden, f_rnn):
+            packs = getattr(self, "_idb_rnn", None)
+            walk = getattr(self, "_idb_walk", None)
+            s = rnnhoist.step_index(walk, hidden, f_rnn) if packs is not None else -1
+            if s < 0:
+                return orig_rnn(self, state, prev_tokens, hidden, f_rnn)
+            proj = rnnhoist.hoisted_proj(packs, walk, s, state, prev_tokens, self.markov_w1.weight)
+            return _rnn_gates(proj, state)
+
+        _replace(head_cls, "init_state", init_state, "Inkling2MTPHead.init_state")
+        _replace(head_cls, "_rnn_step", _rnn_step, "Inkling2MTPHead._rnn_step")
 
     if opts.hotvocab:
         orig_base = model_cls.compute_base_logits
@@ -502,6 +533,10 @@ def prepare(model, refresh: bool = False) -> None:
             notes.append("w8gemv <= 16 rows " + " ".join(f"{n}x{k}:{c or 'triton'}" for n, k, c in cfgs)
                          + (f" (ext {'reused' if w8gemv.INFO.get('cached') else 'built'} "
                             f"{w8gemv.INFO.get('seconds', 0):.1f} s)" if w8gemv.INFO else ""))
+    if opts.rnnhoist:
+        if getattr(head, "_idb_rnn", None) is None:
+            head._idb_rnn = rnnhoist.build_packs(head.rnn_proj, int(head.markov_rank), int(head.hidden_size))
+        notes.append(f"rnnhoist (<= {opts.rnnhoist_max_bs} rows) {_mb(head._idb_rnn.nbytes())}")
     if opts.gemv:
         notes.append(f"gemv (sm12x <=16 rows, own kernel <= {opts.gemv_max_m})")
     if opts.tau != 1.0:

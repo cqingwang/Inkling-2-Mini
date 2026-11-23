@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.5 (2026-11-23)
+
+One-pass checkpoint loading, a cheaper draft Markov walk and full-context draft attention by default. Median of
+both boxes, `bench/full.sh` (`results/V25-s05/`, `results/V25-s06/`), against v2.4: speedbench full c1 64.2 (64.1)
+at 2.383 tokens per step in both releases; decode prose c1 / c4 / c8 / c16 53.0 / 107.7 / 161.9 / 238.9
+(52.9 / 107.3 / 159.6 / 236.4), code / json c16 260.4 / 277.1 (261.3 / 275.4); thinking c1 / c8 / c24
+70.5 / 235.6 / 445.2 (68.2 / 239.9 / 439.4); cold prefill 1K / 8K / 32K / 128K 2,893 / 5,464 / 5,143 / 3,806
+tok/s (2,939 / 5,456 / 5,148 / 3,805); decode at 32K / 128K 71.0 / 46.4 (63.3 / 48.2). At 200K / 250K on Spark_06,
+c1 decode 43.8 / 37.9 tok/s, cold prefill 3,105 / 2,655 tok/s. Warm start-up 137 / 131 s and KV pool 1,105,792 /
+1,106,816 global-layer tokens (Spark_05 / Spark_06); 16.5-16.6 GiB MemAvailable after start. The stress runs
+reached 14.1 / 14.5 GiB lowest MemAvailable (Spark_05 / Spark_06) with thinking c24 at 310.7 / 309.2 tok/s alongside a
+cold 240K-token needle, PASS. Quality guard
+30/30, sanity 11/11, needles 120K / 240K PASS on both boxes.
+
+- `inkling_draftbytes` `rnnhoist`: precompute the known 90 % of the Markov projection in FP32, run the 768x512
+  dependent slice per step, then round once to BF16 and call the stock gates. Draft proposals only. The seven-step
+  walk takes 320 / 454 / 596 us at 1 / 8 / 16 rows (584 / 661 / 782 us, cold L2, CUDA graph).
+- `LOAD_NOMMAP=1`: SGLang's `--weight-loader-disable-mmap` reads the checkpoint in one pass. Warm start-up
+  263-268 -> 131-137 s, target weight load 160 -> 22-34 s in the screen. `MALLOC_MMAP_THRESHOLD_=1048576`
+  returns large frees to the OS before KV allocation, reducing the pool loss from 6 % to 2.6 % at the same fraction.
+  `MEM_FRACTION` default 0.80 -> 0.81.
+- `dwin:16384` is off by default again. The 16K window loses far-context copying. Controlled A/Bs on both boxes
+  put net decode at -11 / -7 / -3 / +7 % at 32K / 64K / 128K / 250K. The option stays available for workloads
+  mostly above 200K tokens.
+- Screened, not adopted: Humming MoE, per-row INT8 draft weights, context n-gram proposals, extra draft vocabulary
+  rows per step. Details and the same-harness vLLM comparison are in docs/experiments.md "v2.5".
+
 ## v2.4 (2026-11-22)
 
 Sampled-path verification, a drafter attention window and a packed global-layer KV; all exact. Median of both boxes,

@@ -57,6 +57,14 @@ class LMHead(nn.Module):
         self.quant_method = None
 
 
+def rnn_gates(proj, state):
+    """(state', latent) from the BF16 rnn_proj output (stand-in for the image's Triton rnn_gates)."""
+    gate, cand, out = proj.float().chunk(3, -1)
+    g = torch.sigmoid(gate)
+    new_state = (g * state.float() + (1 - g) * torch.tanh(cand)).to(state.dtype)
+    return new_state, torch.tanh(out).to(state.dtype)
+
+
 class Inkling2MTPHead(nn.Module):
     vocab_shard = None
     step_softcap = None
@@ -88,10 +96,7 @@ class Inkling2MTPHead(nn.Module):
     @torch.no_grad()
     def _rnn_step(self, state, prev_tokens, hidden, f_rnn):
         inputs = torch.cat([state, self.markov_w1(prev_tokens.long()), hidden, f_rnn], -1)
-        gate, cand, out = self.rnn_proj(inputs).float().chunk(3, -1)
-        g = torch.sigmoid(gate)
-        new_state = (g * state.float() + (1 - g) * torch.tanh(cand)).to(state.dtype)
-        return new_state, torch.tanh(out).to(state.dtype)
+        return rnn_gates(self.rnn_proj(inputs), state)
 
     def init_state(self, hidden_states):
         bs = hidden_states.shape[0]
