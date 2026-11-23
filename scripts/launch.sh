@@ -28,6 +28,7 @@ VLLM_IMAGE=${VLLM_IMAGE:-vllm/vllm-openai@sha256:c2dc759f5984f69c1e2418c6af7c26e
 MODEL_REVISION=ed40e7da625f594fc9c4990f5f66be24873c22d7
 
 # SGLang profile
+MEM_FRACTION_USER=${MEM_FRACTION:-}
 MEM_FRACTION=${MEM_FRACTION:-0.93}
 SWA_RATIO=${SWA_RATIO:-0.05}                                 # sliding-window pool / full pool tokens (image default 0.1; 48 requests need ~72K)
 LOAD_NOMMAP=${LOAD_NOMMAP:-1}                               # read the checkpoint in one pass instead of mmap page faults (start-up ~265 -> ~130 s)
@@ -50,6 +51,10 @@ VCAP_BV=${VCAP_BV:-1}                                       # block verification
 VCAP_FASTPROBS=${VCAP_FASTPROBS:-1}                         # draft statistics / sampled accept q from one BF16 read (exact)
 VCAP_FUSED=${VCAP_FUSED:-1}                                 # sampled accept straight from the logits, >= 3 requests (exact)
 KV12=${KV12:-1}                                             # global-layer KV also kept as packed 12-bit pages (exact; side pool)
+CERT_WIDE=${CERT_WIDE:-1}                                   # certified greedy LM head for 17-192-row verify batches (exact)
+KV12S=${KV12S:-0}                                           # authoritative packed target and draft FULL KV
+KV12S_OVERFLOW_HEADS=${KV12S_OVERFLOW_HEADS:-512}
+KV12S_DRAFT_OVERFLOW_HEADS=${KV12S_DRAFT_OVERFLOW_HEADS:-2048}
 KV12_SLOTS=${KV12_SLOTS:-2048}                              # packed side-pool pages per global layer (2048 = 6.1 GiB, one 256K request)
 SCODES=${SCODES:-1}                                          # NVFP4 expert scale codes: 5-bit codes + row base, expanded in the GEMM (exact)
 PFUSE=${PFUSE:-all}                                         # prefill glue fusion (empty = stock)
@@ -78,6 +83,18 @@ case $cmd in
   up) ;;
   *) echo "usage: $0 up|down|status|logs [extra engine flags]" >&2; exit 2 ;;
 esac
+
+kv12s_args=()
+if [[ $KV12S == 1 ]]; then
+  [[ $ENGINE == sglang && $OVERLAY == 1 ]] || {
+    echo "KV12S=1 requires ENGINE=sglang and OVERLAY=1" >&2; exit 2; }
+  KV12=0
+  # The unified pool leaves less post-capture headroom than the stock pool at the same
+  # fraction; 0.91 keeps MemAvailable above the guard during 8K prefill chunks.
+  [[ -n $MEM_FRACTION_USER ]] || MEM_FRACTION=0.91
+  kv12s_args=(--enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48
+              --cuda-graph-backend-decode=full --cuda-graph-max-bs-decode=48)
+fi
 
 [[ -f $MODEL_DIR/config.json && -f $MODEL_DIR/mtp.safetensors ]] || {
   echo "no model in $MODEL_DIR (run scripts/download.sh first; mtp.safetensors is the DSpark draft)" >&2; exit 1; }
@@ -114,7 +131,9 @@ if [[ $ENGINE == sglang ]]; then
         -e INKLING_CERT_HEAD="$CERT_HEAD" -e INKLING_WIDE="$WIDE" -e INKLING_WIDE_SCOPE="$WIDE_SCOPE"
         -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE" -e INKLING_MOE2="$MOE2" -e INKLING_SCODES="$SCODES"
         -e INKLING_VERIFY_CAP_FASTPROBS="$VCAP_FASTPROBS" -e INKLING_VERIFY_CAP_FUSED_ACCEPT="$VCAP_FUSED"
-        -e INKLING_KV12="$KV12" -e INKLING_KV12_MAX_PAGES="$KV12_SLOTS")
+        -e INKLING_KV12="$KV12" -e INKLING_KV12_MAX_PAGES="$KV12_SLOTS"
+        -e INKLING_CERT_WIDE="$CERT_WIDE" -e INKLING_KV12S="$KV12S" -e INKLING_KV12S_OVERFLOW_HEADS="$KV12S_OVERFLOW_HEADS"
+        -e INKLING_KV12S_DRAFT_OVERFLOW_HEADS="$KV12S_DRAFT_OVERFLOW_HEADS")
   fi
   run=("${common[@]}" ${ov[@]+"${ov[@]}"}
        -e MAX_JOBS=4
@@ -127,10 +146,11 @@ if [[ $ENGINE == sglang ]]; then
        --entrypoint python3 "$SGLANG_IMAGE"
        -m sglang.launch_server --model-path /model --served-model-name "$SERVED"
        --tp 1 --ep 1 --attention-backend fa4 --dtype bfloat16 --page-size 128
-       ${spec[@]+"${spec[@]}"}
+       ${spec[@]+"${spec[@]}"} ${kv12s_args[@]+"${kv12s_args[@]}"}
        --mem-fraction-static "$MEM_FRACTION" --context-length "$CTX"
        --grammar-backend xgrammar --reasoning-parser inkling --tool-call-parser inkling2
-       --enable-metrics --host "$HOST" --port "$PORT" ${nommap_arg[@]+"${nommap_arg[@]}"} --swa-full-tokens-ratio "$SWA_RATIO" $SGLANG_ARGS "$@")
+       --enable-metrics --host "$HOST" --port "$PORT" ${nommap_arg[@]+"${nommap_arg[@]}"} --swa-full-tokens-ratio "$SWA_RATIO"
+       --max-mamba-cache-size 512 --max-prefill-tokens 8192 $SGLANG_ARGS "$@")
 elif [[ $ENGINE == vllm ]]; then
   specj='{"method":"dspark","num_speculative_tokens":7,"draft_sample_method":"probabilistic"}'
   spec=(--speculative-config "$specj")

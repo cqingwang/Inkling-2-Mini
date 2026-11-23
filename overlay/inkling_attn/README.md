@@ -28,6 +28,18 @@ B fragment with one 8-byte load.
 
 Decode, target verify and draft extend never enter a visit (stock paths untouched).
 
+## Long prefixes: 8 warps from `INKLING_ATTN_W8_FROM` keys (default 131072)
+
+The 4-warp kernel (BM 64, 2 CTAs / SM) keeps ~71 TF/s up to ~256-320K prefix keys in isolation (~150K in serving)
+and falls to the stock rate (~47 TF/s) at 512K-1M as its K/V traffic per FLOP stops being served from L2. The 8-warp
+instantiation (BM 128, half the bytes per FLOP) holds ~69 TF/s at every prefix and computes every row
+bit-identically. On global layers, for the BF16 loader and the packed-prefix loader alike, the binding launches two
+grids per call (`launch_global`): requests whose prefix (seqused_k - new rows) is >= `INKLING_ATTN_W8_FROM` run on
+8 warps, the others on 4; each CTA reads its request's lengths on the device and returns before any shared-memory
+access when the other grid owns the request (no host sync, CUDA-graph capturable). `INKLING_ATTN_W8_FROM=0`, SWA
+layers and `INKLING_ATTN_WARPS=8` keep a single launch. Checks: `tests/test_w8split_cpu.py`,
+a development GPU check (not shipped; both loaders, 256K-1M, graph replay).
+
 ## Math and exactness
 
 Same math as stock: bias = BF16(FP32 dot of r and proj) for distances 0..1023 (0 beyond on global layers),

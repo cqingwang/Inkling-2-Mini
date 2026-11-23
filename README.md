@@ -4,13 +4,16 @@ Serving [thinkingmachines/Inkling-2-Mini](https://huggingface.co/thinkingmachine
 (GB10, sm_121, 121.6 GiB unified memory) with the model's own NVFP4 / MXFP8 weights and its bundled DSpark draft,
 on SGLang, plus a set of import-time speed overlays that leave the model's outputs as they are.
 
-**Status (2026-11-23, v2.6):** one profile. SGLang `lmsysorg/sglang:inkling-2-mini` with the cookbook's DGX Spark DSpark
-settings, and thirteen overlay packages (`overlay/`) that cut the bytes read per decode step (weights, draft and the
+**Status (2026-11-23, v2.7):** one profile. SGLang `lmsysorg/sglang:inkling-2-mini` with the cookbook's DGX Spark DSpark
+settings, and fourteen overlay packages (`overlay/`) that cut the bytes read per decode step (weights, draft and the
 global-layer KV at long context), the kernel time of the concurrent verify batches and of the sampled accept, and the
 work per prefill chunk. Against the stock cookbook cell, speedbench is +59 % at c1, concurrent prose decode is
 +28 to +43 % at c4-c16, thinking load is +21 to +37 %, cold prefill is +34 to +61 %, and decode at 128K is +25 %.
-v2.6 sizes the KV pools for 1.55M global-layer tokens. Throughput is within run-to-run variation and the target
-distribution is unchanged.
+The default KV pools hold about 1.59M global-layer tokens; the opt-in packed KV store (`KV12S=1`, see "Packed global
+KV store") holds 2.17M. The target distribution is unchanged. v2.7 adds the certified head for 17-192-row verify
+batches, a long-prefix prefill fix (1.4-1.5x per global layer at 512K-1M prefixes) and a measured 512K / 1M-context
+option. The speed tables below are the v2.6 full runs; a v2.7 quick check of the default build matches them (greedy
+texts identical to v2.6 on 32/32 speedbench quick prompts), and full v2.7 runs follow.
 
 | | stock SGLang cookbook cell (mem 0.62) | this recipe |
 |---|---:|---:|
@@ -19,7 +22,7 @@ distribution is unchanged.
 | thinking load c1 / c8 / c24 (effort high, T=0.8) | 52.3 / 193.6 / 374.9 | **71.5 / 236.4 / 451.9** |
 | cold prefill, 8K / 128K tokens, tok/s | 3,399 / 2,422 | **5,478 / 3,805** |
 | decode at 128K context, c1, tok/s | 37.1 | **46.4** |
-| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **1.55M / 5.8-6.1 GiB** |
+| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **1.59M / 6.3 GiB** (`KV12S=1`: 2.17M / 6.9 GiB) |
 
 ## Speed
 
@@ -178,6 +181,8 @@ tables above. Raw files: `results/screen/`, `results/screen-r2/`; details and re
 | Draft MXFP8 layers with narrow-N tiles (BN 16) | `DRAFT_BYTES=...,w8tile` | draft layers 155 -> 198 GB/s, -0.36 ms per c1 step | bit-identical | ours |
 | Draft Markov walk: precompute the FP32 contribution of 90 % of `rnn_proj` input columns once per walk, leaving a 768x512 projection per step | `DRAFT_BYTES=...,rnnhoist` | 7-step walk, cold L2, 1 / 8 / 16 rows: 584 -> 320 / 661 -> 454 / 782 -> 596 us | draft proposals only; 99.9 % of elements correctly rounded vs FP64 | ours; walk-fusion idea from [vLLM PR #62958](https://github.com/vllm-project/vllm/pull/62958) (MIT) |
 | Certified greedy LM head: a 6-bit copy of the head and a rigorous per-logit error bound select the 16-row vocabulary tiles that can hold the argmax; pico's exact GEMV computes only those; everything else is -inf before the stock softcap and argmax | `CERT_HEAD=1` | head 2.90 -> 1.67 ms per 8-row step; speedbench quick 55.0 -> 56.7 (+3 %), decode c1 +3.5 %; only greedy steps of <= 16 rows without logprobs / grammar (sampled steps run the full head) | identical argmax by construction (serving check: 45,584 rows, 0 mismatches) | ours (ported from our GLM-5.3-Flash certified head; exact pass = pico's kernel) |
+| Certified greedy LM head for 17-192-row verify batches: one 6-bit screen pass over all rows, the exact packed wide-head arithmetic only on the union of candidate tiles, reduced straight to token ids | `CERT_WIDE=1` (`INKLING_CERT_WIDE`) | head + softcap + argmax at 64 rows 3.99 -> 1.72 ms, 128 rows 5.09 -> 3.19 ms (cold); serving greedy decode c4 / c8 +1.6-2.1 / +1.0-1.5 %, c1 and c16 within noise; every eligible step certified on real traffic | identical argmax to the shipped wide head (per-row proof; the GB10 tensor-core error model is qualified inside the GPU check; dense fallback when unsafe) | ours (extends the <= 16-row certified head) |
+| Long-prefix fused prefill: on global layers, requests whose prefix is >= 131,072 keys run the fused prefill kernel's existing 8-warp variant (128 query rows per block), the rest the 4-warp variant, in two graph-safe launches | `INKLING_ATTN_W8_FROM` (default 131072; 0 = one launch) | the 4-warp kernel loses L2 reuse of K/V on long sweeps (70.7 TF/s at 120-256K, 46.5 at 1M); per global layer and 8K chunk: 512K 1,082 -> 777 ms (1.39x), 1M 2,281 -> 1,547 ms (1.47x) | bit-identical to the single 4-warp launch (all rows, output and LSE, 256K-1M, mixed batches, graph replay) | ours |
 | Packed 12-bit GEMM for 17-256-row verify batches: reads pico's coded weights once per call, mma.sync over all rows (qkvr <= 96 rows per source, wo_ud <= 32, LM head <= 256; verify/decode forwards only) | `WIDE=dense,lmhead` | qkvr 1.24-1.34x and LM head 1.34-1.67x faster than cuBLAS at 17-64 rows; thinking c8 +8 %, greedy decode c4 / c8 / c16 +4 / +5 / +3 % | weights decode to the same BF16 bits; FP32 summation order differs from cuBLAS (error vs FP64 equal or lower) | ours; pico's `bf16x` reader (Andy Shu, MIT) |
 | Verify attention on the split-KV relative-bias kernel at every batch size (cap 32 -> 384 rows) and the bias computed in-kernel above 32 rows, instead of padded FA4 with a sheared [t, 32, 1280] bias | `VATTN=1` | verify-attention visit 1.4-1.7x faster at 8-48 requests; thinking c24 +7 %, greedy decode c8 / c16 +5 / +6 % | same math; bias bit-identical, output within 1 BF16 ulp of the stock compact path | ours; SGLang's Inkling2 verify kernel |
 | Packed 12-bit global-layer KV: full, committed KV pages of the 8 global-layer visits are also kept as sign + 7-bit mantissa bytes and a 4-bit exponent code against a fixed 15-exponent table (escape stream for the ~0.03 % of values outside it), 193 instead of 256 bytes per key and head; decode / verify attention decodes packed tiles in registers; 2,048 side slots per layer follow the pages being decoded (LRU) | `KV12=1`, `KV12_SLOTS=2048` | global verify visit 1.15-1.28x at 128K-256K (microbench); c1 step at 128K 62.2 -> 56.8 ms, at 250K 80.1 -> 75.2 ms; 92.6-99.9 % of tiles read packed; +6.1 GiB | bit-identical: decoded tiles equal the BF16 cache, attention partials equal stock's | ours, on SGLang's split-KV decode kernel; inspired by lossless exponent coding of floats (ZipNN, SplitZip) and by pico's exactly coded 12-bit `bf16x` weight format (Andy Shu); no code taken from either |
@@ -291,6 +296,7 @@ docker run -d --name inkling-2-mini --gpus all --ipc=host --network host --shm-s
   -e INKLING_CERT_HEAD=1 -e INKLING_WIDE=dense,lmhead -e INKLING_WIDE_SCOPE=verify -e INKLING_VATTN=1 \
   -e INKLING_ATTN=prefill_swa,prefill_global -e INKLING_PFUSE=all -e INKLING_MOE2=tiles -e INKLING_SCODES=1 \
   -e INKLING_VERIFY_CAP_FASTPROBS=1 -e INKLING_VERIFY_CAP_FUSED_ACCEPT=1 -e INKLING_KV12=1 -e INKLING_KV12_MAX_PAGES=2048 \
+  -e INKLING_CERT_WIDE=1 -e INKLING_KV12S=0 -e INKLING_KV12S_OVERFLOW_HEADS=512 -e INKLING_KV12S_DRAFT_OVERFLOW_HEADS=2048 \
   -e MAX_JOBS=4 \
   -e SGLANG_OPT_INKLING2_VERIFY_REL_BIAS_KERNEL=1 -e SGLANG_OPT_DSV41_DSPARK_MID_FOLD=1 \
   -e SGLANG_OPT_DSV41_DSPARK_PREPARE_INPUTS_ONCE=1 -e SGLANG_OPT_DSV41_DSPARK_SKIP_PREFILLED_INPUTS=1 \
@@ -301,7 +307,8 @@ docker run -d --name inkling-2-mini --gpus all --ipc=host --network host --shm-s
   --speculative-algorithm DSPARK --speculative-num-draft-tokens 8 --speculative-use-block-verification \
   --mem-fraction-static 0.93 --context-length 262144 \
   --grammar-backend xgrammar --reasoning-parser inkling --tool-call-parser inkling2 \
-  --enable-metrics --host 127.0.0.1 --port 8000 --weight-loader-disable-mmap --swa-full-tokens-ratio 0.05
+  --enable-metrics --host 127.0.0.1 --port 8000 --weight-loader-disable-mmap --swa-full-tokens-ratio 0.05 \
+  --max-mamba-cache-size 512 --max-prefill-tokens 8192
 ```
 
 Engine flags (the SGLang cookbook's DGX Spark DSpark cell, text only):
@@ -326,6 +333,7 @@ Engine flags (the SGLang cookbook's DGX Spark DSpark cell, text only):
 | `MEM_FRACTION=0.93` (`--mem-fraction-static 0.93`) | static pool for weights, KV and CUDA graphs. Gives 1.55M global-layer KV tokens (see Memory budget) |
 | `SWA_RATIO=0.05` (`--swa-full-tokens-ratio 0.05`) | sliding-window pool as a fraction of the global-layer pool. The image defaults to 0.1 |
 | `MIN_AVAIL_GIB=3.5` | host MemAvailable floor for the memory guard. Accepts decimal GiB |
+| `--max-mamba-cache-size 512`, `--max-prefill-tokens 8192` | conv-state slots (the image's default sized 1,232; peak use measured 76) and one 8,192-token prefill chunk in flight instead of two: +2.2 % KV tokens, prefill and decode unchanged |
 | `LOAD_NOMMAP=1` (`--weight-loader-disable-mmap`, `MALLOC_MMAP_THRESHOLD_=1048576`) | one-pass safetensors read; large frees return to the OS before SGLang sizes the KV pool; `0` uses the stock mmap loader |
 | `--context-length 262144` | per-request limit; the KV pool is shared, so this reserves nothing per request. The model supports 1,048,576 |
 | `--grammar-backend xgrammar` | JSON-schema / regex constrained output |
@@ -353,6 +361,9 @@ Overlay switches (`OVERLAY=0` turns all of them off; each is described in `overl
 | `SCODES` (`INKLING_SCODES`) | `1` | NVFP4 expert scale codes (+0.81 GB: the stock scales stay resident for escapes and fallback; first start builds the modified FlashInfer kernels, ~4.5 min, then cached) |
 | `MOE2` (`INKLING_MOE2`) | `tiles` | tile tables for the routed-expert GEMMs at verify batch sizes (over `moe_tiles`); `INKLING_MOE2_NVFP4` / `INKLING_MOE2_MXFP8` override the tables |
 | `PFUSE` (`INKLING_PFUSE`) | `all` | prefill glue fusion (`loopmix,resnorm,sconvres`), extend batches of >= 512 rows only |
+| `CERT_WIDE` (`INKLING_CERT_WIDE`) | `1` | certified greedy head for 17-192-row verify batches (needs `CERT_HEAD`, `PICO12` and `WIDE` with `lmhead`) |
+| `INKLING_ATTN_W8_FROM` | `131072` | prefix length (keys) from which global-layer prefill uses the 8-warp fused kernel; `0` = one 4-warp launch |
+| `KV12S` (`INKLING_KV12S`) | `0` | opt-in packed global KV store (see "Packed global KV store"); `1` turns `KV12` off, adds `--enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48 --cuda-graph-backend-decode=full --cuda-graph-max-bs-decode=48` and uses `MEM_FRACTION=0.91` unless set |
 
 Left at SGLang's defaults (measured, see docs/experiments.md): chunked prefill 8,192 tokens (16,384: +2-3 % at
 32K-128K, more memory), up to 48 running requests (CUDA graphs captured to 48), radix prefix cache on, overlap
@@ -366,10 +377,10 @@ sizes the static pool. The packed KV overlay then allocates its side pool.
 
 | | |
 |---|---|
-| KV cache, global layers (and the draft's global layer) | 1,551,104 / 1,557,120 tokens (Spark_05 / Spark_06), BF16 |
+| KV cache, global layers (and the draft's global layer) | 1,593,088 tokens (Spark_05, with the two memory flags above; 1,551,104 / 1,557,120 without), BF16 |
 | packed 12-bit KV side pool (global layers) | 8 x 2,048 slots of 128 tokens, 6.1 GiB: covers the pages being decoded, up to one 256K-token request |
 | KV cache, sliding-window layers | ~77.5K tokens at `SWA_RATIO=0.05`. With radix caching on, 48 requests at one 1,024-token window plus a 128-token page each and two 8,192-token prefill chunks need ~72K tokens |
-| MemAvailable after start / lowest under stress | 5.8-6.1 GiB / 5.2-5.4 GiB |
+| MemAvailable after start / lowest under stress | 6.3 GiB / 5.2 GiB (Spark_05; v2.6 build without the flags 5.8-6.1 / 5.2-5.4) |
 
 That capacity is equivalent to 5.9 requests at the full 262,144-token context, or ~47 agents with 32K each.
 The sweep targeted at least 3.5 GiB MemAvailable under stress, a level that held up in memory-cliff measurements
@@ -391,11 +402,50 @@ global-layer KV tokens.
 | bind address | 0.0.0.0 | 0.0.0.0 | 127.0.0.1 |
 | speed overlays | - | - | thirteen packages, on by default (`overlay/`); `OVERLAY=0` disables them |
 
-### Longer context, optional FP8 KV
+### Longer context: 512K and 1M
 
-The model supports 1,048,576 tokens; `CTX` sets the per-request limit. The KV pool is shared, not reserved per
-request: the default 1.55M global-layer tokens cover a 1M-token prompt (with `CTX=1048576`) plus some shorter requests;
-that combination was not measured here. A cold prompt near 1M tokens takes tens of minutes to prefill.
+The model supports 1,048,576 tokens; `CTX` sets the per-request limit (default 262,144). The KV pool is shared, not
+reserved per request. Measured with the default store (`KV12S=0`, v2.6 build on Spark_05; the v2.7 long-prefix fix makes
+the cold prefills below faster):
+
+| `CTX` | needle | cold prefill | decode at that context | lowest MemAvailable |
+|---|---|---:|---:|---:|
+| 524288 | PASS at 499,995 tokens (also with thinking c24 alongside) | 499,995 tokens in 332-351 s | 24.5 tok/s at 491K (112 ms step) | 5.5 GiB |
+| 1048576 | PASS at 999,296 tokens (thinking c24 alongside) | 1,024,204 tokens in 1,285 s | 14.0 tok/s at 1.02M (200 ms step) | 4.9 GiB |
+
+A single 1M prompt takes two thirds of the default pool and, while it prefills, concurrent requests slow down (thinking
+c24 fell to 62 tok/s aggregate). With the packed store (`KV12S=1`) the 1M option is not verified yet.
+
+### Packed global KV store (opt-in, `KV12S=1`)
+
+`KV12S=1` stores the global-layer KV only in the exactly coded 12-bit form that `KV12` reads (sign and mantissa
+bytes, a 4-bit exponent code with 64 escape entries per page and head, a raw slot for the rare overflowing head) and
+drops both the BF16 global pool and the 6.1 GiB side copy. The open page of each request stays BF16 until it is full
+and committed; the draft's global layer is kept raw BF16 inside the same page envelope.
+
+| | default (`KV12S=0`) | `KV12S=1` |
+|---|---:|---:|
+| global-layer KV tokens | 1.59M | **2,168,320** |
+| MemAvailable after start / lowest in the run | 6.3 / 5.2 GiB | 6.9 / 4.2 GiB |
+| speedbench quick c1 | 63.49 | 63.16 (same tokens per step) |
+| sanity, needles 120K / 240K | 11/11, PASS | 11/11, PASS |
+
+What is verified: every store and read of the packed pages is bit-identical to SGLang's BF16 path in the GPU checks
+(decode and verify partials incl. CUDA-graph replay, speculative accept / reject across pages, staging and overflow,
+both prefill loaders), and the packed decode reads are 1.16-1.23x faster than the BF16 ones at 32K-128K. In serving,
+15.5M page-heads were packed with no escape overflow on the target layers.
+
+Known issues, to be fixed in v2.7.1, which is why it is not the default:
+
+- Exactness of the served text is under investigation: greedy speedbench quick texts match v2.6 on 27 of 32
+  prompts (the default store matches 32/32). The difference is deterministic and not explained yet; the target
+  model's weights and arithmetic are unchanged.
+- Cold prefill above ~120K tokens was about 2x slower in the first build (120K needle 72 s vs 33 s); the shipped
+  build reads the packed prefix through a bounded BF16 scratch, which is bit-identical but not yet measured end to end.
+- The 512K / 1M option is not verified with it yet.
+
+### FP8 KV
+
 More concurrent long requests can also use an FP8 KV cache. FP8 KV changes the model's numerics (lossy) and is
 not part of this recipe's measured profile; Tech2Wild's vLLM recipe measured an FP8 tier (3.3M tokens, needle PASS at
 ~950K, its tool-calling eval 87.0 vs 88.4 with BF16 KV) and documents the memory budget for it.

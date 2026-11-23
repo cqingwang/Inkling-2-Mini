@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.7 (2026-11-23)
+
+Certified head for wider verify batches, a long-prefix prefill fix, a measured 512K / 1M option, and an opt-in packed
+global KV store. All defaults are exact; the default store's greedy speedbench quick texts are identical to v2.6 on
+32/32 prompts. Full v2.7 benchmark runs follow; the speed tables still show the v2.6 runs.
+
+- `inkling_cert` `CERT_WIDE=1` (default): certified greedy head for 17-192-row verify batches (one 6-bit screen pass,
+  exact packed wide arithmetic on the candidate-tile union, reduced to ids). Head + softcap + argmax 3.99 -> 1.72 ms
+  at 64 rows, 5.09 -> 3.19 ms at 128 rows; serving greedy decode c4 +1.6 to +2.1 %, c8 +1.0 to +1.5 % (2 on / 2 off
+  per box), c1 and c16 within noise.
+- `inkling_attn`: global-layer prefill over prefixes of >= 131,072 keys runs the existing 8-warp fused kernel
+  (`INKLING_ATTN_W8_FROM`), bit-identical to the single launch; 1.39x / 1.47x per global layer and 8K chunk at
+  512K / 1M prefixes.
+- Memory flags `--max-mamba-cache-size 512 --max-prefill-tokens 8192`: KV pool 1,593,088 tokens on Spark_05
+  (+2.2 %), worst case 5.2 GiB, prefill and decode unchanged.
+- 512K / 1M context option documented: needles PASS at 499,995 and 999,296 tokens (with thinking c24 alongside),
+  decode 24.5 tok/s at 491K and 14.0 tok/s at 1.02M, lowest MemAvailable 4.9-5.5 GiB (default store).
+- `inkling_kv12s` (new, opt-in `KV12S=1`): global-layer KV stored only in the exactly coded 12-bit form, 2,168,320
+  KV tokens (+40 %), speedbench quick 63.16 vs 63.49, sanity 11/11, needles 120K / 240K PASS, lowest MemAvailable
+  4.2 GiB. Every packed store and read is bit-identical in the GPU checks, but served greedy texts match v2.6 on
+  27/32 prompts (under investigation), and long cold prefills and the 1M option are not yet measured with it;
+  therefore not the default. Fixes follow in v2.7.1.
+- Screened, not adopted: verify-policy refit on fresh full-width v2.6 logs (-0.22 %, CI -0.52..+0.71 %), split-K
+  small kernels for router / conv projection / controllers (flat in serving), INT8 draft weights (flat), dropping
+  the 12-bit side copy for +8 % KV (-9 % decode at 128K-250K).
+
 ## v2.6 (2026-11-23)
 
 Larger exact KV pools. `MEM_FRACTION` goes from 0.81 to 0.93 and `SWA_RATIO=0.05` halves the image's

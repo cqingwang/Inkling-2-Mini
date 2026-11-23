@@ -114,6 +114,8 @@ def install(root=None):
     if not _on(os.environ.get("INKLING_KV12", "")):
         STATE["installed"] = True
         return None
+    if _on(os.environ.get("INKLING_KV12S", "")):
+        raise RuntimeError("INKLING_KV12 and INKLING_KV12S are mutually exclusive")
     config = {
         "max_pages": int(os.environ.get("INKLING_KV12_MAX_PAGES", 0)),
         "qcap": int(os.environ.get("INKLING_KV12_QCAP", 8192)),

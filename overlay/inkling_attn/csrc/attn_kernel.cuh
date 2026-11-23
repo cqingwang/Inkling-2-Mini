@@ -41,6 +41,12 @@ struct Params {
   long long k_sp, k_ss, k_sh;
   const __nv_bfloat16* v;
   long long v_sp, v_ss, v_sh;
+  // Packed planes share the byte stride of the allocator's page envelope.
+  const uint8_t *sm, *ex;
+  const int *esc, *off, *overflow_ref, *flags;
+  const uint16_t *staging, *overflow;
+  long long packed_stride;
+  int kv_heads, stage_slots, overflow_slots;
   const int* page_table;   // [B, max_pages]
   long long pt_s;
   const int* cu_q;         // [n_req + 1]
@@ -61,6 +67,9 @@ struct Params {
   int num_pages;           // pages of the KV cache (guards page ids)
   float scale;
   int window_left;         // sliding-window layers only
+  // request selection (global layers, two launches of different warp counts over one call, see ops.W8_FROM):
+  // 0 = every request; 1 = requests whose prefix (seqused_k - new rows) is < sel_keys; 2 = prefix >= sel_keys.
+  int sel_mode, sel_keys;
 };
 
 namespace dev {
@@ -131,9 +140,61 @@ __global__ void pack_proj(const __nv_bfloat16* __restrict__ proj, __nv_bfloat16*
   projp[i] = d < E ? proj[e * E + d] : __float2bfloat16_rn(0.f);
 }
 
+// Eight BF16 words for one swizzled shared-memory vector. No FP conversion.
+__device__ __forceinline__ uint4 packed_vector(const Params& p, int page, int kind,
+                                              int head, int row, int dim, bool valid) {
+  const uint4 zero = make_uint4(0, 0, 0, 0);
+  if (!valid || page <= 0 || page >= p.num_pages) return zero;
+  const long long start = static_cast<long long>(page) * p.packed_stride;
+  const int flag = p.flags[start / sizeof(int)];
+  if (flag <= 0) return zero;
+  const int element = ((kind * 128 + row) * p.kv_heads + head) * kD + dim;
+  if (flag >= 2) {
+    // The low byte stores valid rows plus one. The high bits store the slot.
+    const int slot = flag >> 8;
+    const int count = (flag & 255) - 1;
+    if (slot >= p.stage_slots || row >= count || count > 128) return zero;
+    const auto* src = p.staging + static_cast<long long>(slot) * 2 * 128 * p.kv_heads * kD;
+    return *reinterpret_cast<const uint4*>(src + element);
+  }
+  const int lane = head * 2 + kind;
+  const int ref = p.overflow_ref[start / sizeof(int) + lane];
+  if (ref) {
+    if (ref < 0 || ref > p.overflow_slots) return zero;
+    const auto* src = p.overflow + static_cast<long long>(ref - 1) * 128 * kD;
+    return *reinterpret_cast<const uint4*>(src + row * kD + dim);
+  }
+  const auto sm = *reinterpret_cast<const uint2*>(p.sm + start + element);
+  const uint32_t ex = *reinterpret_cast<const uint32_t*>(p.ex + start + element / 2);
+  uint32_t words[4] = {};
+#pragma unroll
+  for (int i = 0; i < 8; ++i) {
+    const uint32_t bits = ((i < 4 ? sm.x : sm.y) >> (8 * (i & 3))) & 255;
+    const uint32_t code = (ex >> (4 * i)) & 15;
+    const uint32_t exponent = code == 15 ? 0 : code + 116;
+    const uint32_t word = ((bits & 128) << 8) | (exponent << 7) | (bits & 127);
+    words[i / 2] |= word << (16 * (i & 1));
+  }
+  if (((ex & (ex >> 1) & (ex >> 2) & (ex >> 3)) & 0x11111111u) != 0) {
+    const int* offsets = p.off + start / sizeof(int) + lane * 5 + row / 32;
+    const int* entries = p.esc + start / sizeof(int) + lane * 64;
+    const int begin = offsets[0], end = offsets[1];
+    const int limit = begin >= 0 && end >= begin && end <= 64 ? end : begin;
+    for (int i = begin; i < limit; ++i) {
+      const unsigned entry = entries[i];
+      const int column = (entry >> 16) & 127;
+      if (((entry >> 23) & 127) == row && column >= dim && column < dim + 8) {
+        const int index = column - dim, shift = (index & 1) * 16;
+        words[index / 2] = (words[index / 2] & ~(0xffffu << shift)) | ((entry & 0xffffu) << shift);
+      }
+    }
+  }
+  return make_uint4(words[0], words[1], words[2], words[3]);
+}
+
 // kW warps x 16 query rows a CTA (BM = 16 kW): 4 warps -> 2 CTAs / SM, 8 warps -> 1 CTA / SM (half the K/V
 // shared-memory fills per FLOP). Dynamic shared memory: tstage_bytes(kW).
-template <bool kLocal, bool kPacked, int kW>
+template <bool kLocal, bool kPacked, int kW, bool kPackedKV = false>
 __global__ void __launch_bounds__(kW * 32, 8 / kW) prefill_fwd(const Params p) {
   constexpr int kThr = kW * 32;
   constexpr int kBMw = 16 * kW;
@@ -171,13 +232,17 @@ __global__ void __launch_bounds__(kW * 32, 8 / kW) prefill_fwd(const Params p) {
 
   const int sk = min(max(p.seq_k[b], 0), p.pt_cols * p.page_size);
   const int off = sk - sq;  // prefix length
+  if (p.sel_mode != 0) {  // the other launch takes request b (decided on the unclamped prefix)
+    const long long pre = static_cast<long long>(p.seq_k[b]) - sq;
+    if ((pre >= p.sel_keys) != (p.sel_mode == 2)) return;
+  }
   const int m0 = tile * kBMw;
   const int kvh = head / p.group;
   const int wl = p.window_left;
   const int lo_key = kLocal ? max(0, m0 + off - wl) : 0;
   const int hi_key = static_cast<int>(min(static_cast<long long>(sk), static_cast<long long>(m0) + kBMw + off));
   const int nb_lo = lo_key / kBN;
-  const int nb_hi = hi_key > lo_key ? (hi_key + kBN - 1) / kBN : nb_lo;  // exclusive
+  const int nb_hi = hi_key > lo_key ? hi_key / kBN + (hi_key % kBN != 0) : nb_lo;  // exclusive
 
   const int wrow0 = m0 + warp * 16;  // request-relative first row of this warp
   const bool warp_rows = wrow0 < sq;
@@ -218,21 +283,26 @@ __global__ void __launch_bounds__(kW * 32, 8 / kW) prefill_fwd(const Params p) {
   // keys outside [lo_key, sk) are zero-filled (never read from memory).
   const long long pt_row = static_cast<long long>(b) * p.pt_s;
   auto load_tile = [&](__nv_bfloat16* dst, const __nv_bfloat16* base, long long sp, long long ss, long long sh,
-                       int nb) {
+                       int nb, int kind) {
     const int n0 = nb * kBN;
-    const int page = p.page_table[pt_row + n0 / p.page_size];  // n0 < sk <= pt_cols * page_size
+    const int col = n0 / p.page_size;
+    const int page = col >= 0 && col < p.pt_cols ? p.page_table[pt_row + col] : -1;
     const bool page_ok = page >= 0 && page < p.num_pages;        // a bad page id reads nothing (zero tile)
     const int slot0 = n0 % p.page_size;
-    const __nv_bfloat16* src0 =
-        base + static_cast<long long>(page_ok ? page : 0) * sp + static_cast<long long>(kvh) * sh;
     const int chunk = tid & 15;
 #pragma unroll
     for (int i = 0; i < kBN * 16 / kThr; ++i) {
       const int row = (tid >> 4) + i * (kThr / 16);
       const int j = n0 + row;
       const bool ok = page_ok && j >= lo_key && j < sk;
-      const __nv_bfloat16* src = ok ? src0 + static_cast<long long>(slot0 + row) * ss + chunk * 8 : src0;
-      cp_async16(smem_u32(dst + row * kD + ((chunk ^ (row & 7)) * 8)), src, ok);
+      auto* target = dst + row * kD + ((chunk ^ (row & 7)) * 8);
+      if constexpr (kPackedKV) {
+        *reinterpret_cast<uint4*>(target) = packed_vector(p, page, kind, kvh, slot0 + row, chunk * 8, ok);
+      } else {
+        const auto* src0 = base + static_cast<long long>(page_ok ? page : 0) * sp + static_cast<long long>(kvh) * sh;
+        const auto* src = ok ? src0 + static_cast<long long>(slot0 + row) * ss + chunk * 8 : src0;
+        cp_async16(smem_u32(target), src, ok);
+      }
     }
   };
 
@@ -241,14 +311,14 @@ __global__ void __launch_bounds__(kW * 32, 8 / kW) prefill_fwd(const Params p) {
   const __nv_bfloat16* proj = p.proj;
   const int ext = p.rel_extent;
 
-  if (nb_hi > nb_lo) load_tile(sK, p.k, p.k_sp, p.k_ss, p.k_sh, nb_hi - 1);
+  if (nb_hi > nb_lo) load_tile(sK, p.k, p.k_sp, p.k_ss, p.k_sh, nb_hi - 1, 0);
   cp_commit();
 
   for (int nb = nb_hi - 1; nb >= nb_lo; --nb) {
     const int n0 = nb * kBN;
     cp_wait_all();
     __syncthreads();  // K(nb) visible; every warp is done with V(nb + 1)
-    load_tile(sV, p.v, p.v_sp, p.v_ss, p.v_sh, nb);
+    load_tile(sV, p.v, p.v_sp, p.v_ss, p.v_sh, nb, 1);
     cp_commit();
 
     // this warp's rows see keys [pw0 - wl, pw0 + 15]
@@ -369,7 +439,7 @@ __global__ void __launch_bounds__(kW * 32, 8 / kW) prefill_fwd(const Params p) {
 
     cp_wait_all();
     __syncthreads();  // V(nb) visible; every warp is done with K(nb)
-    if (nb - 1 >= nb_lo) load_tile(sK, p.k, p.k_sp, p.k_ss, p.k_sh, nb - 1);
+    if (nb - 1 >= nb_lo) load_tile(sK, p.k, p.k_sp, p.k_ss, p.k_sh, nb - 1, 0);
     cp_commit();
 
     if (active) {

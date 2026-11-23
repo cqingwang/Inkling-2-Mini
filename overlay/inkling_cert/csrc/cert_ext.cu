@@ -22,33 +22,17 @@
 #include <cuda_runtime.h>
 
 #include <cstdint>
+#include <tuple>
+#include <type_traits>
 
 #include "kernels/gemv16.cu"  // pico (MIT): gemv16_body, mma_bf16, streaming loads (this TU's own copy)
 
+#include "screen6.cuh"
+#include "certwide_screen.cuh"
+
 namespace cert {
 
-constexpr int kK = 2304;          // hidden size (Inkling-2-Mini)
-constexpr int kStep = 64;         // values per warp step
-constexpr int kSteps = kK / kStep;  // 36
-constexpr int kGroup = 192;       // scale / bound group = one warp's K slice
-constexpr int kGroups = kK / kGroup;  // 12 warps per CTA
-constexpr int kStepsPerGroup = kGroup / kStep;  // 3
-constexpr int kTileBytes = 384;   // one step of one 8-row tile: [32 lanes][8 B] nibbles, [32 lanes][4 B] high bits
-constexpr int kRowsCta = 16;      // two 8-row tiles: pico's head CTA (mt 2, wn 1)
-constexpr float kInfl = 1.0f + 1.0f / 65536.0f;
-constexpr float kXAbs = 3.4694470e-18f;  // 2^-58
-
-// u32 of 4-bit and 2-bit fields -> bf16x2 (128 + u_lo, 128 + u_hi), u = q + 32 in [1, 63]; minus 160 -> q, exact.
-__device__ __forceinline__ uint32_t six_pair(uint32_t nib, uint32_t hi, int p) {
-  const uint32_t lo = (nib >> (4 * (p & 3))) & 0x000F000Fu;
-  const uint32_t h2 = ((hi >> (2 * p)) & 0x00030003u) << 4;
-  uint32_t v = lo | h2 | 0x43004300u;
-  const __nv_bfloat162 off = __floats2bfloat162_rn(160.f, 160.f);
-  __nv_bfloat162 r = __hsub2(*reinterpret_cast<__nv_bfloat162*>(&v), off);
-  return *reinterpret_cast<uint32_t*>(&r);
-}
-
-__device__ __forceinline__ float half_to_float_u16(uint16_t h) { return __half2float(__ushort_as_half(h)); }
+using namespace screen6;
 
 template <int RB>
 __global__ void __launch_bounds__(32 * kGroups) k_screen(const __nv_bfloat16* __restrict__ x, int M,
@@ -413,11 +397,151 @@ void exact(const torch::Tensor& x, const torch::Tensor& packed, int64_t N, int64
   C10_CUDA_KERNEL_LAUNCH_CHECK();
 }
 
+template <int MR, int Stages>
+void prepare_screen_wide() {
+  C10_CUDA_CHECK(cudaFuncSetAttribute(certwide::k_screen_wide<MR, Stages>, cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                      Stages * MR * 16 * certwide::kRowBytes));
+}
+
+void prepare_certwide(int64_t device) {
+  const c10::cuda::CUDAGuard guard((c10::DeviceIndex)device);
+  prepare_screen_wide<4, 3>();
+  prepare_screen_wide<8, 3>();
+  prepare_screen_wide<12, 2>();
+  prepare_screen_wide<12, 3>();
+}
+
+template <typename Fn>
+auto dispatch_screen_wide(int M, bool three_stages, Fn launch) {
+  using Three = std::integral_constant<int, 3>;
+  if (M <= 64) return launch(std::integral_constant<int, 4>{}, Three{});
+  if (M <= 128) return launch(std::integral_constant<int, 8>{}, Three{});
+  if (three_stages) return launch(std::integral_constant<int, 12>{}, Three{});
+  return launch(std::integral_constant<int, 12>{}, std::integral_constant<int, 2>{});
+}
+
+std::tuple<int, size_t, int, int> screen_wide_info(int64_t device, int M, bool three_stages) {
+  using namespace certwide;
+  TORCH_CHECK(M >= 17 && M <= kMaxM, "inkling_certwide: unsupported screen rows");
+  const c10::cuda::CUDAGuard guard((c10::DeviceIndex)device);
+  return dispatch_screen_wide(M, three_stages, [](auto bucket, auto stages) {
+    constexpr int MR = decltype(bucket)::value, Stages = decltype(stages)::value;
+    constexpr int smem = Stages * MR * 16 * kRowBytes;
+    auto kernel = k_screen_wide<MR, Stages>;
+    cudaFuncAttributes attr{};
+    int blocks = 0;
+    C10_CUDA_CHECK(cudaFuncGetAttributes(&attr, kernel));
+    C10_CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks, kernel, kThreads, smem));
+    return std::make_tuple(attr.numRegs, attr.localSizeBytes, smem, blocks);
+  });
+}
+
+void select_wide(const torch::Tensor& lower, const torch::Tensor& upper, const torch::Tensor& threshold,
+                 const torch::Tensor& state, const torch::Tensor& tiles, const torch::Tensor& groups,
+                 int M, int ntiles, float cap, float two_e, float dmax, cudaStream_t st) {
+  using namespace certwide;
+  auto* sp = state.data_ptr<int>();
+  k_threshold<<<M, 256, 0, st>>>(lower.data_ptr<float>(), upper.data_ptr<float>(), ntiles,
+       threshold.data_ptr<float>(), sp, cap, two_e, dmax);
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  const int capacity = tiles.numel();
+  k_candidates<<<(ntiles + 255) / 256, 256, 0, st>>>(upper.data_ptr<float>(), threshold.data_ptr<float>(), M,
+       ntiles, sp, tiles.data_ptr<int>(), groups.data_ptr<int>(), capacity);
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  k_finish<<<1, 1, 0, st>>>(sp, capacity, ntiles);
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+}
+
+void debug_select_wide(const torch::Tensor& lower, const torch::Tensor& upper, const torch::Tensor& threshold,
+                       const torch::Tensor& state, const torch::Tensor& tiles, const torch::Tensor& groups,
+                       double cap, double two_e, double dmax) {
+  TORCH_CHECK(lower.dim() == 2 && lower.size(0) > 0 && lower.size(0) <= certwide::kMaxM &&
+                lower.size(1) > 0 && lower.size(1) <= INT32_MAX / 16 && lower.sizes() == upper.sizes() &&
+                tiles.numel() > 0 && tiles.numel() <= lower.size(1), "inkling_certwide: bad debug maxima shape");
+  const int M = lower.size(0), ntiles = lower.size(1);
+  check_dev(lower, lower, at::kFloat, lower.numel(), "lower");
+  check_dev(upper, lower, at::kFloat, lower.numel(), "upper");
+  check_dev(threshold, lower, at::kFloat, M, "threshold");
+  check_dev(state, lower, at::kInt, 2, "state");
+  check_dev(tiles, lower, at::kInt, tiles.numel(), "tiles");
+  check_dev(groups, lower, at::kInt, tiles.numel(), "groups");
+  const c10::cuda::CUDAGuard guard(lower.device());
+  const auto st = at::cuda::getCurrentCUDAStream();
+  C10_CUDA_CHECK(cudaMemsetAsync(state.data_ptr<int>(), 0, 2 * sizeof(int), st));
+  select_wide(lower, upper, threshold, state, tiles, groups, M, ntiles, cap, two_e, dmax, st);
+}
+
+void screen_wide(const torch::Tensor& x, const torch::Tensor& q, const torch::Tensor& sc,
+                 const torch::Tensor& radius, int64_t V, int64_t v_real, const torch::Tensor& norms,
+                 const torch::Tensor& lower, const torch::Tensor& upper, const torch::Tensor& threshold,
+                 const torch::Tensor& on, const torch::Tensor& state, const torch::Tensor& tiles,
+                 const torch::Tensor& groups, const torch::Tensor& dbg_s, const torch::Tensor& dbg_lo,
+                 const torch::Tensor& dbg_hi, double cap, double two_e, double dmax, bool three_stages) {
+  using namespace certwide;
+  TORCH_CHECK(x.dim() == 2 && x.size(0) >= 17 && x.size(0) <= kMaxM && x.size(1) == kK,
+              "inkling_certwide: x must be [17..192, 2304]");
+  const int M = (int)x.size(0);
+  const int64_t ntiles = V / 16, capacity = tiles.numel();
+  TORCH_CHECK(V > 0 && V <= INT32_MAX && V % 16 == 0 && v_real > 0 && v_real <= V &&
+                capacity > 0 && capacity <= ntiles, "inkling_certwide: bad vocab or capacity");
+  check_dev(x, x, at::kBFloat16, M * kK, "x");
+  check_dev(q, x, at::kByte, V * kK * 3 / 4, "q");
+  check_dev(sc, x, at::kHalf, kGroups * V, "sc");
+  check_dev(radius, x, at::kFloat, V, "radius");
+  check_dev(norms, x, at::kFloat, M, "norms");
+  check_dev(lower, x, at::kFloat, M * ntiles, "lower");
+  check_dev(upper, x, at::kFloat, M * ntiles, "upper");
+  check_dev(threshold, x, at::kFloat, M, "threshold");
+  check_dev(on, x, at::kInt, 1, "on");
+  check_dev(state, x, at::kInt, 2, "state");
+  check_dev(tiles, x, at::kInt, capacity, "tiles");
+  check_dev(groups, x, at::kInt, capacity, "groups");
+  TORCH_CHECK(reinterpret_cast<uintptr_t>(x.data_ptr()) % 16 == 0 &&
+                reinterpret_cast<uintptr_t>(q.data_ptr()) % 8 == 0, "inkling_certwide: misaligned screen input");
+  float* sd = nullptr;
+  float* ld = nullptr;
+  float* hd = nullptr;
+  if (dbg_s.numel() || dbg_lo.numel() || dbg_hi.numel()) {
+    check_dev(dbg_s, x, at::kFloat, M * V, "debug screen logits");
+    check_dev(dbg_lo, x, at::kFloat, M * V, "debug lower endpoints");
+    check_dev(dbg_hi, x, at::kFloat, M * V, "debug upper endpoints");
+    TORCH_CHECK(reinterpret_cast<uintptr_t>(dbg_s.data_ptr()) % 8 == 0 &&
+                  reinterpret_cast<uintptr_t>(dbg_lo.data_ptr()) % 8 == 0 &&
+                  reinterpret_cast<uintptr_t>(dbg_hi.data_ptr()) % 8 == 0,
+                "inkling_certwide: misaligned float2 debug output");
+    sd = dbg_s.data_ptr<float>();
+    ld = dbg_lo.data_ptr<float>();
+    hd = dbg_hi.data_ptr<float>();
+  }
+  const c10::cuda::CUDAGuard guard(x.device());
+  const auto st = at::cuda::getCurrentCUDAStream();
+  const auto* xp = reinterpret_cast<const __nv_bfloat16*>(x.data_ptr());
+  const auto* scp = reinterpret_cast<const uint16_t*>(sc.data_ptr());
+  auto* sp = state.data_ptr<int>();
+  C10_CUDA_CHECK(cudaMemsetAsync(sp, 0, 2 * sizeof(int), st));
+  k_norm<<<M, 256, 0, st>>>(xp, norms.data_ptr<float>(), sp, on.data_ptr<int>());
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  auto launch = [&](auto bucket, auto stages) {
+    constexpr int MR = decltype(bucket)::value;
+    constexpr int Stages = decltype(stages)::value;
+    k_screen_wide<MR, Stages><<<(V + kCols - 1) / kCols, kThreads, Stages * MR * 16 * kRowBytes, st>>>(
+        xp, q.data_ptr<uint8_t>(), scp, radius.data_ptr<float>(), norms.data_ptr<float>(), M, (int)V, (int)v_real,
+        lower.data_ptr<float>(), upper.data_ptr<float>(), sp, sd, ld, hd);
+  };
+  dispatch_screen_wide(M, three_stages, launch);
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  select_wide(lower, upper, threshold, state, tiles, groups, M, (int)ntiles, cap, two_e, dmax, st);
+}
+
 }  // namespace
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.doc() = "inkling_cert: certified greedy LM-head argmax (6-bit screen + pico's exact head GEMV on candidates)";
   m.def("screen", &screen, "6-bit screen, row maxima and candidate mask");
+  m.def("screen_wide", &screen_wide, "batched 6-bit screen and candidate compaction");
+  m.def("screen_wide_info", &screen_wide_info, "registers, local bytes, dynamic shared bytes and resident blocks per SM");
+  m.def("debug_select_wide", &debug_select_wide, "select candidates from supplied tile maxima");
+  m.def("prepare_certwide", &prepare_certwide, "prepare batched screen kernels");
   m.def("exact", &exact, "pico's coded head GEMV on the masked CTAs, -inf elsewhere");
   m.attr("K") = cert::kK;
   m.attr("GROUP") = cert::kGroup;

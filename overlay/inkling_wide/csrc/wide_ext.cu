@@ -68,6 +68,9 @@ struct Params {
   int pfd;        // L2 prefetch distance in batches (0: none)
   float* ws;      // [S][M][N] partials (S > 1)
   int* cnt;       // [gridDim.x] arrival counters, zero between calls (S > 1)
+  const int* cert_state;  // optional device gate [fallback reason, union size]
+  const int* cert_tiles;  // sparse slot -> original 16-column tile
+  const int* cert_groups; // sparse slot -> bitmask of candidate m16 groups
 };
 
 __device__ __forceinline__ void mma_bf16(float d[4], uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t b0,
@@ -129,7 +132,7 @@ struct Cfg {
   static constexpr int SMEM = kStages * STAGE;
 };
 
-template <int FMT, int MI, int MT_, int MG_>
+template <int FMT, int MI, int MT_, int MG_, bool SPARSE = false>
 __global__ void __launch_bounds__(Cfg<MI, MT_, MG_>::NT, Cfg<MI, MT_, MG_>::MINB) k_wide(const Params p) {
   using C = Cfg<MI, MT_, MG_>;
   static_assert(MI % MG_ == 0, "rows split evenly between the warp groups");
@@ -139,9 +142,32 @@ __global__ void __launch_bounds__(Cfg<MI, MT_, MG_>::NT, Cfg<MI, MT_, MG_>::MINB
   constexpr int STAGE = C::STAGE;
   extern __shared__ __align__(16) uint8_t smem[];
   __shared__ int s_last;
+  __shared__ unsigned active_m16;
+  // The certificate is a preceding stream dependency; wait before using its
+  // device-produced gate or indices. Regular wide still preloads weights first.
+  if (p.cert_state) {
+    pdl_wait();
+    const bool fallback = p.cert_state[0] != 0;
+    if constexpr (SPARSE) {
+      if (fallback || blockIdx.x * (kBN / 16) >= p.cert_state[1]) return;
+    } else {
+      if (!fallback) return;
+    }
+  }
 
   const int warp = threadIdx.x >> 5, lane = threadIdx.x & 31, g = lane >> 2, t = lane & 3;
   const int wn = warp % C::NWN, mg = warp / C::NWN;  // the warp's tiles, its row group
+  if constexpr (SPARSE) {
+    if (warp == 0) {
+      constexpr int slots_per_cta = kBN / 16;
+      const int slot = blockIdx.x * slots_per_cta + lane;
+      const unsigned mask = lane < slots_per_cta && slot < p.cert_state[1] ? p.cert_groups[slot] : 0u;
+      const unsigned all_groups = __reduce_or_sync(0xffffffffu, mask);
+      if (lane == 0) active_m16 = all_groups;
+    }
+    __syncthreads();
+  }
+
   const int M = p.M, N = p.N, K = p.K;
   const int P = K / kStepK;    // tile steps along K
   const int NB = P / kBatch;   // batches along K
@@ -156,6 +182,8 @@ __global__ void __launch_bounds__(Cfg<MI, MT_, MG_>::NT, Cfg<MI, MT_, MG_>::MINB
   // ---- this lane's weight pointers
   int nt[MT];
   bool valid[MT];
+  unsigned groups[MT];
+  unsigned warp_groups = 0;
   const uint8_t* wptr[MT];  // raw: row 8*nt+g at value 8t; bf16x: tile (nt, 0)'s sign-mantissa bytes of the lane
   const uint8_t* eptr[MT];  // bf16x: exponent offsets of tile (nt, 0) of the lane
   const uint32_t* hptr[MT]; // bf16x: header of tile (nt, 0)
@@ -165,8 +193,16 @@ __global__ void __launch_bounds__(Cfg<MI, MT_, MG_>::NT, Cfg<MI, MT_, MG_>::MINB
       FMT == kBF16X ? reinterpret_cast<uint64_t>(p.W + bf16x_raw_off(T) + 16 * lane) - (1ull << 40) : 0;
 #pragma unroll
   for (int i = 0; i < MT; ++i) {
-    nt[i] = blockIdx.x * kTilesCta + wn * MT + i;
-    valid[i] = nt[i] < ntiles;
+    const int slot = blockIdx.x * kTilesCta + wn * MT + i;
+    if constexpr (SPARSE) {
+      valid[i] = slot / 2 < p.cert_state[1];
+      nt[i] = valid[i] ? 2 * p.cert_tiles[slot / 2] + slot % 2 : 0;
+      groups[i] = valid[i] ? p.cert_groups[slot / 2] : 0;
+      warp_groups |= groups[i];
+    } else {
+      nt[i] = slot;
+      valid[i] = nt[i] < ntiles;
+    }
     const size_t ti = (size_t)(valid[i] ? nt[i] : 0) * P;
     if constexpr (FMT == kBF16X) {
       wptr[i] = p.W + ti * 256 + 8 * lane;
@@ -258,6 +294,9 @@ __global__ void __launch_bounds__(Cfg<MI, MT_, MG_>::NT, Cfg<MI, MT_, MG_>::MINB
     const __nv_bfloat16* srcp = xs + (size_t)b * (kBatch * kStepK);
     for (int c = threadIdx.x; c < Mpad * 8; c += NT) {
       const int r = c >> 3, ch = c & 7;
+      if constexpr (SPARSE) {
+        if (!(active_m16 & (1u << (r / 16)))) continue;
+      }
       const bool live = r < M;
       cp_async16_zfill(dst + r * kRowB + ((ch ^ ((r & 1) << 2)) << 4), srcp + (size_t)(live ? r : 0) * p.ldx + ch * 8,
                        live);
@@ -281,11 +320,17 @@ __global__ void __launch_bounds__(Cfg<MI, MT_, MG_>::NT, Cfg<MI, MT_, MG_>::MINB
       for (int j = 0; j < MIW; ++j) {
         const int mi = mg * MIW + j;
         if (mi * 16 >= M) break;
+        if constexpr (SPARSE) {
+          if (!(warp_groups & (1u << mi))) continue;
+        }
         const int r = mi * 16 + g;
         const uint4 a = *reinterpret_cast<const uint4*>(xb + r * kRowB + off);
         const uint4 a2 = *reinterpret_cast<const uint4*>(xb + (r + 8) * kRowB + off);
 #pragma unroll
         for (int i = 0; i < MT; ++i) {
+          if constexpr (SPARSE) {
+            if (!(groups[i] & (1u << mi))) continue;
+          }
           mma_bf16(acc[i][j], a.x, a2.x, a.y, a2.y, wd[i].x, wd[i].y);
           mma_bf16(acc[i][j], a.z, a2.z, a.w, a2.w, wd[i].z, wd[i].w);
         }
@@ -336,16 +381,22 @@ __global__ void __launch_bounds__(Cfg<MI, MT_, MG_>::NT, Cfg<MI, MT_, MG_>::MINB
 #pragma unroll
     for (int i = 0; i < MT; ++i) {
       if (!valid[i]) continue;
-      const int n = nt[i] * 8 + 2 * t;
+      const int out_tile = SPARSE ? blockIdx.x * kTilesCta + wn * MT + i : nt[i];
+      const int n = out_tile * 8 + 2 * t;
 #pragma unroll
       for (int j = 0; j < MIW; ++j) {
-        const int r = (mg * MIW + j) * 16 + g;
+        const int mi = mg * MIW + j;
+        if constexpr (SPARSE) {
+          if (!(groups[i] & (1u << mi))) continue;
+        }
+        const int r = mi * 16 + g;
         if (r < M) store2(r, n, acc[i][j][0], acc[i][j][1]);
         if (r + 8 < M) store2(r + 8, n, acc[i][j][2], acc[i][j][3]);
       }
     }
     return;
   }
+  if constexpr (SPARSE) return;  // certified heads use S = 1
 
   // split-K: every slice writes its partials; the last CTA of the column block sums slices 0..S-1 in order
   float* wsl = p.ws + (size_t)s * M * N;
@@ -412,10 +463,10 @@ __global__ void k_decode(const uint8_t* __restrict__ X, int N, int K, __nv_bfloa
   }
 }
 
-template <int FMT, int MI, int MT, int MG>
+template <int FMT, int MI, int MT, int MG, bool SPARSE = false>
 void launch_mi(const Params& p, int nblk, bool pdl, cudaStream_t st) {
   using C = Cfg<MI, MT, MG>;
-  auto kern = k_wide<FMT, MI, MT, MG>;  // its shared-memory attribute is set by prepare() at load time
+  auto kern = k_wide<FMT, MI, MT, MG, SPARSE>;  // its shared-memory attribute is set by prepare() at load time
   cudaLaunchConfig_t cfg{};
   cfg.gridDim = dim3(nblk, p.S);
   cfg.blockDim = dim3(C::NT);
@@ -566,6 +617,119 @@ void gemm(const torch::Tensor& x0, const torch::Tensor& x1, const torch::Tensor&
     launch_fmt<kBF16X>(p, nblk, pdl, (int)mt, (int)mg, st);
 }
 
+// S=1 head only. Use exactly the same weight decoder, fragment order, and
+// accumulation loop as the dense launch, with a compact column map.
+#define CERT_WIDE_BUCKETS(X) \
+  X(2, 2) X(3, 2) X(4, 2) X(6, 2) X(8, 2) X(12, 1)
+
+void prepare_certwide(int64_t device) {
+  const c10::cuda::CUDAGuard guard((c10::DeviceIndex)device);
+#define CERT_ATTR(MI, MT) \
+  C10_CUDA_CHECK(cudaFuncSetAttribute(k_wide<kBF16X, MI, MT, 1, true>, \
+      cudaFuncAttributeMaxDynamicSharedMemorySize, Cfg<MI, MT, 1>::SMEM));
+  CERT_WIDE_BUCKETS(CERT_ATTR)
+#undef CERT_ATTR
+}
+
+// Both exact branches and the Triton reducer read this state after validation.
+// The caller keeps the state and workspace exclusive through reduction.
+__global__ void k_validate_certwide(int* state, const int* tiles, const int* groups,
+                                    int slots, int ntiles, int live_tiles, unsigned row_groups) {
+  constexpr int kInvalid = 4;
+  __shared__ int count;
+  __shared__ unsigned seen;
+  if (threadIdx.x == 0) {
+    const int reason = state[0], n = state[1];
+    count = reason == 0 && n > 0 && n <= slots && n < ntiles ? n : 0;
+    if ((!count && reason == 0) || (unsigned)reason > kInvalid) state[0] = kInvalid;
+    seen = 0;
+  }
+  __syncthreads();
+  if (!count) return;
+  unsigned mask = 0;
+  for (int i = threadIdx.x; i < count; i += blockDim.x) {
+    const unsigned group = groups[i];
+    if ((unsigned)tiles[i] >= (unsigned)live_tiles || !group || (group & ~row_groups)) mask |= 1u << 31;
+    mask |= group;
+  }
+  mask = __reduce_or_sync(0xffffffffu, mask);
+  if ((threadIdx.x & 31) == 0) atomicOr(&seen, mask);
+  __syncthreads();
+  if (threadIdx.x == 0 && seen != row_groups) state[0] = kInvalid;
+}
+
+void certwide_exact(const torch::Tensor& x, const torch::Tensor& W,
+                    const torch::Tensor& dense, const torch::Tensor& compact,
+                    const torch::Tensor& state, const torch::Tensor& tiles,
+                    const torch::Tensor& groups, int64_t N, int64_t v_real, int64_t mt, int64_t mg, int64_t pfd) {
+  constexpr int K = 2304;
+  TORCH_CHECK(x.dim() == 2, "inkling_certwide: x must be [M, K]");
+  const int64_t M = x.size(0), slots = tiles.numel();
+  TORCH_CHECK(M >= 17 && M <= 192 && N > 0 && N % 16 == 0 && N <= INT32_MAX && v_real > 0 && v_real <= N,
+              "inkling_certwide: bad head shape");
+  check_x(x, M, K, W);
+  auto same = [&](const torch::Tensor& t, at::ScalarType dt) {
+    return t.is_cuda() && t.device() == x.device() && t.is_contiguous() && t.scalar_type() == dt;
+  };
+  const size_t T = (size_t)(N / 8) * (K / 32);
+  TORCH_CHECK(same(W, at::kByte) && W.dim() == 1 && T < (1ull << 31) &&
+                (size_t)W.numel() >= bf16x_raw_off(T) && reinterpret_cast<uintptr_t>(W.data_ptr()) % 16 == 0,
+              "inkling_certwide: bad packed weight");
+  TORCH_CHECK(same(state, at::kInt) && state.numel() == 2 &&
+                same(tiles, at::kInt) && same(groups, at::kInt) && groups.numel() == slots &&
+                slots > 0 && slots <= N / 16 &&
+                same(dense, at::kFloat) && dense.dim() == 2 && dense.size(0) == M && dense.size(1) == N &&
+                same(compact, at::kFloat) && compact.dim() == 2 && compact.size(0) == M && compact.size(1) == slots * 16 &&
+                reinterpret_cast<uintptr_t>(dense.data_ptr()) % 8 == 0 &&
+                reinterpret_cast<uintptr_t>(compact.data_ptr()) % 8 == 0,
+              "inkling_certwide: bad exact workspace");
+  TORCH_CHECK(mt >= 0 && mt <= 2 && mg >= 1 && mg <= 2 && pfd >= 0 && pfd <= 64,
+              "inkling_certwide: bad kernel settings");
+  // Disjoint address ranges, even when the caller takes views of one storage.
+  const torch::Tensor* buffers[] = {&x, &W, &dense, &compact, &state, &tiles, &groups};
+  TORCH_CHECK(x.is_contiguous(), "inkling_certwide: x must be contiguous");
+  for (int i = 0; i < 7; ++i) {
+    const auto a = reinterpret_cast<uintptr_t>(buffers[i]->data_ptr());
+    for (int j = 0; j < i; ++j) {
+      const auto b = reinterpret_cast<uintptr_t>(buffers[j]->data_ptr());
+      TORCH_CHECK(a + buffers[i]->nbytes() <= b || b + buffers[j]->nbytes() <= a,
+                  "inkling_certwide: aliased exact buffers");
+    }
+  }
+  const c10::cuda::CUDAGuard guard(x.device());
+  const auto st = at::cuda::getCurrentCUDAStream();
+  k_validate_certwide<<<1, 256, 0, st>>>(state.data_ptr<int>(), tiles.data_ptr<int>(), groups.data_ptr<int>(),
+                                       slots, N / 16, (v_real + 15) / 16, (1u << ((M + 15) / 16)) - 1u);
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  Params p{};
+  p.x0 = reinterpret_cast<const __nv_bfloat16*>(x.data_ptr());
+  p.ldx = x.stride(0);
+  p.M = (int)M;
+  p.rb1 = p.rb2 = p.rb3 = INT32_MAX;
+  p.W = W.data_ptr<uint8_t>();
+  p.N = (int)N;
+  p.K = K;
+  p.f32 = p.S = 1;
+  p.pfd = (int)pfd;
+  p.cert_state = state.data_ptr<int>();
+  p.out = dense.data_ptr<float>();
+  p.ldo = N;
+  launch_fmt<kBF16X>(p, (N + kBN - 1) / kBN, false, (int)mt, (int)mg, st);
+
+  p.out = compact.data_ptr<float>();
+  p.ldo = slots * 16;
+  p.cert_tiles = tiles.data_ptr<int>();
+  p.cert_groups = groups.data_ptr<int>();
+  const int nblk = (p.ldo + kBN - 1) / kBN;
+  const int mi = bucket_of(p.M);
+#define CERT_LAUNCH(MI, MT) \
+  if (mi == MI) return launch_mi<kBF16X, MI, MT, 1, true>(p, nblk, false, st);
+  CERT_WIDE_BUCKETS(CERT_LAUNCH)
+#undef CERT_LAUNCH
+  TORCH_CHECK(false, "inkling_certwide: unsupported M=", M);
+}
+#undef CERT_WIDE_BUCKETS
+
 torch::Tensor decode(const torch::Tensor& X, int64_t N, int64_t K) {
   TORCH_CHECK(X.is_cuda() && X.scalar_type() == at::kByte && X.is_contiguous(), "inkling_wide: bad coded buffer");
   TORCH_CHECK(N > 0 && K > 0 && N % 8 == 0 && K % 32 == 0 && N <= INT32_MAX && K <= INT32_MAX, "inkling_wide: N=", N,
@@ -613,6 +777,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.doc() = "inkling_wide: weight-streaming BF16 GEMM for 17..256 rows on raw or pico-coded (bf16x) weights";
   m.def("gemm", &wide::gemm, "out[roff + m, n] = x_src[m] . W[n] (see wide_ext.cu)");
   m.def("decode", &wide::decode, "bf16x coded buffer -> natural [N, K] bf16 (the kernel's reader)");
+  m.def("prepare_certwide", &wide::prepare_certwide, "prepare the sparse packed head kernels");
+  m.def("certwide_exact", &wide::certwide_exact, "guarded dense or compact packed head with FP32 outputs");
   m.def("prepare", &wide::prepare, "set the kernels' shared-memory attribute on a device (load time)");
   m.def("bucket", &wide::bucket_of, "m16 tiles of the kernel taking M rows");
   m.def("kernel_info", &wide::kernel_info, "(regs, local bytes, max threads) of a kernel");

@@ -86,7 +86,7 @@ def load(cache_dir=None, arch="121a", verbose=False):
         )
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"inkling_wide: building the extension in {build_dir} failed: {exc}") from exc
-    for attr in ("gemm", "decode", "prepare", "bucket", "kernel_info"):
+    for attr in ("gemm", "decode", "prepare", "bucket", "kernel_info", "prepare_certwide", "certwide_exact"):
         if not callable(getattr(ext, attr, None)):
             raise RuntimeError(f"inkling_wide: extension in {build_dir} lacks {attr}()")
     INFO.update(build_dir=build_dir, cached=cached, seconds=time.monotonic() - t0, tag=tag)

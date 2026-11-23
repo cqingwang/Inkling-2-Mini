@@ -10,6 +10,8 @@ def _on(name):
 
 
 try:
+    if _on("INKLING_KV12") and _on("INKLING_KV12S"):
+        raise RuntimeError("INKLING_KV12S and INKLING_KV12 are mutually exclusive")
     if _on("INKLING_VERIFY_CAP"):
         from inkling_vcap import activate
         activate()
@@ -40,7 +42,7 @@ try:
     if _on("INKLING_CERT_HEAD"):  # after pico12 and wide: outermost lm-head wrapper (<= 16 rows), reads pico's coded head
         import inkling_cert
         inkling_cert.install()
-    if _on("INKLING_ATTN"):  # fused relative-bias prefill attention (falls back to the stock FA4 path per call)
+    if _on("INKLING_ATTN") and not _on("INKLING_KV12S"):  # fused relative-bias prefill attention (falls back to the stock FA4 path per call)
         import inkling_attn
         inkling_attn.install()
     if _on("INKLING_VATTN"):  # target-verify attention: split-KV relative-bias kernel for all batch sizes
@@ -49,6 +51,12 @@ try:
     if _on("INKLING_KV12"):  # after vattn: global-layer KV read from a packed 12-bit side pool (exact)
         import inkling_kv12
         inkling_kv12.install()
+    if _on("INKLING_KV12S"):
+        import inkling_kv12s
+        inkling_kv12s.install()
+    elif _on("INKLING_DSPARK_EAGER_COMMIT"):  # diagnostic: KV12S's eager draft commit on stock pools
+        from inkling_kv12s.patch import register_eager_commit_only
+        register_eager_commit_only()
 except BaseException as exc:  # noqa: BLE001
     sys.stderr.write("[inkling-overlay pid=%d] FATAL at startup: %r\n" % (os.getpid(), exc))
     sys.stderr.flush()

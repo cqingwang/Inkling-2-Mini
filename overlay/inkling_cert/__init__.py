@@ -7,6 +7,9 @@
        candidate tiles instead of pico's whole coded head (715 MB); every other step runs the head unchanged.
 check  serve pico's full head; build the certified result beside it and count token mismatches (must be 0).
 
+INKLING_CERT_WIDE=1 with INKLING_CERT_HEAD=1 also certifies 17–192 rows
+when the packed, unsplit inkling_wide head would serve the same call.
+
 Needs INKLING_PICO12 with `lmhead` armed first (pico's GEMV is the exact pass and the fallback). Other settings:
   INKLING_CERT_HEAD_LOG_EVERY   counters line every N verify steps (default 2000, 0 = never)
   INKLING_CERT_HEAD_CACHE       extension build cache (default ~/.cache/inkling-cert)
@@ -33,9 +36,21 @@ _SOURCE_CHECKS = (
       "and verify_logits_adjustments_are_noop(sampling_info)", "compute_spec_logprobs(")),
 )
 
+_WIDE_SOURCE_CHECKS = (
+    ("kernels/ops/activation/softcap.py",
+     ("x = x / softcapping_value", "x = libdevice.tanh(x)", "x = x * softcapping_value")),
+    ("kernels/ops/speculative/dspark/dspark_accept.py",
+     ("target_predict: Optional[torch.Tensor] = None", "if target_predict is None:")),
+    ("srt/speculative/dspark_components/dspark_verify.py",
+     ("AcceptGreedy.execute(", "target_logits=logits", "logits=out.next_token_logits")),
+    ("srt/model_executor/runner/decode_cuda_graph_runner.py",
+     ("class DecodeCudaGraphRunner(", "def execute(", "output = self.backend.replay(")),
+)
+
 UNQUANT = "sglang.srt.layers.quantization.unquant"
 MODEL = "sglang.srt.models.inkling2"
 VERIFY = "sglang.srt.speculative.dspark_components.dspark_verify"
+GRAPH_RUNNER = "sglang.srt.model_executor.runner.decode_cuda_graph_runner"
 
 
 def _log(msg):
@@ -62,16 +77,20 @@ def config_from_env(env):
         raise RuntimeError(f"inkling_cert: INKLING_CERT_HEAD_LOG_EVERY={raw!r}") from exc
     cache = env.get("INKLING_CERT_HEAD_CACHE", "").strip() or os.path.join(os.path.expanduser("~"), ".cache",
                                                                           "inkling-cert")
-    return {"log_every": max(0, every), "cache_dir": cache}
+    wide = parse_mode(env.get("INKLING_CERT_WIDE", ""))
+    if wide == "check":
+        raise RuntimeError("inkling_cert: INKLING_CERT_WIDE accepts 0 or 1")
+    return {"log_every": max(0, every), "cache_dir": cache, "wide": wide == "1"}
 
 
-def check_sources(root=None):
+def check_sources(root=None, wide=False):
     if root is None:
         spec = importlib.util.find_spec("sglang")
         if spec is None or not spec.submodule_search_locations:
             raise RuntimeError("inkling_cert: the sglang package is not importable")
         root = list(spec.submodule_search_locations)[0]
-    for rel, needles in _SOURCE_CHECKS:
+    checks = _SOURCE_CHECKS + (_WIDE_SOURCE_CHECKS if wide else ())
+    for rel, needles in checks:
         path = os.path.join(root, rel)
         try:
             with open(path, encoding="utf-8") as f:
@@ -113,9 +132,15 @@ def install(env=None, sglang_root=None):
     if pico is None or "lmhead" not in tuple(pico.STATE.get("levers", ())):
         raise RuntimeError("inkling_cert: INKLING_CERT_HEAD needs inkling_pico12 installed first with `lmhead`")
     STATE["cfg"] = config_from_env(env)
-    check_sources(sglang_root)
+    if STATE["cfg"]["wide"]:
+        wide = sys.modules.get("inkling_wide")
+        if mode != "1" or wide is None or "lmhead" not in tuple(wide.STATE.get("levers", ())):
+            raise RuntimeError("inkling_cert: INKLING_CERT_WIDE needs INKLING_CERT_HEAD=1 and INKLING_WIDE with lmhead")
+    check_sources(sglang_root, wide=STATE["cfg"]["wide"])
     from . import _hook
 
     for module, cb in ((UNQUANT, "patch_unquant"), (MODEL, "patch_model"), (VERIFY, "patch_verify")):
         _hook.when_imported(module, _callback(cb))
+    if STATE["cfg"]["wide"]:
+        _hook.when_imported(GRAPH_RUNNER, _callback("patch_graph_runner"))
     return mode

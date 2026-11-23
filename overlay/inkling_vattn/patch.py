@@ -23,6 +23,7 @@ Both wrappers are Python-only at call time (no device sync), so they are capture
 (bs 1..48) like the stock calls; the per-shape launch config is a pure function of static shapes.
 """
 
+from contextvars import ContextVar
 import inspect
 import os
 import sys
@@ -42,6 +43,8 @@ PARTIALS_PARAMS = (
 )
 I_HEADS, I_KV_HEADS, I_D_REL, I_PADDED_GROUP, I_REL_PROJ = 4, 5, 6, 7, 15
 R_WIDTH = 128  # the prologue's rel extent must be a multiple of 128
+
+BYPASS_BIAS = ContextVar("inkling_vattn_bypass_bias", default=False)
 
 STATS = {"verify_inkernel": 0, "passthrough": 0, "eye_in_capture": 0}
 # Prologue r-markers awaiting their attention call: data_ptr -> (weakref to the rel tensor, proj). Several may be
@@ -125,7 +128,7 @@ def make_prologue(orig, min_tokens, max_tokens):
     def attention_prologue(*args, **kwargs):
         verify_windows = kwargs.get("verify_windows")
         shear = kwargs.get("shear")
-        if len(args) > 22 or verify_windows is None or shear is not None:
+        if BYPASS_BIAS.get() or len(args) > 22 or verify_windows is None or shear is not None:
             return orig(*args, **kwargs)
         q_in = args[0] if args else kwargs["q_in"]
         heads = _arg(args, kwargs, I_HEADS, "heads")

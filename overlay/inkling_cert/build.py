@@ -17,6 +17,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PICO = os.path.join(os.path.dirname(HERE), "inkling_pico12", "third_party", "pico")
 SOURCES = (os.path.join(HERE, "csrc", "cert_ext.cu"),)
 HEADERS = (
+    os.path.join(HERE, "csrc", "screen6.cuh"),
+    os.path.join(HERE, "csrc", "certwide_screen.cuh"),
     os.path.join(PICO, "kernels", "gemv16.cu"),
     os.path.join(PICO, "kernels", "dsk.h"),
     os.path.join(PICO, "kernels", "common.cuh"),
@@ -75,7 +77,7 @@ def load(cache_dir=None, std="c++20", arch="121a", verbose=False):
                                  extra_include_paths=[PICO], build_directory=build_dir, verbose=verbose)
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"inkling_cert: building the extension in {build_dir} failed: {exc}") from exc
-    for attr in ("screen", "exact"):
+    for attr in ("screen", "exact", "prepare_certwide", "screen_wide", "screen_wide_info", "debug_select_wide"):
         if not callable(getattr(ext, attr, None)):
             raise RuntimeError(f"inkling_cert: extension in {build_dir} lacks {attr}()")
     INFO.update(build_dir=build_dir, cached=cached, seconds=time.monotonic() - t0, tag=tag)

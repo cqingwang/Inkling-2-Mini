@@ -18,6 +18,8 @@
   [inkling-2-mini-vllm-dgx-spark](https://github.com/thefullctx/inkling-2-mini-vllm-dgx-spark): the first published
   SGLang vs vLLM head-to-head on one Spark (vLLM slightly ahead on short c1 decode, SGLang ~2x on long prefill, faster
   long-context decode and much lower memory use), which set the arms of our comparison.
+- **Thien Tran (gau-nernst)**, vLLM PR #69168 (small-M GEMMs for Inkling's looped core): the split-K router /
+  conv-projection and controller re-tiling we screened (not adopted, flat in serving).
 - **sxuff**, [inkling-2-mini-spark](https://github.com/sxuff/inkling-2-mini-spark) (Apache-2.0): the vLLM + DSpark
   + INT8 draft recipe and benchmark used for the same-harness comparison, and the `--safetensors-load-strategy eager`
   result (127 -> 45 s) that prompted our one-pass checkpoint load with SGLang's own flag.

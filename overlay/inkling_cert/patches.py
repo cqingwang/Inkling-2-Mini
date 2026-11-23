@@ -78,6 +78,10 @@ def make_get_logits(inner):
     def _get_logits(self, hidden_states, lm_head, logits_metadata, *args, **kwargs):
         mode = getattr(logits_metadata, "forward_mode", None)
         verify = mode is not None and mode.is_target_verify()
+        if verify:
+            result = _wide_logits(self, hidden_states, lm_head, logits_metadata, *args, **kwargs)
+            if result is not None:
+                return result
         prev = CTX["lp"]
         CTX["lp"] = self if verify else None
         try:
@@ -88,6 +92,93 @@ def make_get_logits(inner):
     _get_logits.__wrapped__ = inner
     _get_logits._inkling_cert = True
     return _get_logits
+
+
+def _wide_modules():
+    return sys.modules.get("inkling_wide.patches"), sys.modules.get("inkling_wide.ops")
+
+
+def _wide_logits(lp, x, head, meta, embedding_bias=None, use_logits_buffer=True):
+    cert = STATE["cert"]
+    wide = getattr(cert, "wide", None)
+    if (wide is None or STATE["disabled"] is not None or STATE["mode"] != "1"
+            or not x.is_cuda or not torch.cuda.is_current_stream_capturing()):
+        return None
+    from . import certwide
+
+    wp, wo = _wide_modules()
+    weight = getattr(head, "weight", None)
+    entry = wide.entry
+    m = wo.rows_of(x)
+    if (not certwide.MIN_ROWS <= m <= certwide.MAX_ROWS or x.dim() != 2
+            or not isinstance(weight, torch.Tensor) or wp.HEADS.get(weight.data_ptr()) is not entry
+            or tuple(weight.shape) != (entry.n, entry.k) or not wo.eligible(x, entry)
+            or wo.choose_split(entry.n, entry.k, m, entry.kind) != 1):
+        return None
+    if (embedding_bias is not None or not getattr(lp, "use_fp32_lm_head", False)
+            or getattr(lp, "shard_softcap", None) != cert_math.CAP
+            or getattr(lp, "logit_scale", None) is not None
+            or getattr(lp, "final_logit_softcapping", None) is not None
+            or getattr(lp, "do_tensor_parallel_all_gather", False)
+            or getattr(lp, "do_tensor_parallel_all_gather_dp_attn", False)
+            or getattr(lp, "vocab_size", None) != entry.n
+            or getattr(meta, "extend_return_logprob", False)
+            or hasattr(head, "set_lora")):
+        return None
+    from sglang.srt.layers.logits_processor import should_apply_lm_head_quant_method
+
+    if should_apply_lm_head_quant_method(head, getattr(head, "quant_method", None)):
+        return None
+    v_real = int(lp.config.vocab_size)
+    if not 0 < v_real <= entry.n:
+        return None
+    out = meta.next_token_logits_buffer if use_logits_buffer else None
+    # The stock implementation discards a buffer with a different shape.
+    if out is not None and tuple(out.shape) != (m, entry.n):
+        out = None
+    if out is None:
+        out = torch.empty((m, entry.n), dtype=torch.float32, device=x.device)
+    if (not wo.out_ok(out, m, entry, torch.float32, x.device) or out.data_ptr() % 32
+            or not out.is_contiguous()):
+        return None
+    # The tensor is the graph's existing fallback buffer. Its attribute is
+    # consumed at capture by the folded accept, which records the ID pointer.
+    out = out.view_as(out)  # keep the attribute off the graph's shared buffer object
+    out._inkling_certwide_ids = wide.run(wo.as_rows(x, entry.k), out, cert.on, v_real, wo.SET)
+    return out
+
+
+def _prepare_wide(cert, w, lp, tables):
+    from . import certwide
+
+    wp, wo = _wide_modules()
+    entry = wp.HEADS.get(w.data_ptr()) if wp is not None else None
+    if entry is None or entry.fmt != wo.BF16X or entry.pack is not cert.pack:
+        raise ops.CertFatal("inkling_certwide: needs the wide head registered with pico's packed weights")
+    if wo.choose_split(entry.n, entry.k, certwide.MAX_ROWS, entry.kind) != 1:
+        raise ops.CertFatal("inkling_certwide: needs the unsplit packed wide head")
+    if getattr(cert, "wide", None) is None:
+        cert.wide = certwide.CertWide(cert.ext, wo.EXT, entry, tables)
+    else:
+        cert.wide.refresh(entry, tables)
+
+    with torch.inference_mode():
+        # Warm the CUDA/Triton paths before capture. Use peaked BF16 rows so
+        # the sparse arithmetic and the forced full fallback are both checked.
+        for m in (17, 33, 64, 96, 128, 192):
+            x = (w[:m].float() * 60).to(torch.bfloat16)
+            out = torch.empty((m, entry.n), dtype=torch.float32, device=w.device)
+            ref = torch.empty_like(out)
+            wo.gemm(x, entry, ref, m)
+            v_real = int(lp.config.vocab_size)
+            expected = _softcap_argmax(ref, v_real)
+            for on in (cert.force, cert.off):
+                ids = cert.wide.run(x, out, on, v_real, wo.SET)
+                if not torch.equal(ids, expected):
+                    raise ops.CertFatal(f"inkling_certwide: M={m} self-test token mismatch")
+                if on is cert.off and not torch.equal(out.view(torch.int32), ref.view(torch.int32)):
+                    raise ops.CertFatal(f"inkling_certwide: M={m} fallback logit mismatch")
+    _log(f"wide certified packed head armed (17–192 rows, compact capacity {cert.wide.capacity} tiles)")
 
 
 def prepare(model):
@@ -121,6 +212,7 @@ def prepare(model):
     ext = build.load(STATE["cfg"]["cache_dir"])
     t_ext = time.monotonic() - t0
     old = STATE["cert"]
+    _require_wide_replay_stream()
     tables = quant.build_tables(w.data)
     if old is not None:  # a reload: refresh in place (captured graphs hold these pointers)
         for name in ("q", "sc", "rt", "nv"):
@@ -129,10 +221,12 @@ def prepare(model):
         cert = old
     else:
         cert = ops.Cert(ext, pack, tables, po.SET.wk, w.device)
+    lp = getattr(getattr(model, "llm", None), "logits_processor", None)
+    if STATE["cfg"].get("wide"):
+        _prepare_wide(cert, w, lp, tables)
     del tables
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    lp = getattr(getattr(model, "llm", None), "logits_processor", None)
     selftest(cert, po, v_real=int(getattr(getattr(lp, "config", None), "vocab_size", 0) or 0) or None)
     STATE["cert"] = cert
     info = build.INFO
@@ -318,6 +412,53 @@ def batch_ok(batch, sampling_info):
     return _sampling_ok(sampling_info) and _sampling_ok(getattr(batch, "sampling_info", None))
 
 
+def _patch_wide_accept(mod):
+    _need(mod, ["AcceptGreedy", "sampling_argmax"], VERIFY)
+    original_argmax = mod.sampling_argmax
+    original_accept = mod.AcceptGreedy
+
+    def sampling_argmax(logits):
+        ids = getattr(logits, "_inkling_certwide_ids", None)
+        return original_argmax(logits) if ids is None else ids
+
+    class AcceptGreedy(original_accept):
+        @classmethod
+        def execute(cls, *args, **kwargs):
+            logits = kwargs.get("target_logits")
+            ids = getattr(logits, "_inkling_certwide_ids", None)
+            if ids is not None and kwargs.get("target_predict") is None:
+                kwargs["target_predict"] = ids
+            return original_accept.execute(*args, **kwargs)
+
+    # Both the fused static tail and the ordinary accept (also used by vcap)
+    # get their predictions from the same capture output tensor.
+    mod.sampling_argmax = sampling_argmax
+    mod.AcceptGreedy = AcceptGreedy
+
+
+def _require_wide_replay_stream():
+    wide = getattr(STATE["cert"], "wide", None)
+    if wide is not None:
+        wide.require_replay_stream()
+
+
+def patch_graph_runner(mod):
+    cls = mod.DecodeCudaGraphRunner
+    orig = cls.execute
+    if getattr(orig, "_inkling_certwide", False):
+        return
+
+    @functools.wraps(orig)
+    def execute(self, *args, **kwargs):
+        if self.capture_forward_mode.is_target_verify() and not self.model_runner.is_draft_worker:
+            _require_wide_replay_stream()
+        return orig(self, *args, **kwargs)
+
+    execute._inkling_certwide = True
+    cls.execute = execute
+    STATE["patched"].append("DecodeCudaGraphRunner.execute")
+
+
 def patch_verify(mod):
     _need(mod, ["DsparkVerifyEpilogue", "TargetVerifyExecutor"], VERIFY)
     ep = mod.DsparkVerifyEpilogue
@@ -326,15 +467,19 @@ def patch_verify(mod):
     _need(ex, ["run_non_compact"], f"{VERIFY}.TargetVerifyExecutor")
     if getattr(ex.run_non_compact, "_inkling_cert", False):
         return
+    if STATE["cfg"].get("wide"):
+        _patch_wide_accept(mod)
     b_static, b_step, run = ep.begin_static_step, ep.begin_step, ex.run_non_compact
 
     @functools.wraps(b_static)
     def begin_static_step(self, bs, armed):
+        _require_wide_replay_stream()
         self.__dict__["_inkling_cert_armed"] = bool(armed)
         return b_static(self, bs, armed)
 
     @functools.wraps(b_step)
     def begin_step(self, verify_lens, armed):
+        _require_wide_replay_stream()
         self.__dict__["_inkling_cert_armed"] = False
         cert = STATE["cert"]
         if cert is not None:
@@ -349,6 +494,7 @@ def patch_verify(mod):
             armed = epi is not None and bool(epi.__dict__.get("_inkling_cert_armed", False))
             # SGLANG_SIMULATE_ACC_LEN (a benchmark mode; its folded bonus may be sampled): never certify
             simulated = getattr(self, "_simulated_correct_len", None) is not None or bool(getattr(epi, "simulate_fold", False))
+            _require_wide_replay_stream()
             cert.set_on(armed and not simulated and STATE["disabled"] is None and batch_ok(batch, sampling_info))
             STATE["calls"] += 1
             every = STATE["cfg"]["log_every"]

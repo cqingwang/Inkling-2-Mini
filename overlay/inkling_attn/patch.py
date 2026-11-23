@@ -249,6 +249,16 @@ def _same_storage_rows(bias, r):
     )
 
 
+def packed_rel_projection(bias):
+    """Resolve a fused projection marker intercepted by a packed attention reader."""
+    visit = _CTX.get()
+    if visit is not None and visit.r is not None and _same_storage_rows(bias, visit.r):
+        return visit.proj
+    if bias.shape[-1] == D_REL and _is_produced(bias):
+        raise RuntimeError("inkling_attn: packed reader received a marker outside its visit")
+    return None
+
+
 def _kernel_call(visit, bias, kwargs):
     """Arguments for ops.prefill_attention, or None when this call is outside what the kernel covers."""
     import torch

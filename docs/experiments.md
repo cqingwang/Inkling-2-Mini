@@ -783,3 +783,37 @@ Both pool sizing changes preserve exactness.
 A packed-only global KV store is in development. The design uses ~24.6 KB per token vs 32 KB for BF16, making
 the lossless packed format the primary store for committed global-layer pages. The serving check packed 15.5M
 page-heads with 0 escape overflows.
+
+## v2.7: wider certified head, long-prefix prefill, 512K / 1M, packed KV store
+
+Certified head for 17-192 rows (GPU check on real hidden states, every row band certified, FP64 error inside the
+budget; cold timing head + softcap + argmax vs certified): 64 rows 3.99 -> 1.72 ms, 128 rows 5.09 -> 3.19 ms,
+192 rows 6.14 -> 6.02 ms (the screen is compute-bound there); overflow fallback costs +1.5 to +5.7 ms but did not
+trigger on real states. Serving A/B on v2.6 (`results/screen-r2/CW*`), greedy decode table, mean over four prompt
+types, on vs off: c1 +0.3 / +0.1 %, c4 +2.1 / +1.6 %, c8 +1.0 / +1.5 %, c16 -0.3 / -0.7 % (Spark_05 / Spark_06).
+
+Long-prefix prefill: 512K / 1M cold prefill timings fitted the fused kernel slowing down, not a fallback. Per global
+layer and 8K chunk (cold L2, Spark_06): 4-warp kernel 70.7 TF/s at 120-256K, 49.2 at 512K, 46.5 at 1M; 8-warp variant
+68.4-68.9 TF/s at every prefix. Splitting the launch at 131,072 keys: 512K 1,082 -> 777 ms, 1M 2,281 -> 1,547 ms,
+bit-identical to the single launch.
+
+512K / 1M option (v2.6 build, default store, Spark_05): see the README table; 1M cold prefill 1,285 s, 512K 358 s.
+
+Memory flags (`results/screen-r2/K1a-s05`): conv-state slots 1,232 -> 512 (peak use 76), one prefill chunk in flight:
+pool 1,559,424 -> 1,593,088 tokens, worst case 5.2 GiB, sbquick 63.56, prefill 1K-128K 2,962 / 5,490 / 5,163 / 3,808.
+
+Packed KV store (`KV12S=1`, opt-in): format and checks in `overlay/inkling_kv12s/`; first serving build 2,168,320
+tokens, speedbench quick 63.16 (v2.6 63.49), sanity 11/11, needles PASS, worst run 4.2 GiB. Greedy speedbench quick
+hashes: a v2.7 reference with `KV12S=0` and the same flags matches v2.6 on 32/32; `KV12S=1` on 27/32 (5 deterministic
+differences). Ruled out so far: the eager draft commit (32/32 with `KV12S=0`), FA4 split counts depending on the
+cache extent (bit-identical across extents). Under investigation for v2.7.1.
+
+Screened and not adopted (v2.6 base):
+
+- Verify policy refit with top-2-gap features on a fresh full-width capture (65,088 request-steps): -0.22 %
+  [-0.52, +0.71] vs the shipped policy.
+- Split-K / re-tiled small kernels for the router, global conv projection and loop controllers (after vLLM PR
+  #69168, Thien Tran): -0.35 ms per c1 step in isolation, flat in serving on both boxes.
+- INT8 per-row draft weights: flat (same bytes as FP8, acceptance unchanged).
+- Dropping the 12-bit side copy (`KV12=0`, MEM 0.99): +8 % KV tokens but decode steps 63.7 / 80.0 ms vs 57.8 / 73.2 ms
+  at 128K / 250K.
