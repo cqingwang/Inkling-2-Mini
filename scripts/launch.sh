@@ -30,6 +30,7 @@ MODEL_REVISION=ed40e7da625f594fc9c4990f5f66be24873c22d7
 # SGLang profile
 MEM_FRACTION_USER=${MEM_FRACTION:-}
 MEM_FRACTION=${MEM_FRACTION:-0.93}
+SWA_RATIO_USER=${SWA_RATIO:-}
 SWA_RATIO=${SWA_RATIO:-0.05}                                 # sliding-window pool / full pool tokens (image default 0.1; 48 requests need ~72K)
 LOAD_NOMMAP=${LOAD_NOMMAP:-1}                               # read the checkpoint in one pass instead of mmap page faults (start-up ~265 -> ~130 s)
 # Speed overlays (overlay/, see overlay/README.md). OVERLAY=0 runs the stock image exactly as the cookbook does.
@@ -52,9 +53,17 @@ VCAP_FASTPROBS=${VCAP_FASTPROBS:-1}                         # draft statistics /
 VCAP_FUSED=${VCAP_FUSED:-1}                                 # sampled accept straight from the logits, >= 3 requests (exact)
 KV12=${KV12:-1}                                             # global-layer KV also kept as packed 12-bit pages (exact; side pool)
 CERT_WIDE=${CERT_WIDE:-1}                                   # certified greedy LM head for 17-192-row verify batches (exact)
-KV12S=${KV12S:-0}                                           # authoritative packed target and draft FULL KV
-KV12S_OVERFLOW_HEADS=${KV12S_OVERFLOW_HEADS:-512}
-KV12S_DRAFT_OVERFLOW_HEADS=${KV12S_DRAFT_OVERFLOW_HEADS:-2048}
+KV12S_DEFAULT=${KV12S_DEFAULT:-1}                           # packed global KV store default for the SGLang overlay profile
+if [[ -z ${KV12S:-} ]]; then                                # vLLM and OVERLAY=0 never default to KV12S
+  if [[ $ENGINE == sglang && $OVERLAY == 1 ]]; then KV12S=$KV12S_DEFAULT; else KV12S=0; fi
+fi                                                          # KV12S=1: packed global target KV, raw BF16 draft lane
+case $(printf %s "$KV12S" | tr '[:upper:]' '[:lower:]') in   # one spelling for the shell checks and the overlay switch
+  1|true|yes|on) KV12S=1 ;;
+  0|false|no|off|'') KV12S=0 ;;
+  *) echo "KV12S must be 0 or 1 (got '$KV12S')" >&2; exit 2 ;;
+esac
+KV12S_OVERFLOW_HEADS=${KV12S_OVERFLOW_HEADS:-2048}          # exact page-head overflow slots per target visit (32 KiB each)
+KV12S_FALLBACK_PAGES=${KV12S_FALLBACK_PAGES:-64}            # raw fallback pages per visit if that arena is exhausted (512 KiB each)
 KV12_SLOTS=${KV12_SLOTS:-2048}                              # packed side-pool pages per global layer (2048 = 6.1 GiB, one 256K request)
 SCODES=${SCODES:-1}                                          # NVFP4 expert scale codes: 5-bit codes + row base, expanded in the GEMM (exact)
 PFUSE=${PFUSE:-all}                                         # prefill glue fusion (empty = stock)
@@ -84,7 +93,7 @@ case $cmd in
   *) echo "usage: $0 up|down|status|logs [extra engine flags]" >&2; exit 2 ;;
 esac
 
-kv12s_args=()
+kv12s_args=(); kv12s_env=()
 if [[ $KV12S == 1 ]]; then
   [[ $ENGINE == sglang && $OVERLAY == 1 ]] || {
     echo "KV12S=1 requires ENGINE=sglang and OVERLAY=1" >&2; exit 2; }
@@ -92,8 +101,11 @@ if [[ $KV12S == 1 ]]; then
   # The unified pool leaves less post-capture headroom than the stock pool at the same
   # fraction; 0.91 keeps MemAvailable above the guard during 8K prefill chunks.
   [[ -n $MEM_FRACTION_USER ]] || MEM_FRACTION=0.91
+  # 3.5 % of 2.26M FULL tokens still covers 48 requests' windows (think48 + kvstress measured at 0.035).
+  [[ -n $SWA_RATIO_USER ]] || SWA_RATIO=0.035
   kv12s_args=(--enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48
-              --cuda-graph-backend-decode=full --cuda-graph-max-bs-decode=48)
+              --cuda-graph-max-bs-decode=48)
+  kv12s_env=(-e SGLANG_RAGGED_VERIFY_MODE=static)
 fi
 
 [[ -f $MODEL_DIR/config.json && -f $MODEL_DIR/mtp.safetensors ]] || {
@@ -133,7 +145,7 @@ if [[ $ENGINE == sglang ]]; then
         -e INKLING_VERIFY_CAP_FASTPROBS="$VCAP_FASTPROBS" -e INKLING_VERIFY_CAP_FUSED_ACCEPT="$VCAP_FUSED"
         -e INKLING_KV12="$KV12" -e INKLING_KV12_MAX_PAGES="$KV12_SLOTS"
         -e INKLING_CERT_WIDE="$CERT_WIDE" -e INKLING_KV12S="$KV12S" -e INKLING_KV12S_OVERFLOW_HEADS="$KV12S_OVERFLOW_HEADS"
-        -e INKLING_KV12S_DRAFT_OVERFLOW_HEADS="$KV12S_DRAFT_OVERFLOW_HEADS")
+        -e INKLING_KV12S_FALLBACK_PAGES="$KV12S_FALLBACK_PAGES" ${kv12s_env[@]+"${kv12s_env[@]}"})
   fi
   run=("${common[@]}" ${ov[@]+"${ov[@]}"}
        -e MAX_JOBS=4

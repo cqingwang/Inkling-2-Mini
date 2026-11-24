@@ -16,18 +16,31 @@ _PLAN_VERIFY_ROWS = ContextVar("inkling_kv12s_plan_verify_rows", default=None)
 _FORWARD = ContextVar("inkling_kv12s_forward", default=None)
 _VERIFY_WINDOW = ContextVar("inkling_kv12s_verify_window", default=None)
 PackedSpec = None
+# Target sliding-window band stored page-major (see swa_layout): avoids GPU TLB misses
+# of the unified arena's token-major entries in the compact verify attention.
+_SWA_PAGE_MAJOR = os.environ.get("INKLING_KV12S_SWA_PAGE_MAJOR", "1").strip().lower() not in ("0", "off", "false", "no")
 
 
-def _prefix_scratch():
-    # Eager prefill decodes the visit's referenced pages into a bounded BF16 copy
-    # and runs the BF16 fused kernel (attention.PrefixScratch). 0 = packed loader.
-    from .attention import PrefixScratch
+# Eager prefill decodes the visit's referenced pages into a bounded BF16 copy and
+# runs the BF16 fused kernel (attention.PrefixScratch); 0 = packed in-kernel loader.
+# 2112 pages = a 256K context plus one 8K chunk; allocated once and charged in the plan.
+def _scratch_pages():
+    """Prefix scratch pages: INKLING_KV12S_PREFILL_SCRATCH_PAGES, else enough for one
+    request at the server's context length plus one 8K chunk (at least 2,112 = 256K + 64).
+    Beyond 262,144 tokens this costs 512 KiB per page at eight KV heads (1M: 4.03 GiB)."""
+    value = os.environ.get("INKLING_KV12S_PREFILL_SCRATCH_PAGES", "").strip()
+    if value:
+        return int(value)
+    try:
+        from sglang.srt.runtime_context import get_server_args
 
-    pages = int(os.environ.get("INKLING_KV12S_PREFILL_SCRATCH_PAGES", "2112"))
-    return PrefixScratch(pages) if pages > 0 else None
-
-
+        context = int(get_server_args().context_length or 0)
+    except Exception:  # noqa: BLE001 - outside a server (unit fixtures)
+        context = 0
+    return max(2112, -(-context // 128) + 65)
 _PREFIX_SCRATCH = []
+# Unit fixtures without a scratch may still use the unbounded eager gather.
+_ALLOW_UNBOUNDED_GATHER = False
 # Below this many new rows the per-visit decode of the whole prefix outweighs the
 # packed loader's slower tiles (128K prefix: ~5 ms decode per visit).
 _SCRATCH_MIN_TOKENS = int(os.environ.get("INKLING_KV12S_PREFILL_SCRATCH_MIN_TOKENS", "512"))
@@ -64,6 +77,67 @@ def _check_cache_selectors(memory, speculative_algorithm, disaggregation_mode):
         raise IncompatibleImage("inkling_kv12s: prefill/decode disaggregation and PD decode restore are unsupported")
 
 
+def _check_serving_args(spec):
+    """Refuse server settings whose paths the packed store does not bound."""
+    from sglang.srt.runtime_context import get_server_args
+
+    args = get_server_args()
+    for name in ("tp_size", "pp_size", "dp_size", "ep_size"):
+        if int(getattr(args, name, 1) or 1) != 1:
+            raise IncompatibleImage(f"inkling_kv12s: {name} must be 1 (side-slot decisions are per rank)")
+    if getattr(args, "enable_streaming_session", False):
+        raise IncompatibleImage("inkling_kv12s: --enable-streaming-session is unsupported (packed pages are immutable)")
+    if getattr(args, "enable_multimodal", False):
+        raise IncompatibleImage("inkling_kv12s: --enable-multimodal routes image prefill through an unbudgeted "
+                                "BF16 gather; unsupported")
+    try:
+        warps = int(os.environ.get("INKLING_ATTN_WARPS", "4"))
+        w8_from = int(os.environ.get("INKLING_ATTN_W8_FROM", "131072"))
+    except ValueError as exc:
+        raise IncompatibleImage("inkling_kv12s: INKLING_ATTN_WARPS / INKLING_ATTN_W8_FROM must be integers") from exc
+    if warps not in (4, 8) or not 0 <= w8_from < 2**31:
+        raise IncompatibleImage("inkling_kv12s: INKLING_ATTN_WARPS must be 4 or 8 and 0 <= INKLING_ATTN_W8_FROM < 2**31")
+    if spec.speculative_algorithm is not None and not _FA4_WORKSPACE:
+        from sglang.srt.environ import envs
+
+        try:  # the same accessor the model's verify dispatch reads
+            compact = bool(envs.SGLANG_OPT_INKLING2_VERIFY_REL_BIAS_KERNEL.get())
+        except ValueError:
+            compact = False
+        if not compact:
+            raise IncompatibleImage("inkling_kv12s requires SGLANG_OPT_INKLING2_VERIFY_REL_BIAS_KERNEL=1 "
+                                    "(compact verify reads the packed store; FA4 verify would gather during capture)")
+
+
+def _check_verify_capture(runner):
+    """Every captured verify batch must take the compact packed reader: the FA4
+    fallback reads host metadata and cannot run inside graph capture."""
+    if _FA4_WORKSPACE:
+        return
+    from sglang.srt.models.inkling_common import inkling2_attn
+    from sglang.srt.runtime_context import get_server_args, get_spec
+
+    spec = get_spec()
+    if spec.speculative_algorithm is None:
+        return
+    from sglang.srt.runtime_context import get_exec
+
+    args = get_server_args()
+    width = int(getattr(spec, "speculative_num_draft_tokens", 0) or 0)
+    try:  # the resolved capture buckets, as DSpark reads them
+        bs = max(get_exec().graph.cuda_graph_config.decode.bs)
+    except (AttributeError, TypeError, ValueError):
+        bs = None
+    cli = [getattr(args, name, None) for name in ("cuda_graph_max_bs_decode", "cuda_graph_max_bs", "max_running_requests")]
+    bs = max([int(b) for b in (bs, *cli) if b])  if any((bs, *cli)) else None
+    cutoff = getattr(inkling2_attn, "VERIFY_REL_BIAS_MAX_TOKENS", 32)
+    if not bs or not width or int(bs) * width > cutoff:
+        raise IncompatibleImage(
+            f"inkling_kv12s: captured verify batches up to {bs} x {width} rows exceed the compact verify cutoff "
+            f"({cutoff} rows; enable INKLING_VATTN with INKLING_VATTN_MAX_TOKENS >= that product, lower "
+            "--cuda-graph-max-bs-decode, or set INKLING_KV12S_FA4_WORKSPACE=1)")
+
+
 def _register_config(module):
     cls = module.KVCacheConfigurator
 
@@ -95,8 +169,9 @@ def _register_config(module):
 
             if spec.speculative_algorithm is not None and read_ragged_verify_mode() is not RaggedVerifyMode.STATIC:
                 # VATTN's SWA reader and the stock compact SWA fallback index
-                # queries with one batch-wide QLEN (review M2 P1 #5).
+                # queries with one batch-wide QLEN.
                 raise IncompatibleImage("inkling_kv12s requires SGLANG_RAGGED_VERIFY_MODE=static")
+            _check_serving_args(spec)
             if "Inkling2LoopForConditionalGeneration" not in self.model_config.hf_config.architectures:
                 raise IncompatibleImage("inkling_kv12s expects the Inkling-2-Mini loop model")
             return original(self, budget_bytes, cap_tokens=cap_tokens)
@@ -146,12 +221,16 @@ def _register_plan(module, overflow_heads, draft_overflow_heads):
             return (overflow_heads,) * self.layer_num
 
         def fixed_bytes(self, running, *, overlap):
-            slots = stage_slots(running, self.verify_rows, overlap=overlap)
+            from .storage import FALLBACK_PAGES
+
+            slots = stage_slots(running, self.verify_rows, overlap=overlap) + FALLBACK_PAGES
             return sum(arenas_bytes(h, slots, overflow) + 4 * (slots + overflow)
                        for h, overflow in zip(self.lane_heads(), self.lane_overflow_heads()))
 
         def workspace_bytes(self):
-            return workspace_bytes(max(self.lane_heads()))
+            # attention.PrefixScratch: BF16 K and V of _scratch_pages() pages.
+            scratch = 2 * max(0, _scratch_pages()) * PAGE * max(self.lane_heads()) * DIM * 2
+            return workspace_bytes(max(self.lane_heads())) + scratch
 
         def gather_bytes(self, chain_bytes):
             if not _FA4_WORKSPACE:
@@ -239,7 +318,7 @@ def _register_build(module):
     from .attention import FA4Workspace
     from .device import DeviceLayer, RawLane
     from .storage import raw_lane_bytes
-    from .storage import DIM, PAGE, Layout, stage_slots
+    from .storage import DIM, FALLBACK_PAGES, PAGE, Layout, stage_slots
 
     class PackedView(MHAKVView):
         is_inkling_kv12s = True
@@ -363,7 +442,18 @@ def _register_build(module):
         def token_view(sub_pool, arena, plan, ctx):
             spec = sub_pool.spec
             if type(spec) is not PackedSpec:
-                return original(sub_pool, arena, plan, ctx)
+                view = original(sub_pool, arena, plan, ctx)
+                if _SWA_PAGE_MAJOR and type(plan.owner().spec) is PackedSpec:
+                    from . import swa_layout
+
+                    if swa_layout.eligible(spec):
+                        view = swa_layout.convert(view, arena, spec, PAGE)
+                        bands = getattr(arena, "_inkling_kv12s_rows", {})
+                        bands[spec.name] = view
+                        arena._inkling_kv12s_rows = bands
+                        LOG.info("inkling_kv12s: window band %s page-major (%d visits, %d B/token)",
+                                 spec.name, spec.layer_num, spec.entry_bytes())
+                return view
             if torch.cuda.get_device_capability(ctx.device) != (12, 1):
                 raise IncompatibleImage("inkling_kv12s requires GB10 (SM121)")
             heads = spec.lane_heads()
@@ -371,13 +461,38 @@ def _register_build(module):
             slots = stage_slots(ctx.max_num_reqs, spec.verify_rows, overlap=not ctx.disable_overlap_schedule)
             pages = arena.extent_entries(spec.name) // PAGE
             workspace = FA4Workspace(pages, max(heads), arena.raw.device) if _FA4_WORKSPACE else None
+            scratch_pages = _scratch_pages()
+            if scratch_pages > 0 and not _PREFIX_SCRATCH:
+                from .attention import PrefixScratch
+
+                _PREFIX_SCRATCH.append(PrefixScratch(scratch_pages, max(heads), arena.raw.device))
+                LOG.info("inkling_kv12s: prefill BF16 prefix scratch %d pages (%.2f GiB)", scratch_pages,
+                         2 * scratch_pages * PAGE * max(heads) * DIM * 2 / 2**30)
             layers = []
             offset = 0
-            for h, overflow in zip(heads, spec.lane_overflow_heads()):
-                lane = DeviceLayer(arena.raw, h, stride, offset, slots, overflow)
+            overflows = spec.lane_overflow_heads()
+            if len(set(overflows)) != 1 or len(set(heads)) != 1:
+                raise IncompatibleImage("inkling_kv12s expects uniform packed target visits")
+            # One lock row and one event row per visit, in shared buffers that the
+            # side-slot guard reads with a single reduction per forward.
+            from .pressure import GUARD, SideGuard
+            from .storage import EVENT_WORDS
+
+            locks = torch.zeros((len(heads), slots + FALLBACK_PAGES + overflows[0]), dtype=torch.int32,
+                                device=arena.raw.device)
+            events = torch.zeros((len(heads), EVENT_WORDS), dtype=torch.int32, device=arena.raw.device)
+            for index, (h, overflow) in enumerate(zip(heads, overflows)):
+                lane = DeviceLayer(arena.raw, h, stride, offset, slots, overflow, FALLBACK_PAGES,
+                                   locks=locks[index], events=events[index])
                 lane.gather_workspace = workspace
                 layers.append(lane)
                 offset += Layout(h).size
+            from sglang.srt.runtime_context import get_server_args
+
+            args = get_server_args()
+            chunk = max(int(getattr(args, "max_prefill_tokens", 0) or 0),
+                        int(getattr(args, "chunked_prefill_size", 0) or 0), PAGE)
+            GUARD[:] = [SideGuard(layers, locks, events, prefill_tokens=chunk, page=PAGE)]
             for h in spec.raw_lane_heads():
                 layers.append(RawLane(arena.raw, h, stride, offset, pages))
                 offset += raw_lane_bytes(h)
@@ -526,12 +641,18 @@ def _register_move(module):
 
 
 def _register_snapshot(module):
+    import torch
+
     from .storage import PACK_BATCH, PAGE
+
+    def row_bands(allocator):
+        return getattr(allocator.arena, "_inkling_kv12s_rows", {})
 
     class WithoutPackedBand:
         def __init__(self, allocator, view):
             self.allocator = allocator
-            self.members = [band for band in allocator.members if band.sub_pool_name != view.name]
+            skip = {view.name, *row_bands(allocator)}
+            self.members = [band for band in allocator.members if band.sub_pool_name not in skip]
 
         def __getattr__(self, name):
             return getattr(self.allocator, name)
@@ -558,6 +679,23 @@ def _register_snapshot(module):
                     end = start + PACK_BATCH * PAGE
                     dest[start:end].copy_(layer.read_rows(locations[start:end]))
             saved.bands[view.name] = module.BandSnapshot(positions=positions.cpu(), entries=tuple(entries))
+            # Page-major window bands: save each token's rows of every visit.
+            for band in allocator.members:
+                rows_view = row_bands(allocator).get(band.sub_pool_name)
+                if rows_view is None:
+                    continue
+                ids, by_unit = module._band_ids(allocator, band, indices, state_indices, request_row)
+                ids = ids.reshape(-1)
+                physical = module._physical(band, ids, by_unit=by_unit)
+                positions = torch.nonzero(physical > 0, as_tuple=True)[0]
+                rows = physical[positions]
+                values = torch.empty((rows.numel(), rows_view.layer_num, 2, rows_view.head_num, rows_view.head_dim),
+                                     dtype=torch.bfloat16, device="cpu")
+                from .swa_layout import SNAPSHOT_ROWS
+
+                for start in range(0, rows.numel(), SNAPSHOT_ROWS):
+                    values[start:start + SNAPSHOT_ROWS].copy_(rows_view.read_rows(rows[start:start + SNAPSHOT_ROWS]))
+                saved.bands[band.sub_pool_name] = module.BandSnapshot(positions=positions.cpu(), entries=values)
             return saved
         return copy
 
@@ -583,6 +721,26 @@ def _register_snapshot(module):
                      state_indices=state_indices, request_row=request_row)
             for publish in publications:
                 publish()
+            for band in allocator.members:
+                rows_view = row_bands(allocator).get(band.sub_pool_name)
+                band_saved = snapshot.bands.get(band.sub_pool_name)
+                if rows_view is None or band_saved is None:
+                    continue
+                ids, by_unit = module._band_ids(allocator, band, indices, state_indices, request_row)
+                physical = module._physical(band, ids.reshape(-1), by_unit=by_unit)
+                destinations = physical[band_saved.positions.to(physical.device)]
+                # A window may retain less history by restore time; restore its bound rows.
+                valid = (destinations > 0).cpu()
+                keep = torch.nonzero(valid, as_tuple=True)[0]
+                if keep.numel():
+                    from .swa_layout import SNAPSHOT_ROWS
+
+                    # Index the host payload one tile at a time: a whole-band
+                    # fancy index would duplicate it in host memory first.
+                    for start in range(0, keep.numel(), SNAPSHOT_ROWS):
+                        tile = keep[start:start + SNAPSHOT_ROWS]
+                        rows_view.write_rows(destinations[tile.to(destinations.device)],
+                                             band_saved.entries[tile])
             module.current_platform.synchronize()
         return restore
 
@@ -627,9 +785,7 @@ def dispatch_packed_fa4(stock, layer, kwargs, *, warps=None):
             and kwargs.get("num_splits", 1) in (0, 1) and not kwargs.get("pack_gqa")
             and not kwargs.get("rel_bias_presheared")
             and all(kwargs.get(name) is None for name in unsupported)):
-        if not _PREFIX_SCRATCH:
-            _PREFIX_SCRATCH.append(_prefix_scratch())
-        scratch = _PREFIX_SCRATCH[0]
+        scratch = _PREFIX_SCRATCH[0] if _PREFIX_SCRATCH else None
         copy = (scratch.gather(layer, q, table, seq_k, cu_q)
                 if scratch is not None and q.shape[0] >= _SCRATCH_MIN_TOKENS else None)
         if copy is not None:
@@ -657,7 +813,16 @@ def dispatch_packed_fa4(stock, layer, kwargs, *, warps=None):
                  kwargs.get("return_softmax_lse"))
     workspace = getattr(layer, "gather_workspace", None)
     if workspace is None:
-        k, v, table = gather_for_fa4(layer, q, table, seq_k, cu_q, kwargs.get("max_seqlen_q"))
+        # Eager only. Use the pool-charged prefix scratch; an unbounded per-call
+        # BF16 gather could exceed the memory headroom.
+        scratch = _PREFIX_SCRATCH[0] if _PREFIX_SCRATCH else None
+        copy = scratch.gather(layer, q, table, seq_k, cu_q) if scratch is not None else None
+        if copy is None:
+            if scratch is not None or not _ALLOW_UNBOUNDED_GATHER:
+                raise RuntimeError("inkling_kv12s: an FA4 call outside the packed readers references more pages "
+                                   "than the bounded BF16 scratch holds")
+            copy = gather_for_fa4(layer, q, table, seq_k, cu_q, kwargs.get("max_seqlen_q"))
+        k, v, table = copy
     else:
         k, v, table = workspace.gather(layer, table, seq_k)
     forwarded = dict(kwargs, k_cache=k, v_cache=v, page_table=table)
@@ -704,6 +869,11 @@ def _register_backend(module):
         def paged(self, layer, *, head_group_num=1):
             lane = get_layer(self, layer)
             if lane is None:
+                route = self.kv_layers.layer(layer.layer_id)
+                if getattr(route.view, "page_major", False):
+                    if head_group_num != 1:
+                        raise RuntimeError("inkling_kv12s: page-major window reads require physical KV heads")
+                    return route.view.k4[route.view_layer_id], route.view.v4[route.view_layer_id]
                 return original(self, layer, head_group_num=head_group_num)
             if head_group_num != 1:
                 raise RuntimeError("inkling_kv12s: packed reads require physical KV heads")
@@ -811,46 +981,6 @@ def _register_model(module):
           "self q k v r sources positions forward_batch padded verify shear", keep_stock_projection)
 
 
-class _Occupancy:
-    """Side-arena high-water marks without a host sync: every PERIOD decode
-    steps, copy the lock counts to pinned memory and read the previous copy."""
-
-    PERIOD = 256
-
-    def __init__(self):
-        self.steps = 0
-        self.host = None
-        self.event = None
-        self.high = None
-        self.capacity = None
-
-    def step(self, lanes):
-        import torch
-
-        self.steps += 1
-        if self.steps % self.PERIOD:
-            return
-        if self.event is not None and self.event.query():
-            used = self.host.view(-1, 2).tolist()
-            high = [tuple(max(a, b) for a, b in zip(old, new)) for old, new in zip(self.high, used)]
-            if high != self.high:
-                self.high = high
-                LOG.info("inkling_kv12s: side-arena high water (stage, overflow) per lane %s of %s",
-                         high, self.capacity)
-        if self.high is None:
-            self.high = [(0, 0)] * len(lanes)
-            self.capacity = [(lane.stage_locks.numel(), lane.overflow_locks.numel()) for lane in lanes]
-            self.host = torch.zeros(2 * len(lanes), dtype=torch.int32, pin_memory=True)
-            self.event = torch.cuda.Event()
-        counts = torch.stack([torch.stack((lane.stage_locks.sum(), lane.overflow_locks.sum())) for lane in lanes])
-
-        self.host.copy_(counts.flatten().to(torch.int32), non_blocking=True)
-        self.event.record()
-
-
-_OCCUPANCY = _Occupancy()
-
-
 def _register_dspark(module):
     def save_window(original):
         def allocate(*args, **kwargs):
@@ -880,7 +1010,6 @@ def _register_dspark(module):
                 ids = window.iteration_ids.write_ids(target.runner_ids).view_as(window.verify_cache_loc_2d)
                 for lane in view.owned_layers:
                     lane.settle(ids, commit)
-            _OCCUPANCY.step(view.layers)
             return result
         return decode
 
@@ -905,6 +1034,81 @@ def _register_dspark(module):
           "self batch on_publish grammar_barrier coordination_plan", finish_verify)
 
 
+def _register_probe_dspark(module):
+    from .pressure import outermost
+
+    def probe(original):
+        def forward(self, batch, on_publish=None, grammar_barrier=None, *, pp_proxy_tensors=None):
+            return outermost(lambda: original(self, batch, on_publish, grammar_barrier,
+                                              pp_proxy_tensors=pp_proxy_tensors), batch)
+        return forward
+
+    _wrap(module.DSparkWorkerV2, "forward_batch_generation",
+          "self batch on_publish grammar_barrier pp_proxy_tensors", probe)
+
+
+def _register_probe_worker(module):
+    from .pressure import outermost
+
+    def probe(original):
+        def forward(self, *args, **kwargs):
+            batch = args[0] if args else kwargs.get("batch")
+            return outermost(lambda: original(self, *args, **kwargs), batch)
+        return forward
+
+    _wrap(module.TpModelWorker, "forward_batch_generation",
+          "self batch forward_batch pp_proxy_tensors is_verify skip_attn_backend_init capture_hidden_mode "
+          "pp_loras return_iteration_ids input_ids_from_graph", probe)
+
+
+def _register_scheduler(module):
+    from .pressure import guard
+
+    def results(original):
+        def process(self, batch, result):
+            side = guard()
+            if side is not None:
+                side.on_result(self, batch, result)
+            return original(self, batch, result)
+        return process
+
+    def next_batch(original):
+        def plan(self, running_batch, last_batch):
+            side = guard()
+            if side is not None:
+                side.before_schedule(self, running_batch, last_batch)
+            return original(self, running_batch, last_batch)
+        return plan
+
+    def defer(original):
+        def should_defer(self, running_batch):
+            side = guard()
+            return original(self, running_batch) or (side is not None and side.defer_prefill(running_batch))
+        return should_defer
+
+    _wrap(module.Scheduler, "process_batch_result", "self batch result", results)
+    _wrap(module.Scheduler, "get_next_batch_to_run", "self running_batch last_batch", next_batch)
+    _wrap(module.Scheduler, "_should_defer_prefill", "self running_batch", defer)
+
+
+def _register_decode_capacity(module):
+    from .pressure import guard
+
+    def check(original):
+        def fits(self, selected_indices=None):
+            if not original(self, selected_indices):
+                return False
+            side = guard()
+            requests = len(self.reqs) if selected_indices is None else len(selected_indices)
+            # Inside the retraction loop (selected_indices given) measure again:
+            # the retracted requests' slots are free now.
+            return side is None or side.decode_fits(requests) or (
+                selected_indices is not None and side.decode_fits(requests, measure=True))
+        return fits
+
+    _wrap(module.ScheduleBatch, "check_decode_mem", "self selected_indices", check)
+
+
 def _register_verify(module, force=False):
     def no_fold(original):
         def resolve(self):
@@ -927,7 +1131,7 @@ def _register_sessions(module):
         def open_session(self, recv_req):
             if getattr(recv_req, "streaming", False):
                 # A streaming turn can resume inside a page that verify already
-                # sealed (review M2 P1 #4); packed pages are immutable.
+                # sealed; packed pages are immutable.
                 LOG.warning("inkling_kv12s: streaming sessions are unsupported; refusing %s",
                             recv_req.session_id)
                 from sglang.srt.managers.io_struct import OpenSessionReqOutput
@@ -970,6 +1174,7 @@ def _register_runner(module):
                     global_ids.update(layer.layer_id for layer in groups)
             if global_ids != set(view.model_layer_ids):
                 raise IncompatibleImage("inkling_kv12s: packed routes differ from the model's global visits")
+            _check_verify_capture(self)
             return result
         return initialize
 
@@ -988,17 +1193,16 @@ def _register_routed_cache(module):
 
 
 def _overflow_count(name, default):
-    try:
-        count = int(os.environ.get(name, default))
-    except ValueError as exc:
-        raise IncompatibleImage(f"inkling_kv12s: {name} must be a positive integer") from exc
-    if count < 1:
-        raise IncompatibleImage(f"inkling_kv12s: {name} must be a positive integer")
-    return count
+    from . import side_count
+
+    return side_count(name, default, 1)
 
 
 def register():
-    overflow = _overflow_count("INKLING_KV12S_OVERFLOW_HEADS", "512")
+    from . import side_count
+
+    side_count("INKLING_KV12S_FALLBACK_PAGES", "64", 0)  # refuse a bad count before any sizing
+    overflow = _overflow_count("INKLING_KV12S_OVERFLOW_HEADS", "2048")
     draft_overflow = _overflow_count("INKLING_KV12S_DRAFT_OVERFLOW_HEADS", "2048")
     patches = (
         ("sglang.srt.mem_cache.kv.plan", lambda m: _register_plan(m, overflow, draft_overflow)),
@@ -1015,6 +1219,10 @@ def register():
         ("sglang.kernels.ops.attention.inkling2_attn", _register_partials),
         ("sglang.srt.models.inkling_common.inkling2_attn", _register_model),
         ("sglang.srt.speculative.dspark_components.dspark_worker_v2", _register_dspark),
+        ("sglang.srt.speculative.dspark_components.dspark_worker_v2", _register_probe_dspark),
+        ("sglang.srt.managers.tp_worker", _register_probe_worker),
+        ("sglang.srt.managers.scheduler", _register_scheduler),
+        ("sglang.srt.managers.schedule_batch", _register_decode_capacity),
         ("sglang.srt.speculative.dspark_components.dspark_verify", _register_verify),
         ("sglang.srt.session.session_controller", _register_sessions),
     )
@@ -1038,3 +1246,33 @@ def register_eager_commit_only():
     when_imported("sglang.srt.speculative.dspark_components.dspark_worker_v2", worker)
     when_imported("sglang.srt.speculative.dspark_components.dspark_verify",
                   lambda m: _register_verify(m, force=True))
+
+
+def register_vattn_trace():
+    """Diagnostic (INKLING_KV12S_VATTN_TRACE=N): log the compact verify attention
+    arguments of every Nth call, to compare pool configurations."""
+    every = max(1, int(os.environ.get("INKLING_KV12S_VATTN_TRACE", "0") or 1))
+    count = [0]
+    seen = set()
+
+    def wrap(module):
+        original = module.inkernel_bias_partials
+
+        def traced(q, k_cache, v_cache, page_table, seqused_k, r, proj, softmax_scale, *, window_size_left=None,
+                   config=None):
+            count[0] += 1
+            capturing = __import__("torch").cuda.is_current_stream_capturing()
+            key = (tuple(q.shape), tuple(k_cache.stride()), tuple(page_table.shape), window_size_left, capturing)
+            if key not in seen or (not capturing and count[0] % every == 0):
+                seen.add(key)
+                seq = "graph" if capturing else seqused_k.tolist()
+                LOG.warning("vattn-trace capturing=%s q=%s k=%s kstride=%s table=%s seq=%s window=%s proj=%s",
+                            capturing, tuple(q.shape), tuple(k_cache.shape), tuple(k_cache.stride()),
+                            tuple(page_table.shape), seq if capturing else (min(seq), max(seq), len(seq)),
+                            window_size_left, tuple(proj.shape))
+            return original(q, k_cache, v_cache, page_table, seqused_k, r, proj, softmax_scale,
+                            window_size_left=window_size_left, config=config)
+
+        module.inkernel_bias_partials = traced
+
+    when_imported("inkling_vattn.ops", wrap)

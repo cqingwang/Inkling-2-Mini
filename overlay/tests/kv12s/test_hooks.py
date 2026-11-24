@@ -329,7 +329,8 @@ class HookTests(unittest.TestCase):
         kwargs = dict(q=q, page_table=original_table, cache_seqlens=torch.tensor([PAGE], dtype=torch.int32),
                       cu_seqlens_q=torch.tensor([0, 2], dtype=torch.int32), max_seqlen_q=2, rel_bias=bias,
                       causal=True, softmax_scale=0.1, window_size=(-1, -1), num_splits=3, pack_gqa=True, out=out)
-        with patch.dict(sys.modules, {"inkling_kv12s.attention": SimpleNamespace(gather_for_fa4=gather)}):
+        with patch.dict(sys.modules, {"inkling_kv12s.attention": SimpleNamespace(gather_for_fa4=gather)}), \
+                patch.object(hooks, "_ALLOW_UNBOUNDED_GATHER", True):
             self.assertIs(dispatch_packed_fa4(stock, self.layer, kwargs), out)
             with use_visit(marker, proj):
                 explicit = dict(kwargs, rel_bias=marker, max_seqlen_k=PAGE)

@@ -14,7 +14,8 @@ import sys
 import tempfile
 import time
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "overlay"))
+_ROOT = Path(__file__).resolve().parents[1]  # overlay/ in the release, the track root in development
+sys.path.insert(0, str(_ROOT if (_ROOT / "inkling_kv12s").is_dir() else _ROOT / "overlay"))
 
 import torch
 
@@ -232,7 +233,45 @@ def fa4_kwargs(q, layer, table, cu_q, seq_k, qmax, bias, *, mode, padded=False):
     return kwargs
 
 
+@contextmanager
+def bounded_scratch(pages, device, *, min_rows=None):
+    """The release reader setup: one fixed BF16 prefix scratch (the server allocates
+    it at startup) and no unbounded eager gather. Counts the gathers it serves."""
+    from inkling_kv12s import patch as kv12s_patch
+    from inkling_kv12s.attention import PrefixScratch
+
+    class CountingScratch(PrefixScratch):
+        def gather(self, *args):
+            copy = super().gather(*args)
+            self.served += copy is not None
+            return copy
+
+    scratch = CountingScratch(pages, HEADS_K, device)
+    scratch.served = 0
+    saved = (list(kv12s_patch._PREFIX_SCRATCH), kv12s_patch._ALLOW_UNBOUNDED_GATHER, kv12s_patch._SCRATCH_MIN_TOKENS)
+    kv12s_patch._PREFIX_SCRATCH[:] = [scratch]
+    kv12s_patch._ALLOW_UNBOUNDED_GATHER = False
+    if min_rows is not None:
+        kv12s_patch._SCRATCH_MIN_TOKENS = min_rows
+    try:
+        yield scratch
+    finally:
+        kv12s_patch._PREFIX_SCRATCH[:] = saved[0]
+        kv12s_patch._ALLOW_UNBOUNDED_GATHER, kv12s_patch._SCRATCH_MIN_TOKENS = saved[1:]
+
+
+def expect_refusal(label, run):
+    try:
+        run()
+    except RuntimeError as exc:
+        if "bounded BF16 scratch" not in str(exc):
+            raise
+        return
+    raise AssertionError(f"{label}: an eager FA4 call outside the scratch was not refused")
+
+
 def check_fa4(device, generator):
+    from inkling_kv12s import patch as kv12s_patch
     from inkling_kv12s.attention import FA4Workspace
     from inkling_kv12s.patch import dispatch_packed_fa4
     from sglang.kernels.ops.attention.flash_attention_v4_sm120 import flash_attn_with_kvcache
@@ -288,7 +327,15 @@ def check_fa4(device, generator):
                 raise AssertionError(f"{label}: expected {gathered_pages} gathered pages including the sink")
             return flash_attn_with_kvcache(**call)
 
-        actual = dispatch_packed_fa4(stock_on_gather, layer, kwargs)
+        if not kv12s_patch._PREFIX_SCRATCH:
+            # Release setup without its scratch, or a scratch too small: refused, never unbounded.
+            expect_refusal(f"{label} without scratch", lambda: dispatch_packed_fa4(stock_on_gather, layer, kwargs))
+        with bounded_scratch(gathered_pages - 1, device):
+            expect_refusal(f"{label} short scratch", lambda: dispatch_packed_fa4(stock_on_gather, layer, kwargs))
+        with bounded_scratch(16, device) as scratch:
+            actual = dispatch_packed_fa4(stock_on_gather, layer, kwargs)
+        if scratch.served != 1:
+            raise AssertionError(f"{label}: the eager gather did not read the bounded scratch")
         for part, a, b in zip(("output", "LSE"), actual[:2], expected[:2]):
             equal_bits(f"{label} {part}", a, b)
         layer.gather_workspace = workspace
@@ -298,7 +345,8 @@ def check_fa4(device, generator):
         layer.gather_workspace = None
         for part, a, b in zip(("output", "LSE"), static[:2], expected[:2]):
             equal_bits(f"{label} static gather {part}", a, b)
-        print(f"{label:32} bitwise (split={kwargs['num_splits']}, pack_gqa={kwargs['pack_gqa']})", flush=True)
+        print(f"{label:32} bitwise via bounded scratch and static workspace "
+              f"(split={kwargs['num_splits']}, pack_gqa={kwargs['pack_gqa']})", flush=True)
 
 
 def check_prefill(prefix, chunk, device, generator, flush, reps, warps):
@@ -313,50 +361,57 @@ def check_prefill(prefix, chunk, device, generator, flush, reps, warps):
     append(layer, k, v, 0, prefix)
     proj = normal((16, EXTENT), device, generator) * 0.1
     # Complete a staged page across two successive chunks and leave a new tail.
-    begin = prefix
-    for qlen in (PAGE - chunk, chunk + 13):
-        end = begin + qlen
-        append(layer, k, v, begin, end)
-        q = normal((qlen, HEADS_Q, DIM), device, generator)
-        r = normal((qlen, HEADS_Q, 16), device, generator)
-        table, seq, cu_q = table_for(end, device), lengths(device, [end]), lengths(device, [0, qlen])
-        kwargs = fa4_kwargs(q, layer, table, cu_q, seq, qlen, r, mode="extend")
+    with bounded_scratch(kc.shape[0] + 1, device) as scratch:
+        begin = prefix
+        for qlen in (PAGE - chunk, chunk + 13):
+            end = begin + qlen
+            append(layer, k, v, begin, end)
+            q = normal((qlen, HEADS_Q, DIM), device, generator)
+            r = normal((qlen, HEADS_Q, 16), device, generator)
+            table, seq, cu_q = table_for(end, device), lengths(device, [end]), lengths(device, [0, qlen])
+            kwargs = fa4_kwargs(q, layer, table, cu_q, seq, qlen, r, mode="extend")
 
-        def stock():
-            return prefill_attention(q, kc, vc, table, cu_q, seq, r, proj, SCALE, None, warps=warps)
+            def stock():
+                return prefill_attention(q, kc, vc, table, cu_q, seq, r, proj, SCALE, None, warps=warps)
 
-        def unexpected_fallback(**call):
-            raise AssertionError("the projected prefill case did not dispatch to the fused reader")
+            def unexpected_fallback(**call):
+                raise AssertionError("the projected prefill case did not dispatch to the fused reader")
 
-        from inkling_kv12s import patch as kv12s_patch
+            def packed(min_rows=0, served=None):
+                # 0: the release's bounded BF16 prefix scratch + BF16 kernel; above the
+                # chunk: the in-kernel packed loader. `served` asserts which one ran.
+                from inkling_kv12s import patch as kv12s_patch
 
-        def packed(min_rows=0):
-            # 0: BF16 prefix scratch + BF16 kernel; above the chunk: in-kernel packed loader.
-            saved = kv12s_patch._SCRATCH_MIN_TOKENS
-            kv12s_patch._SCRATCH_MIN_TOKENS = min_rows
-            try:
-                with use_visit(r, proj):
-                    return dispatch_packed_fa4(unexpected_fallback, layer, kwargs, warps=warps)
-            finally:
-                kv12s_patch._SCRATCH_MIN_TOKENS = saved
+                before = scratch.served
+                saved = kv12s_patch._SCRATCH_MIN_TOKENS
+                kv12s_patch._SCRATCH_MIN_TOKENS = min_rows
+                try:
+                    with use_visit(r, proj):
+                        result = dispatch_packed_fa4(unexpected_fallback, layer, kwargs, warps=warps)
+                finally:
+                    kv12s_patch._SCRATCH_MIN_TOKENS = saved
+                if served is not None and scratch.served - before != served:
+                    raise AssertionError(f"fused prefill {begin}+{qlen}: expected {served} scratch gathers, "
+                                         f"got {scratch.served - before}")
+                return result
 
-        actual, expected = packed(), stock()
-        label = f"fused prefill {begin}+{qlen}"
-        for part, a, b in zip(("output", "LSE"), actual, expected):
-            equal_bits(f"{label} {part}", a, b)
-        for part, a, b in zip(("output", "LSE"), packed(1 << 30), expected):
-            equal_bits(f"{label} in-kernel loader {part}", a, b)
-        bias = torch.einsum("thd,de->the", r, proj)
-        fa4_out, fa4_lse, *_ = flash_attn_with_kvcache(**dict(
-            kwargs, k_cache=kc, v_cache=vc, rel_bias=bias, out=torch.empty_like(kwargs["out"]),
-        ))
-        out_error = (actual[0] - fa4_out).abs().max().item()
-        lse_error = (actual[1] - fa4_lse).abs().max().item()
-        if not (math.isfinite(out_error) and math.isfinite(lse_error)):
-            raise AssertionError(f"{label}: nonfinite comparison with stock FA4")
-        print(f"{label} vs stock FA4 max abs output={out_error:.6g}, LSE={lse_error:.6g}", flush=True)
-        print_timing(label, stock, packed, flush, reps, end)
-        begin = end
+            actual, expected = packed(served=1), stock()
+            label = f"fused prefill {begin}+{qlen}"
+            for part, a, b in zip(("output", "LSE"), actual, expected):
+                equal_bits(f"{label} scratch {part}", a, b)
+            for part, a, b in zip(("output", "LSE"), packed(1 << 30, served=0), expected):
+                equal_bits(f"{label} in-kernel loader {part}", a, b)
+            bias = torch.einsum("thd,de->the", r, proj)
+            fa4_out, fa4_lse, *_ = flash_attn_with_kvcache(**dict(
+                kwargs, k_cache=kc, v_cache=vc, rel_bias=bias, out=torch.empty_like(kwargs["out"]),
+            ))
+            out_error = (actual[0] - fa4_out).abs().max().item()
+            lse_error = (actual[1] - fa4_lse).abs().max().item()
+            if not (math.isfinite(out_error) and math.isfinite(lse_error)):
+                raise AssertionError(f"{label}: nonfinite comparison with stock FA4")
+            print(f"{label} vs stock FA4 max abs output={out_error:.6g}, LSE={lse_error:.6g}", flush=True)
+            print_timing(label, stock, packed, flush, reps, end)
+            begin = end
 
 
 def check_reader_guards(device, generator, warps, spilling):
@@ -700,12 +755,335 @@ def check_raw_draft_lane(device, generator):
     print("raw MTP draft lane                bitwise (writes, sink mask, strided FA4)", flush=True)
 
 
+def check_overflow_fallback(device, generator):
+    """Overflow arena exhausted: pages stay raw in staging (no assert), reads stay bitwise."""
+    from inkling_kv12s.attention import partials
+    from inkling_kv12s.device import DeviceLayer
+    from sglang.kernels.ops.attention.inkling2_decode_attention_sm90 import decode_partials
+
+    pages = 16
+    stride = Layout(HEADS_K).size
+    raw = torch.zeros(pages * stride, dtype=torch.uint8, device=device)
+    layer = DeviceLayer(raw, HEADS_K, stride, 0, 8, 1, 8)
+    rows = 7 * PAGE
+    k = torch.zeros((rows + PAGE, HEADS_K, DIM), dtype=torch.bfloat16, device=device)
+    v = torch.zeros_like(k)
+    for cache in (k, v):
+        cache[PAGE:] = normal((rows, HEADS_K, DIM), device, generator)
+        # Pages 1-5 escape on every value (|x| ~ 1e-5): every page-head overflows.
+        cache[PAGE:6 * PAGE] *= 1e-5
+    ids = torch.arange(PAGE, PAGE + rows, device=device)
+    # Direct seal of pages 1-3 in one call, staged completion of page 4 and a
+    # tentative page 5 promoted by commit; page 6 packs normally; page 7 stays partial.
+    layer.write(ids[:3 * PAGE], k[PAGE:4 * PAGE], v[PAGE:4 * PAGE])
+    layer.write(ids[3 * PAGE:3 * PAGE + 100], k[4 * PAGE:4 * PAGE + 100], v[4 * PAGE:4 * PAGE + 100])
+    layer.write(ids[3 * PAGE + 100:4 * PAGE], k[4 * PAGE + 100:5 * PAGE], v[4 * PAGE + 100:5 * PAGE])
+    layer.write(ids[4 * PAGE:5 * PAGE], k[5 * PAGE:6 * PAGE], v[5 * PAGE:6 * PAGE], tentative=True)
+    layer.commit(torch.tensor([5], device=device))
+    layer.write(ids[5 * PAGE:6 * PAGE + 40], k[6 * PAGE:7 * PAGE + 40], v[6 * PAGE:7 * PAGE + 40])
+    torch.cuda.synchronize()
+    flags = layer.flags[:8].tolist()
+    staged_full = [(f & STAGE_MASK) == PAGE + 1 and f >= 2 and (f >> 8) >= layer.live for f in flags]
+    if staged_full[1:6] != [True] * 5 or flags[6] != PACKED or not flags[7] >= 2:
+        raise AssertionError(f"overflow fallback descriptors: {flags}")
+    if layer.fallbacks.item() != 5 or layer.overflow_locks.sum().item() != 0:
+        raise AssertionError("overflow fallback leaked or miscounted slots")
+    written = list(range(PAGE, 7 * PAGE + 40))
+    exact = torch.stack((k[PAGE:7 * PAGE + 40], v[PAGE:7 * PAGE + 40]), dim=1)
+    equal_bits("overflow fallback rows", layer.read_rows(written), exact)
+    kc, vc = (t.view(-1, PAGE, HEADS_K, DIM) for t in (k, v))
+    table = torch.arange(1, 8, dtype=torch.int32, device=device)[None, :]
+    seq = lengths(device, [6 * PAGE + 40])
+    q = normal((8, HEADS_Q, DIM), device, generator)
+    bias = normal((8, HEADS_Q, EXTENT), device, generator)
+    actual = partials(layer, q, table, seq, bias, SCALE)
+    for a, b in zip(actual, decode_partials(q, kc, vc, table, seq, bias, SCALE)):
+        equal_bits("overflow fallback compact partials", a, b)
+    layer.release(torch.arange(1, 8, device=device))
+    if layer.stage_locks.sum().item() != 0:
+        raise AssertionError("overflow fallback pages kept staging slots after release")
+
+    def page_rows(page, scale, escape_heads=None):
+        kv = []
+        for kind in range(2):
+            x = normal((PAGE, HEADS_K, DIM), device, generator)
+            if escape_heads is None:
+                x *= scale
+            elif kind == 0:  # one K page-head escapes everywhere: exactly one overflow slot
+                x[:, escape_heads] *= scale
+            kv.append(x)
+        return torch.arange(page * PAGE, (page + 1) * PAGE, device=device), kv[0], kv[1]
+
+    def check_rows(label, ids, k_rows, v_rows):
+        equal_bits(label, layer.read_rows(ids.tolist()), torch.stack((k_rows, v_rows), dim=1))
+
+    # Stale refs: page 1 seals with one overflowing head (the only overflow slot),
+    # is released (its ref stays in the envelope), page 2 takes that slot, then a
+    # fully escaping page 1 must not free page 2's slot.
+    ids1, k1, v1 = page_rows(1, 1e-5, escape_heads=[0])
+    layer.write(ids1, k1, v1)
+    layer.release(torch.tensor([1], device=device))
+    ids2, k2, v2 = page_rows(2, 1e-5, escape_heads=[3])
+    layer.write(ids2, k2, v2)
+    ids1, k1, v1 = page_rows(1, 1e-5)
+    layer.write(ids1, k1, v1)
+    torch.cuda.synchronize()
+    if layer.overflow_locks.sum().item() != 1 or layer.flags[2].item() != PACKED:
+        raise AssertionError("a stale overflow ref released a live page's slot")
+    check_rows("live overflow page after stale-ref fallback", ids2, k2, v2)
+    check_rows("stale-ref fallback page", ids1, k1, v1)
+    # Full rewrite over a staged prefix: the fallback copies the new inputs.
+    ids3, k3, v3 = page_rows(3, 1.0)
+    layer.write(ids3[:50], k3[:50], v3[:50])
+    ids3, k3, v3 = page_rows(3, 1e-5)
+    layer.write(ids3, k3, v3)
+    torch.cuda.synchronize()
+    check_rows("full rewrite over a staged prefix", ids3, k3, v3)
+    if layer.stage_locks[:layer.live].sum().item() != 0:
+        raise AssertionError("full rewrite fallback kept the live prefix slot")
+    # Live staging full at kernel entry: a direct fallback still succeeds.
+    tails = []
+    for page in range(4, 4 + layer.live):
+        ids, kt, vt = page_rows(page, 1.0)
+        layer.write(ids[:10], kt[:10], vt[:10])
+        tails.append((ids[:10], kt[:10], vt[:10]))
+    ids_d, kd, vd = page_rows(pages - 1, 1e-5)
+    layer.write(ids_d, kd, vd)
+    torch.cuda.synchronize()
+    check_rows("direct fallback with live staging full", ids_d, kd, vd)
+    for ids, kt, vt in tails:
+        check_rows("live tails beside fallbacks", ids, kt, vt)
+    print("overflow exhaustion fallback      bitwise (direct, staged, promoted, stale refs, rewrite, full staging; "
+          "no assert, slots returned)", flush=True)
+
+
+def check_side_exhaustion(device, generator):
+    """Overflow, fallback and staging all exhausted: never a device assert. A page
+    beyond the side pools stays raw in a live staging slot (exact); only with
+    staging exhausted too are its rows lost, counted for the
+    host to abort the requests in flight. Other pages stay exact and every slot returns."""
+    from inkling_kv12s.attention import partials
+    from inkling_kv12s.device import DeviceLayer
+    from inkling_kv12s.storage import EVENT_FALLBACK, EVENT_KEPT, EVENT_LOST
+    from sglang.kernels.ops.attention.inkling2_decode_attention_sm90 import decode_partials
+
+    pages = 12
+    stride = Layout(HEADS_K).size
+    raw = torch.zeros(pages * stride, dtype=torch.uint8, device=device)
+    layer = DeviceLayer(raw, HEADS_K, stride, 0, 2, 1, 1)  # 2 live slots, 1 overflow head, 1 fallback page
+
+    def page_rows(page, scale):
+        k = normal((PAGE, HEADS_K, DIM), device, generator) * scale
+        v = normal((PAGE, HEADS_K, DIM), device, generator) * scale
+        return torch.arange(page * PAGE, (page + 1) * PAGE, device=device), k, v
+
+    def check_rows(label, ids, k, v):
+        equal_bits(label, layer.read_rows(ids.tolist()), torch.stack((k, v), dim=1))
+
+    escaping = [page_rows(page, 1e-5) for page in range(1, 6)]
+    (ids1, k1, v1), (ids2, k2, v2), (ids3, k3, v3), (ids4, k4, v4), (ids5, k5, v5) = escaping
+    layer.write(ids1, k1, v1)                      # direct seal -> the one fallback page
+    layer.write(ids2, k2, v2)                      # direct seal -> a claimed live slot (kept)
+    layer.write(ids3[:100], k3[:100], v3[:100])    # staged tail in the second live slot ...
+    layer.write(ids3[100:], k3[100:], v3[100:])    # ... completes and stays there (kept)
+    layer.write(ids4, k4, v4)                      # direct seal, nothing left: lost
+    layer.write(ids5[:10], k5[:10], v5[:10])       # a new tail, staging exhausted: lost
+    layer.write(ids5[10:20], k5[10:20], v5[10:20])  # its append: lost again, no assert
+    torch.cuda.synchronize()
+    events = layer.events.tolist()
+    flags = layer.flags[:6].tolist()
+    if (events[EVENT_FALLBACK], events[EVENT_KEPT], events[EVENT_LOST]) != (1, 2, 3):
+        raise AssertionError(f"side exhaustion events (fallback, kept, lost) {events[:3]}")
+    staged_full = [(f & STAGE_MASK) == PAGE + 1 and f >= 2 for f in flags]
+    if (staged_full[1:4] != [True] * 3 or flags[4] != EMPTY or flags[5] != EMPTY
+            or (flags[1] >> 8) < layer.live or max(flags[2] >> 8, flags[3] >> 8) >= layer.live):
+        raise AssertionError(f"side exhaustion descriptors {flags}")
+    for label, (ids, k, v) in zip(("fallback page", "kept direct page", "kept staged page"), escaping[:3]):
+        check_rows(f"side exhaustion {label}", ids, k, v)
+    kc = torch.zeros((pages, PAGE, HEADS_K, DIM), dtype=torch.bfloat16, device=device)
+    vc = torch.zeros_like(kc)
+    for page, (_, k, v) in enumerate(escaping[:3], start=1):
+        kc[page], vc[page] = k, v
+    table = torch.arange(1, 4, dtype=torch.int32, device=device)[None, :]
+    seq = lengths(device, [3 * PAGE])
+    q = normal((8, HEADS_Q, DIM), device, generator)
+    bias = normal((8, HEADS_Q, EXTENT), device, generator)
+    for a, b in zip(partials(layer, q, table, seq, bias, SCALE), decode_partials(q, kc, vc, table, seq, bias, SCALE)):
+        equal_bits("side exhaustion compact partials", a, b)
+    # Releasing the owners returns every slot, and the layer packs normally again.
+    layer.release(torch.arange(1, 6, device=device))
+    torch.cuda.synchronize()
+    if layer.stage_locks.sum().item() or layer.overflow_locks.sum().item():
+        raise AssertionError("side exhaustion kept slots after release")
+    ids6, k6, v6 = page_rows(6, 1.0)
+    layer.write(ids6, k6, v6)
+    torch.cuda.synchronize()
+    if layer.flags[6].item() != PACKED:
+        raise AssertionError("a page after recovery did not pack")
+    check_rows("page after recovery", ids6, k6, v6)
+    print("side-slot exhaustion              bitwise (fallback, kept direct, kept staged; lost rows counted, "
+          "no assert; slots returned)", flush=True)
+
+
+def check_scratch_memory(device, generator):
+    """The fused-prefill BF16 scratch is one fixed buffer: growing gathers add no cached memory."""
+    from inkling_kv12s.attention import PrefixScratch
+
+    pages = 160
+    k, v = raw_cache(pages * PAGE, device, generator)
+    layer = Layer.standalone(pages + 1, HEADS_K, device=device)
+    append(layer, k, v, 0, pages * PAGE)
+    scratch = PrefixScratch(pages + 1, HEADS_K, device)
+    torch.cuda.synchronize()
+    before = torch.cuda.memory_reserved(device)
+    q = normal((64, HEADS_Q, DIM), device, generator)
+    cu_q = lengths(device, [0, 64])
+    for used in range(8, pages + 1, 8):
+        table = torch.arange(1, used + 1, dtype=torch.int32, device=device)[None, :]
+        kc, vc, local = scratch.gather(layer, q, table, lengths(device, [used * PAGE]), cu_q)
+    torch.cuda.synchronize()
+    grown = torch.cuda.memory_reserved(device) - before
+    kref, vref = (t.view(-1, PAGE, HEADS_K, DIM)[1:pages + 1] for t in (k, v))
+    equal_bits("prefix scratch K", kc[1:pages + 1], kref)
+    equal_bits("prefix scratch V", vc[1:pages + 1], vref)
+    if grown > 8 * 2**20:
+        raise AssertionError(f"prefix scratch gathers grew reserved memory by {grown / 2**20:.0f} MiB")
+    print(f"prefill BF16 scratch              bitwise, fixed buffer (reserved +{grown / 2**20:.0f} MiB over "
+          f"{pages // 8} growing gathers incl. comparison temporaries)", flush=True)
+
+
+def check_swa_page_major(device, generator, timing=False):
+    """The page-major window band holds the stock bytes: writers and every reader
+    (stock compact, VATTN in-kernel compact, FA4 paged) match the token-major band bitwise."""
+    from types import SimpleNamespace
+
+    from inkling_kv12s import swa_layout
+    from inkling_vattn.ops import inkernel_bias_partials
+    from sglang.kernels.ops.attention.flash_attention_v4_sm120 import flash_attn_with_kvcache
+    from sglang.kernels.ops.attention.inkling2_decode_attention_sm90 import decode_partials
+    from sglang.srt.mem_cache.memory_pool import KVWriteLoc
+
+    layers, heads, dim, entry = 40, HEADS_K, DIM, 163840
+    bs, qlen, window = 24, 8, 1023
+    pages_per = 9
+    pages = bs * pages_per + 1
+    slots = pages * PAGE
+    spec = SimpleNamespace(name="window_1024", layer_num=layers, head_num=heads, head_dim=dim, v_head_dim=dim,
+                           entry_bytes=lambda: entry, k_row_bytes=lambda: heads * dim * 2,
+                           v_row_bytes=lambda: heads * dim * 2)
+    stock_raw = torch.zeros(slots * entry, dtype=torch.uint8, device=device)
+    pm_raw = torch.zeros_like(stock_raw)
+    arena = SimpleNamespace(raw=pm_raw, extent_entries=lambda name: slots)
+    view = swa_layout.convert(SimpleNamespace(start_layer=0), arena, spec, PAGE)
+    rows = stock_raw.view(slots, entry)
+
+    def stock_kv(layer):
+        k = rows[:, layer * 4096:layer * 4096 + 2048].view(torch.bfloat16).view(slots, heads, dim)
+        v = rows[:, layer * 4096 + 2048:layer * 4096 + 4096].view(torch.bfloat16).view(slots, heads, dim)
+        return k, v
+
+    def paged(t):
+        return t.as_strided((pages, PAGE, heads, dim), (PAGE * t.stride(0), t.stride(0), dim, 1))
+
+    perm = torch.randperm(pages - 1, device=device, generator=generator).to(torch.int32) + 1
+    table = perm.view(bs, pages_per).contiguous()
+    seq = lengths(device, [pages_per * PAGE - 3 * i for i in range(bs)])
+    loc = (table.long()[:, :, None] * PAGE + torch.arange(PAGE, device=device)).reshape(bs, -1)
+    for layer in (0, 17, 39):
+        k_in = normal((loc.numel(), heads, dim), device, generator)
+        v_in = normal((loc.numel(), heads, dim), device, generator)
+        kst, vst = stock_kv(layer)
+        kst[loc.reshape(-1)] = k_in
+        vst[loc.reshape(-1)] = v_in
+        half = loc.shape[1] // 2
+        flat = loc[:, :half].reshape(-1)
+        n = flat.numel()
+        view.set_kv_buffer(SimpleNamespace(layer_id=layer), KVWriteLoc(flat, physical=True),
+                           k_in.view(bs, -1, heads, dim)[:, :half].reshape(n, heads, dim),
+                           v_in.view(bs, -1, heads, dim)[:, :half].reshape(n, heads, dim))
+        rest = loc[:, half:]
+        commit = lengths(device, [rest.shape[1]] * bs)
+        view.set_kv_buffer_prefix_valid(SimpleNamespace(layer_id=layer), rest, commit,
+                                        k_in.view(bs, -1, heads, dim)[:, half:].reshape(-1, heads, dim),
+                                        v_in.view(bs, -1, heads, dim)[:, half:].reshape(-1, heads, dim))
+        # Padding rows (slot 0, negative or out-of-band ids) write nothing, like the stock store.
+        sink_k, sink_v = view.k4[layer][0].clone(), view.v4[layer][0].clone()
+        for bad in (0, -1, slots + 5):
+            junk_k, junk_v = normal((1, heads, dim), device, generator), normal((1, heads, dim), device, generator)
+            view.set_kv_buffer(SimpleNamespace(layer_id=layer), KVWriteLoc(lengths(device, [bad]), physical=True),
+                               junk_k, junk_v)
+        equal_bits("page-major padding rows skip the sink", view.k4[layer][0], sink_k)
+        equal_bits("page-major padding rows skip the sink", view.v4[layer][0], sink_v)
+        # int32 ids (KVWriteLoc requires them dense) and non-contiguous K/V rows and heads.
+        page_ids = lengths(device, [int(table[0, 0]) * PAGE + 7, int(table[1, 2]) * PAGE + 100])
+        wide = normal((2, heads, 2 * dim), device, generator)
+        sk, sv = wide[:, :, :dim], wide[:, :, dim:]
+        sk_t = normal((heads, 2, dim), device, generator).transpose(0, 1)
+        view.set_kv_buffer(SimpleNamespace(layer_id=layer), KVWriteLoc(page_ids, physical=True), sk_t, sv)
+        kst[page_ids.long()] = sk_t
+        vst[page_ids.long()] = sv
+        # A partial prefix commit leaves the uncommitted destinations untouched.
+        before_k = view.k4[layer][int(table[2, 0]), 0:4].clone()
+        part = (table[2, 0].long() * PAGE + torch.arange(4, device=device))[None, :]
+        pk, pv = normal((4, heads, dim), device, generator), normal((4, heads, dim), device, generator)
+        view.set_kv_buffer_prefix_valid(SimpleNamespace(layer_id=layer), part, lengths(device, [2]), pk, pv)
+        kst[part[0, :2]] = pk[:2]
+        vst[part[0, :2]] = pv[:2]
+        equal_bits("page-major prefix commit skip", view.k4[layer][int(table[2, 0]), 2:4], before_k[2:4])
+        ks, vs = paged(kst), paged(vst)
+        kp, vp = view.k4[layer], view.v4[layer]
+        equal_bits("page-major K pages", kp[1:], ks[1:])
+        equal_bits("page-major V pages", vp[1:], vs[1:])
+        q = normal((bs * qlen, HEADS_Q, dim), device, generator)
+        bias = normal((bs * qlen, HEADS_Q, window + 1), device, generator)
+        r = normal((bs * qlen, HEADS_Q, 128), device, generator)
+        proj = (normal((16, window + 1), device, generator) * 0.1).contiguous()
+        for name, call in (
+            ("stock compact", lambda k, v: decode_partials(q, k, v, table, seq, bias, SCALE, window_size_left=window)),
+            ("VATTN in-kernel compact", lambda k, v: inkernel_bias_partials(q, k, v, table, seq, r, proj, SCALE,
+                                                                           window_size_left=window)),
+        ):
+            for a, b in zip(call(kp, vp), call(ks, vs)):
+                equal_bits(f"page-major {name}", a, b)
+        cu_q = lengths(device, list(accumulate([qlen] * bs, initial=0)))
+        fa = dict(q=q, page_table=table, cache_seqlens=seq, cu_seqlens_q=cu_q, max_seqlen_q=qlen,
+                  softmax_scale=SCALE, causal=True, window_size=(window, 0), softcap=0.0)
+        a = flash_attn_with_kvcache(k_cache=kp, v_cache=vp, **fa)
+        b = flash_attn_with_kvcache(k_cache=ks, v_cache=vs, **fa)
+        equal_bits("page-major FA4 windowed", a[0] if isinstance(a, tuple) else a, b[0] if isinstance(b, tuple) else b)
+    probe = loc[:3, :5].reshape(-1)
+    saved = view.read_rows(probe)
+    view.write_rows(probe, saved.flip(0))
+    equal_bits("page-major snapshot rows", view.read_rows(probe), saved.flip(0))
+    view.write_rows(probe, saved)
+    if timing:
+        flush = torch.empty(8 * GIB // 4, dtype=torch.int32, device=device)
+        for label, (k, v) in (("token-major", (paged(stock_kv(17)[0]), paged(stock_kv(17)[1]))),
+                              ("page-major", (view.k4[17], view.v4[17]))):
+            times = []
+            for _ in range(15):
+                flush.sum()
+                start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+                start.record()
+                inkernel_bias_partials(q, k, v, table, seq, r, proj, SCALE, window_size_left=window)
+                end.record()
+                torch.cuda.synchronize()
+                times.append(start.elapsed_time(end))
+            times.sort()
+            print(f"VATTN compact c24 window, TLB-cold, {label:11s} {times[len(times) // 2] * 1e3:8.1f} us", flush=True)
+        del flush
+    del stock_raw, pm_raw, arena, view, rows
+    torch.cuda.empty_cache()
+    print("page-major window band            bitwise (writers, prefix commit, stock and VATTN compact, FA4, rows)",
+          flush=True)
+
+
 def run_checks(args):
     import triton
     device = torch.device("cuda", torch.cuda.current_device())
     print(f"Torch {torch.__version__}, Triton {triton.__version__}, {torch.cuda.get_device_name(device)}", flush=True)
     total = torch.cuda.get_device_properties(device).total_memory
-    torch.cuda.set_per_process_memory_fraction(min(1, 8 * GIB / total), device)
+    torch.cuda.set_per_process_memory_fraction(min(1, 20 * GIB / total), device)
     generator = torch.Generator(device=device).manual_seed(1221)
     peaks = [0, 0]
     spilling = []
@@ -730,6 +1108,10 @@ def run_checks(args):
                 check_ragged_graph(device, generator)
                 check_speculative_graph(device, generator)
                 check_raw_draft_lane(device, generator)
+                check_overflow_fallback(device, generator)
+                check_side_exhaustion(device, generator)
+                check_scratch_memory(device, generator)
+                check_swa_page_major(device, generator, timing=bool(args.reps))
             with phase("stock FA4 gather", device, peaks):
                 check_fa4(device, generator)
             with phase("fused prefill", device, peaks):

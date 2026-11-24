@@ -45,6 +45,9 @@ try:
     if _on("INKLING_ATTN") and not _on("INKLING_KV12S"):  # fused relative-bias prefill attention (falls back to the stock FA4 path per call)
         import inkling_attn
         inkling_attn.install()
+    if _on("INKLING_KV12S_VATTN_TRACE"):  # diagnostic: log compact verify attention arguments
+        from inkling_kv12s.patch import register_vattn_trace
+        register_vattn_trace()
     if _on("INKLING_VATTN"):  # target-verify attention: split-KV relative-bias kernel for all batch sizes
         import inkling_vattn
         inkling_vattn.install()

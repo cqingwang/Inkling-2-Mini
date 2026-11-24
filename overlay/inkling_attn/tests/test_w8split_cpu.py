@@ -101,7 +101,7 @@ def test_threshold_direction():
     r8 = launch_rows([0, 100, 200], [100 + 1000, 100 + 999], 256, 64, 128, 128, 2, 1000)
     r4 = launch_rows([0, 100, 200], [100 + 1000, 100 + 999], 256, 64, 128, 64, 1, 1000)
     assert {b for _, b in r8} == {0} and {b for _, b in r4} == {1}
-    # clamped page table (review case): sq 16, seqused_k 256, capacity 128 keys, W8_FROM 128 -> 8 warps
+    # clamped page table: sq 16, seqused_k 256, capacity 128 keys, W8_FROM 128 -> 8 warps
     assert {b for _, b in launch_rows([0, 16], [256], 16, 1, 128, 128, 2, 128)} == {0}
 
 

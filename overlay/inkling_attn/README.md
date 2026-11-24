@@ -38,7 +38,7 @@ grids per call (`launch_global`): requests whose prefix (seqused_k - new rows) i
 8 warps, the others on 4; each CTA reads its request's lengths on the device and returns before any shared-memory
 access when the other grid owns the request (no host sync, CUDA-graph capturable). `INKLING_ATTN_W8_FROM=0`, SWA
 layers and `INKLING_ATTN_WARPS=8` keep a single launch. Checks: `tests/test_w8split_cpu.py`,
-a development GPU check (not shipped; both loaders, 256K-1M, graph replay).
+`r2/tracks/longpf/tools/gpu_check_longpf_kv12s.py` (GPU, both loaders, 256K-1M, graph replay).
 
 ## Math and exactness
 

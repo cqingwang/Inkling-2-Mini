@@ -1,0 +1,2 @@
+{"label":"Q271RM-s05","ready_utc":"2026-11-23T23:33:12Z","startup_s":86,"memavail_ready_gib":7.9,"kv":"[2026-11-23 23:33:10 PID105] max_total_num_tokens=2154112, chunked_prefill_size=8192, max_prefill_tokens=8192, max_running_requests=48, context_len=1048576, available_gpu_mem=8.11 GB"}
+{"memavail_end_gib":5.1}

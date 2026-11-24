@@ -1,0 +1,1 @@
+{"label": "Q271R-s06-c48", "started": "2026-11-23T23:42:58+01:00", "concurrency": 48, "requests": 96, "failed": 0, "max_tokens": 2048, "temperature": 0.8, "effort": "high", "wall_s": 295.67, "completion_tokens": 176365, "aggregate_tok_s": 596.5, "per_request_decode_tok_s_median": 14.6, "ttft_median_s": 2.32, "length_finishes": 76}

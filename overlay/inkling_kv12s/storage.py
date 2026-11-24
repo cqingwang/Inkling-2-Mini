@@ -3,8 +3,11 @@
 from collections import defaultdict
 from dataclasses import dataclass
 import heapq
+import os
 
 import torch
+
+from . import side_count
 
 PAGE = 128
 DIM = 128
@@ -46,6 +49,17 @@ class Layout:
     @property
     def size(self):
         return (self.offsets[-1] + 127) // 128 * 128
+
+
+# Dedicated slots (beyond the live staging slots) for full pages whose page-heads
+# found the overflow arena exhausted: such a page stays raw instead of being sealed.
+FALLBACK_PAGES = side_count("INKLING_KV12S_FALLBACK_PAGES", "64", 0)
+
+# Per-lane event counters of a device lane: pages kept raw in a fallback slot, pages
+# kept raw in a live staging slot (both side pools exhausted), and row losses
+# (staging exhausted too).
+EVENT_FALLBACK, EVENT_KEPT, EVENT_LOST = 0, 1, 2
+EVENT_WORDS = 3
 
 
 def stage_slots(running, verify_rows, *, overlap=False):

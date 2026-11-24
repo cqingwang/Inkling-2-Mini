@@ -300,14 +300,17 @@ class PrefixScratch:
     The fused prefill kernel reconstructs packed tiles per warp at ~15 TF/s, against
     ~64 TF/s on BF16 tiles. Decoding the referenced pages once per visit with the
     bitwise loader (_load_rows) and running the BF16 kernel on the copy gives the
-    BF16 kernel's exact rows. The buffer is reused across visits, grows in 64-page
-    steps and is capped; a larger batch keeps the packed in-kernel loader."""
+    BF16 kernel's exact rows. One fixed buffer is allocated at startup and charged
+    to the pool budget (growing it per call let the caching allocator keep every
+    smaller copy); a larger batch keeps the packed in-kernel loader."""
 
-    STEP = 64
-
-    def __init__(self, max_pages):
+    def __init__(self, max_pages, heads, device):
         self.max_pages = max_pages
-        self.buffer = None
+        self.buffer = torch.empty(2 * max_pages * PAGE * heads * DIM, dtype=torch.int16, device=device)
+
+    @staticmethod
+    def nbytes(max_pages, heads):
+        return 2 * max_pages * PAGE * heads * DIM * 2
 
     def gather(self, layer, q, page_table, seq_k, cu_q):
         lengths, _ = validate_paged(q, layer, page_table, seq_k, cu_q)
@@ -331,10 +334,8 @@ class PrefixScratch:
         if count > self.max_pages:
             return None
         need = 2 * count * PAGE * layer.heads * DIM
-        if self.buffer is None or self.buffer.numel() < need:
-            pages = min(self.max_pages, (count + self.STEP - 1) // self.STEP * self.STEP)
-            self.buffer = None
-            self.buffer = torch.empty(2 * pages * PAGE * layer.heads * DIM, dtype=torch.int16, device=layer.device)
+        if need > self.buffer.numel():
+            return None
         out = self.buffer[:need].view(2, count, PAGE, layer.heads, DIM)
         table = torch.zeros_like(page_table)
         if width:

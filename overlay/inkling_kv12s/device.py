@@ -1,10 +1,23 @@
 """Stream-ordered CUDA writes and side-slot lifetime for packed page envelopes."""
 
+import os
+
 import torch
 import triton
 import triton.language as tl
 
-from .storage import CAP, CHUNK, DIM, EXP_LO, PACK_BATCH, PAGE, Layer, STAGE_MASK, STAGE_SHIFT, raw_lane_bytes
+from . import storage
+from .storage import (CAP, CHUNK, DIM, EVENT_WORDS, EXP_LO, PACK_BATCH, PAGE, Layer, STAGE_MASK, STAGE_SHIFT,
+                      raw_lane_bytes)
+
+# Test only: send every sealed page-head through the overflow arena, to exercise
+# side-slot exhaustion on real traffic (INKLING_KV12S_FORCE_OVERFLOW=1).
+FORCE_OVERFLOW = os.environ.get("INKLING_KV12S_FORCE_OVERFLOW", "0").strip().lower() in ("1", "true", "yes", "on")
+
+# DeviceLayer.events word offsets (storage.EVENT_*), for the kernels.
+EVENT_FALLBACK = tl.constexpr(storage.EVENT_FALLBACK)
+EVENT_KEPT = tl.constexpr(storage.EVENT_KEPT)
+EVENT_LOST = tl.constexpr(storage.EVENT_LOST)
 
 
 @triton.jit
@@ -31,8 +44,15 @@ def _direct(Loc, i, loc, n_rows, PAGE: tl.constexpr):
     return (lo == loc - row) & (hi == loc + PAGE - 1 - row)
 
 
+@triton.jit
+def _lose(Events):
+    # No room left to keep a page's rows: count the loss. The host aborts every
+    # request in flight before any result commits or is cached (pressure.py).
+    tl.atomic_add(Events + EVENT_LOST, 1)
+
+
 @triton.jit(debug=True, do_not_specialize=["n_rows"])
-def _reserve(Loc, Flags, Locks, n_rows, NPAGES: tl.constexpr,
+def _reserve(Loc, Flags, Locks, Events, n_rows, NPAGES: tl.constexpr,
              PAGE: tl.constexpr, STRIDE: tl.constexpr, STAGES: tl.constexpr,
              SHIFT: tl.constexpr, COUNT_MASK: tl.constexpr, TENTATIVE: tl.constexpr):
     i = tl.program_id(0)
@@ -45,18 +65,23 @@ def _reserve(Loc, Flags, Locks, n_rows, NPAGES: tl.constexpr,
             ptr = Flags + page * (STRIDE // 4)
             flags = tl.load(ptr)
             tl.device_assert(flags != 1, "kv12s: write to a committed page")
+            tl.device_assert((flags < 2) | ((flags >> SHIFT) < STAGES), "kv12s: write to a committed fallback page")
             direct = False
             if not TENTATIVE:
                 direct = _direct(Loc, i, loc, n_rows, PAGE)
             if not direct:
                 if flags == 0:
-                    tl.device_assert(row == 0, "kv12s: staged append is missing its prefix")
-                    slot = _claim(Locks, page, STAGES)
-                    tl.device_assert(slot >= 0, "kv12s: staging arena exhausted")
+                    slot = (row * 0 - 1).to(tl.int32)
+                    if row == 0:
+                        slot = _claim(Locks, page, STAGES)
                     if slot >= 0:
                         # This provisional descriptor is visible only to the
                         # scatter until the final publication kernel runs.
                         tl.store(ptr, (slot << SHIFT) | 2)
+                    else:
+                        # Staging exhausted, or an append to a page whose first
+                        # rows were lost that way: the rows are not stored.
+                        _lose(Events)
                 else:
                     tl.device_assert((row < (flags & COUNT_MASK)) & ((flags >> SHIFT) < STAGES),
                                      "kv12s: staged append is missing its prefix")
@@ -97,13 +122,13 @@ def _escape(bits, LO: tl.constexpr):
     return tl.where(inline, exp - LO, 15), (exp != 0) & ~inline
 
 
-@triton.jit(debug=True, do_not_specialize=["n_rows"])
-def _pack(Loc, K, V, SM, EX, ESC, OFF, Refs, Flags, Stage, Overflow, Locks,
+@triton.jit(do_not_specialize=["n_rows"])
+def _pack(Loc, K, V, SM, EX, ESC, OFF, Refs, Flags, Stage, Overflow, Locks, Fail,
           n_rows, NPAGES: tl.constexpr, PAGE: tl.constexpr, H: tl.constexpr,
           D: tl.constexpr, STRIDE: tl.constexpr, K0: tl.constexpr, K1: tl.constexpr,
           V0: tl.constexpr, V1: tl.constexpr, OVERFLOW: tl.constexpr, SHIFT: tl.constexpr,
           COUNT_MASK: tl.constexpr, CAP: tl.constexpr, CHUNK: tl.constexpr, LO: tl.constexpr,
-          PROMOTE: tl.constexpr):
+          PROMOTE: tl.constexpr, LIVE: tl.constexpr, FORCE: tl.constexpr):
     i, head, kind = tl.program_id(0), tl.program_id(1), tl.program_id(2)
     loc = tl.load(Loc + i).to(tl.int64)
     page = loc if PROMOTE else loc // PAGE
@@ -114,7 +139,7 @@ def _pack(Loc, K, V, SM, EX, ESC, OFF, Refs, Flags, Stage, Overflow, Locks,
         if not PROMOTE:
             direct = _direct(Loc, i, loc, n_rows, PAGE)
         if (flags >= 2) | direct:
-            if not PROMOTE or ((flags & COUNT_MASK) == PAGE + 1):
+            if not PROMOTE or (((flags & COUNT_MASK) == PAGE + 1) & ((flags >> SHIFT) < LIVE)):
                 pair = tl.arange(0, PAGE * D // 2)
                 row = pair // (D // 2)
                 dim = pair % (D // 2) * 2
@@ -136,10 +161,19 @@ def _pack(Loc, K, V, SM, EX, ESC, OFF, Refs, Flags, Stage, Overflow, Locks,
                 ranks = tl.cumsum(xa.to(tl.int32) + xb.to(tl.int32))
                 count = tl.sum(xa.to(tl.int32) + xb.to(tl.int32), 0)
                 lane = head * 2 + kind
-                if count > CAP:
+                if FORCE:
+                    spill = True  # test only (FORCE_OVERFLOW): every page-head takes the overflow path
+                else:
+                    spill = count > CAP
+                if spill:
                     slot = _claim(Locks, page + lane, OVERFLOW)
-                    tl.device_assert(slot >= 0, "kv12s: exact page-head overflow arena exhausted")
-                    if slot >= 0:
+                    if slot < 0:
+                        # Arena exhausted: publication keeps this page raw in a
+                        # fallback slot instead of sealing it (exact, no assert).
+                        # Clear any stale ref left in a reused envelope first.
+                        tl.store(Refs + base // 4 + lane, 0)
+                        tl.atomic_or(Fail + page, 1)
+                    else:
                         dst = Overflow + slot.to(tl.int64) * (PAGE * D) + pair * 2
                         tl.store(dst, a)
                         tl.store(dst + 1, b)
@@ -163,9 +197,12 @@ def _pack(Loc, K, V, SM, EX, ESC, OFF, Refs, Flags, Stage, Overflow, Locks,
 
 
 @triton.jit(do_not_specialize=["n_rows"])
-def _publish(Loc, Flags, Locks, n_rows, NPAGES: tl.constexpr, PAGE: tl.constexpr,
-             STRIDE: tl.constexpr, SHIFT: tl.constexpr, COUNT_MASK: tl.constexpr,
-             TENTATIVE: tl.constexpr, PROMOTE: tl.constexpr):
+def _publish(Loc, K, V, Flags, Locks, Fail, Refs, OverflowLocks, Stage, Events, n_rows,
+             NPAGES: tl.constexpr, PAGE: tl.constexpr, H: tl.constexpr, D: tl.constexpr,
+             STRIDE: tl.constexpr, K0: tl.constexpr, K1: tl.constexpr, V0: tl.constexpr, V1: tl.constexpr,
+             SHIFT: tl.constexpr, COUNT_MASK: tl.constexpr, LIVE: tl.constexpr, FALLBACK: tl.constexpr,
+             OVERFLOW: tl.constexpr, TENTATIVE: tl.constexpr, PROMOTE: tl.constexpr, BLOCK: tl.constexpr,
+             LANES: tl.constexpr):
     i = tl.program_id(0)
     loc = tl.load(Loc + i).to(tl.int64)
     page = loc if PROMOTE else loc // PAGE
@@ -174,17 +211,83 @@ def _publish(Loc, Flags, Locks, n_rows, NPAGES: tl.constexpr, PAGE: tl.constexpr
         flags = tl.load(ptr)
         if PROMOTE:
             end = (flags & COUNT_MASK) - 1
-            publish = (flags >= 2) & (end == PAGE)
+            # A committed fallback page (slot >= LIVE) is never promoted again.
+            publish = (flags >= 2) & (end == PAGE) & ((flags >> SHIFT) < LIVE)
         else:
             end = loc % PAGE + 1
             following = tl.load(Loc + i + 1, i + 1 < n_rows, other=0)
             publish = (end == PAGE) | (following != loc + 1)
         if publish:
             slot = flags >> SHIFT
+            # A direct seal reads the write inputs; any other publication needs
+            # the page's staging slot. A page with neither lost its rows when
+            # staging was exhausted (_reserve) and stays empty.
+            direct = flags < 0  # False, as a value: a promoted page is always staged
+            if not PROMOTE:
+                direct = _direct(Loc, i, loc, n_rows, PAGE)
+            held = (flags >= 2) | direct
             if not TENTATIVE and end == PAGE:
-                tl.store(ptr, 1)
-                if flags >= 2:
-                    tl.atomic_xchg(Locks + slot, 0, sem="release")
+                if held:
+                    if tl.load(Fail + page) != 0:
+                        # Overflow arena exhausted while sealing: return the page-head
+                        # slots this page did claim and keep the whole page raw, in the
+                        # dedicated fallback range [LIVE, LIVE + FALLBACK) so live tails
+                        # never lose staging capacity to fallback pages, or, with that
+                        # range exhausted too, in a live staging slot (the host then
+                        # relieves the pressure, pressure.py). Readers serve both exactly.
+                        tl.store(Fail + page, 0)
+                        lane = tl.arange(0, LANES)
+                        lanes = lane < 2 * H
+                        refs = Refs + page * (STRIDE // 4) + lane
+                        ref = tl.load(refs, lanes, other=0)
+                        tl.atomic_xchg(OverflowLocks + ref - 1, 0, sem="release",
+                                       mask=lanes & (ref > 0) & (ref <= OVERFLOW))
+                        tl.store(refs, tl.zeros_like(ref), lanes)
+                        target = tl.zeros_like(slot) - 1
+                        if FALLBACK > 0:
+                            target = _claim(Locks + LIVE, page, FALLBACK)
+                        fallback = target >= 0
+                        if fallback:
+                            target = target + LIVE
+                        elif flags >= 2:
+                            target = slot
+                        else:
+                            target = _claim(Locks, page, LIVE)
+                        if target >= 0:
+                            # A direct seal (also a full rewrite over a staged prefix)
+                            # copies the write inputs; a staged page copies its slot
+                            # unless it stays in that slot.
+                            if direct | (target != slot):
+                                words = tl.arange(0, BLOCK)
+                                live = words < H * D
+                                for row in range(PAGE):
+                                    if direct:
+                                        src = i.to(tl.int64) - (PAGE - 1) + row
+                                        k = tl.load(K + src * K0 + words // D * K1 + words % D, live)
+                                        v = tl.load(V + src * V0 + words // D * V1 + words % D, live)
+                                    else:
+                                        old = Stage + ((slot.to(tl.int64) * 2) * PAGE + row) * H * D + words
+                                        k = tl.load(old, live)
+                                        v = tl.load(old + PAGE * H * D, live)
+                                    dst = Stage + ((target.to(tl.int64) * 2) * PAGE + row) * H * D + words
+                                    tl.store(dst, k, live)
+                                    tl.store(dst + PAGE * H * D, v, live)
+                            tl.store(ptr, (target << SHIFT) | (PAGE + 1))
+                            if (flags >= 2) & (target != slot):
+                                # Every warp's copy out of the old slot must finish
+                                # before another program can claim it (a kept direct
+                                # page claims live slots in this same launch).
+                                tl.debug_barrier()
+                                tl.atomic_xchg(Locks + slot, 0, sem="release")
+                            tl.atomic_add(Events + tl.where(fallback, EVENT_FALLBACK, EVENT_KEPT), 1)
+                        else:
+                            tl.store(ptr, 0)
+                            _lose(Events)
+                    else:
+                        tl.store(ptr, 1)
+                        if flags >= 2:
+                            tl.atomic_xchg(Locks + slot, 0, sem="release")
+                # else: rows lost at _reserve; the page stays empty.
             elif flags >= 2:
                 tl.store(ptr, (slot << SHIFT) | (end + 1))
 
@@ -192,7 +295,7 @@ def _publish(Loc, Flags, Locks, n_rows, NPAGES: tl.constexpr, PAGE: tl.constexpr
 @triton.jit(debug=True)
 def _trim(Loc, Commit, Flags, Locks, WIDTH: tl.constexpr,
           NPAGES: tl.constexpr, PAGE: tl.constexpr, STRIDE: tl.constexpr, SHIFT: tl.constexpr,
-          COUNT_MASK: tl.constexpr):
+          COUNT_MASK: tl.constexpr, LIVE: tl.constexpr):
     i = tl.program_id(0)
     loc = tl.load(Loc + i).to(tl.int64)
     page = loc // PAGE
@@ -201,7 +304,8 @@ def _trim(Loc, Commit, Flags, Locks, WIDTH: tl.constexpr,
     if (page > 0) & (page < NPAGES) & ((last_row == PAGE - 1) | (col == WIDTH - 1)):
         ptr = Flags + page * (STRIDE // 4)
         flags = tl.load(ptr)
-        if flags >= 2:
+        # Fallback slots (>= LIVE) hold committed full pages: never trimmed.
+        if (flags >= 2) & ((flags >> SHIFT) < LIVE):
             # The uniform verify reservation is contiguous within each page.
             # A ragged verify wrote only its leading rows, using the same IDs.
             first_col = tl.maximum(0, col - last_row)
@@ -239,11 +343,39 @@ def _release(Ids, Flags, Refs, StageLocks, OverflowLocks, NPAGES: tl.constexpr, 
 class DeviceLayer(Layer):
     """The same envelope as the reference writer, with device-owned side slots."""
 
-    def __init__(self, raw, heads, page_stride, offset, staging_pages, overflow_heads):
-        super().__init__(raw, heads, page_stride, offset, staging_pages, overflow_heads)
-        self.stage_locks = torch.zeros(staging_pages, dtype=torch.int32, device=self.device)
-        self.overflow_locks = torch.zeros(overflow_heads, dtype=torch.int32, device=self.device)
+    def __init__(self, raw, heads, page_stride, offset, staging_pages, overflow_heads, fallback_pages=0,
+                 *, locks=None, events=None):
+        # Slots [0, live) hold open tails; [live, live + fallback) hold full pages
+        # that could not be sealed because the overflow arena was exhausted.
+        from . import MAX_SIDE_SLOTS
+
+        counts = (staging_pages, overflow_heads, fallback_pages)
+        if (not all(isinstance(n, int) and not isinstance(n, bool) for n in counts)
+                or not 1 <= staging_pages <= MAX_SIDE_SLOTS or not 1 <= overflow_heads <= MAX_SIDE_SLOTS
+                or not 0 <= fallback_pages <= MAX_SIDE_SLOTS):
+            raise ValueError(f"inkling_kv12s: invalid side-slot counts (staging, overflow, fallback) {counts}")
+        super().__init__(raw, heads, page_stride, offset, staging_pages + fallback_pages, overflow_heads)
+        self.live = staging_pages
+        self.fallback_pages = fallback_pages
+        # Stage then overflow locks, and the event words, may be rows of buffers
+        # shared by all lanes (pressure.SideGuard reads them in one reduction).
+        slots = staging_pages + fallback_pages + overflow_heads
+        if locks is None:
+            locks = torch.zeros(slots, dtype=torch.int32, device=self.device)
+        if events is None:
+            events = torch.zeros(EVENT_WORDS, dtype=torch.int32, device=self.device)
+        if (locks.shape != (slots,) or locks.dtype != torch.int32 or not locks.is_contiguous()
+                or events.shape != (EVENT_WORDS,) or events.dtype != torch.int32 or not events.is_contiguous()
+                or locks.device != self.device or events.device != self.device):
+            raise ValueError("inkling_kv12s: invalid side-slot lock or event buffers")
+        self.stage_locks = locks[:staging_pages + fallback_pages]
+        self.overflow_locks = locks[staging_pages + fallback_pages:]
+        # Per-page "a page-head found no overflow slot" marks.
+        self.fail = torch.zeros(self.pages, dtype=torch.int32, device=self.device)
+        self.events = events
+        self.fallbacks = events[storage.EVENT_FALLBACK:storage.EVENT_FALLBACK + 1]
         self.gather_workspace = None
+        self.force_overflow = FORCE_OVERFLOW
 
     def write(self, locations, k, v, *, tentative=False):
         loc = locations.reshape(-1).contiguous()
@@ -256,37 +388,40 @@ class DeviceLayer(Layer):
                 or loc.dtype not in (torch.int32, torch.int64)):
             raise ValueError("inkling_kv12s: invalid device scatter geometry")
         grid = (loc.numel(),)
-        _reserve[grid](loc, self.planes[-1], self.stage_locks, loc.numel(), self.pages,
-                       PAGE, self.page_stride, self.stage.shape[0], STAGE_SHIFT, STAGE_MASK, tentative,
+        _reserve[grid](loc, self.planes[-1], self.stage_locks, self.events, loc.numel(),
+                       self.pages, PAGE, self.page_stride, self.live, STAGE_SHIFT, STAGE_MASK, tentative,
                        num_warps=1)
         _scatter[(loc.numel(), 2)](
             loc, k, v, self.planes[-1], self.stage, loc.numel(), self.pages,
             PAGE, self.heads, DIM, self.page_stride, *k.stride()[:2], *v.stride()[:2],
-            self.stage.shape[0], STAGE_SHIFT, tentative, triton.next_power_of_2(self.heads * DIM),
+            self.live, STAGE_SHIFT, tentative, triton.next_power_of_2(self.heads * DIM),
         )
         if not tentative:
             self._launch_pack(loc, k, v, promote=False)
-        self._launch_publish(loc, tentative=tentative, promote=False)
+        self._launch_publish(loc, k, v, tentative=tentative, promote=False)
 
     def _launch_pack(self, loc, k, v, *, promote):
         _pack[(loc.numel(), self.heads, 2)](
-            loc, k, v, *self.planes, self.stage, self.overflow, self.overflow_locks,
+            loc, k, v, *self.planes, self.stage, self.overflow, self.overflow_locks, self.fail,
             loc.numel(), self.pages, PAGE, self.heads, DIM, self.page_stride,
             *k.stride()[:2], *v.stride()[:2], self.overflow.shape[0],
-            STAGE_SHIFT, STAGE_MASK, CAP, CHUNK, EXP_LO, promote, num_warps=8,
+            STAGE_SHIFT, STAGE_MASK, CAP, CHUNK, EXP_LO, promote, self.live, self.force_overflow, num_warps=8,
         )
 
-    def _launch_publish(self, loc, *, tentative, promote):
+    def _launch_publish(self, loc, k, v, *, tentative, promote):
         _publish[(loc.numel(),)](
-            loc, self.planes[-1], self.stage_locks, loc.numel(), self.pages,
-            PAGE, self.page_stride, STAGE_SHIFT, STAGE_MASK, tentative, promote, num_warps=1,
+            loc, k, v, self.planes[-1], self.stage_locks, self.fail, self.planes[4], self.overflow_locks,
+            self.stage, self.events, loc.numel(), self.pages, PAGE, self.heads, DIM, self.page_stride,
+            *k.stride()[:2], *v.stride()[:2], STAGE_SHIFT, STAGE_MASK, self.live, self.fallback_pages,
+            self.overflow.shape[0], tentative, promote, triton.next_power_of_2(self.heads * DIM),
+            triton.next_power_of_2(2 * self.heads), num_warps=4,
         )
 
     def commit(self, pages):
         pages = pages.reshape(-1).contiguous()
         if pages.numel():
             self._launch_pack(pages, self.stage, self.stage, promote=True)
-            self._launch_publish(pages, tentative=False, promote=True)
+            self._launch_publish(pages, self.stage, self.stage, tentative=False, promote=True)
 
     def settle(self, locations, commit_lens):
         if (locations.ndim != 2 or commit_lens.shape != (locations.shape[0],)
@@ -299,7 +434,7 @@ class DeviceLayer(Layer):
         loc = locations.contiguous()
         _trim[(loc.numel(),)](
             loc, commit_lens.contiguous(), self.planes[-1], self.stage_locks,
-            loc.shape[1], self.pages, PAGE, self.page_stride, STAGE_SHIFT, STAGE_MASK, num_warps=1,
+            loc.shape[1], self.pages, PAGE, self.page_stride, STAGE_SHIFT, STAGE_MASK, self.live, num_warps=1,
         )
         # One candidate per full page. A rejected candidate is either empty or
         # still staged with a shorter count. Already packed draft pages are skipped.
@@ -335,10 +470,13 @@ class DeviceLayer(Layer):
             if flag not in (EMPTY, PACKED):
                 ref.open[page] = OpenPage(flag >> STAGE_SHIFT, (flag & STAGE_MASK) - 1)
         ref.spilled = {}
-        ref._free_stage = (self.stage_locks == 0).nonzero().flatten().tolist()
+        ref._free_stage = (self.stage_locks[:self.live] == 0).nonzero().flatten().tolist()
         ref._free_overflow = (self.overflow_locks == 0).nonzero().flatten().tolist()
         heapq.heapify(ref._free_stage)
         heapq.heapify(ref._free_overflow)
+        # The device writer keeps an unsealable page raw in staging instead of
+        # failing, so the reference only validates geometry, not overflow room.
+        ref._check_overflow = lambda batches: None
         return ref
 
     def read_rows(self, locations):

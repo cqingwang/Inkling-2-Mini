@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.7.1 (2026-11-24)
+
+The packed global KV store is the default (`KV12S=1`): 2.26M global-layer KV tokens instead of 1.59M (+42 %), with
+outputs bit-identical to stock SGLang on its unified memory pool. Full runs on both boxes (`results/Q271R-s05/`,
+`results/Q271R-s06/`); `KV12S=0` restores the v2.7 store.
+
+- `inkling_kv12s` fixes since v2.7:
+  - The draft's global layer is stored raw BF16 (the packed draft lane overflowed and needed a 10 GiB workspace).
+  - Prefill reads packed prefixes through a fixed BF16 scratch charged to the KV budget and sized for `CTX`
+    (the first build was ~2x slower on cold prefills above 120K tokens and grew memory per chunk).
+  - The sliding-window band of the unified pool is laid out page-major and written by a Triton store kernel: the
+    token-major layout spread one window over ~80 GPU pages and cost 22 % of sampled thinking throughput at c24.
+  - Exhaustion of the exact overflow arena falls back to a 64-page raw pool and then to the staging slot; only if
+    all three are full does the server abort the requests that hold rows (HTTP 503) instead of stopping. A host-side
+    guard evicts cached prefixes, defers prefill and retracts decode before that point. Measured use: 0.
+  - Startup refuses unsupported combinations (streaming sessions, multimodal, parallelism above 1, non-DSpark
+    speculation, prefill CUDA graphs, verify shapes above the compact attention cutoff) and invalid sizes.
+- Defaults with `KV12S=1`: `MEM_FRACTION=0.91`, `SWA_RATIO=0.035`, `--enable-unified-memory`, prefill CUDA graphs
+  off. MemAvailable 7.3-7.4 GiB after start, 4.3-4.5 GiB lowest in the full runs and 4.5 GiB in the worst case
+  (thinking c24 alongside a cold 240K needle, needle PASS); 3.5 GiB guard floor.
+- Speed against v2.7's store on the same box: speedbench full 63.91 vs 64.27, decode c1-c16 and prefill 1K-128K within
+  run noise, thinking c48 596.5-596.6; thinking c1 / c8 / c24 71.8 / 237.6 / 436.9 vs 71.5 / 236.4 / 451.9 in the v2.6 full
+  runs: c24 -3 %, the cost of running the draft commit outside the CUDA graph.
+- Exactness: stock SGLang's unified and default pools differ on 5 of 32 greedy speedbench quick texts. Both hand the
+  first verify step bitwise identical layer inputs, and both stay equally close to an exact prefill of the same text;
+  the differences are floating-point order in later steps (docs/experiments.md).
+- 1M with the packed store (`CTX=1048576`, Spark_05): needle PASS at 999,296 tokens; a cold 1,024,203-token prefill in
+  1,040 s (v2.6: 1,285 s), decode 16.0 tok/s at that context (v2.6: 14.0), lowest MemAvailable 5.1 GiB; pool 2,154,112
+  tokens with the 4.03 GiB scratch. 512K and the 1M needle under concurrent thinking were not re-measured.
+- `scripts/launch.sh`: `KV12S` accepts only 0 / 1; the redundant `--cuda-graph-backend-decode=full` is dropped.
+- `overlay/tools/gpu_check_kv12s.py` covers the release scratch path, overflow fallback, side-slot exhaustion,
+  the page-major window band and the raw draft lane.
+
 ## v2.7 (2026-11-23)
 
 Certified head for wider verify batches, a long-prefix prefill fix, a measured 512K / 1M option, and an opt-in packed

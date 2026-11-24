@@ -806,7 +806,8 @@ Packed KV store (`KV12S=1`, opt-in): format and checks in `overlay/inkling_kv12s
 tokens, speedbench quick 63.16 (v2.6 63.49), sanity 11/11, needles PASS, worst run 4.2 GiB. Greedy speedbench quick
 hashes: a v2.7 reference with `KV12S=0` and the same flags matches v2.6 on 32/32; `KV12S=1` on 27/32 (5 deterministic
 differences). Ruled out so far: the eager draft commit (32/32 with `KV12S=0`), FA4 split counts depending on the
-cache extent (bit-identical across extents). Under investigation for v2.7.1.
+cache extent (bit-identical across extents). Resolved in v2.7.1 (below): the differences come from SGLang's unified
+memory pool, not from the packed store.
 
 Screened and not adopted (v2.6 base):
 
@@ -817,3 +818,47 @@ Screened and not adopted (v2.6 base):
 - INT8 per-row draft weights: flat (same bytes as FP8, acceptance unchanged).
 - Dropping the 12-bit side copy (`KV12=0`, MEM 0.99): +8 % KV tokens but decode steps 63.7 / 80.0 ms vs 57.8 / 73.2 ms
   at 128K / 250K.
+
+## v2.7.1: packed global KV store as the default
+
+Results: `results/Q271R-s05/`, `results/Q271R-s06/` (full runs), `results/Q271RS-s05/` (worst case, 200K / 250K).
+
+Exactness. A server with `KV12S=1` gives bit-identical greedy speedbench quick texts and logprobs to stock SGLang
+with `--enable-unified-memory` and the BF16 store; each of our overlays toggled off left the outputs unchanged. The
+packed store needs the unified pool, and stock SGLang's unified pool and its default hybrid pool differ on 5 of 32
+greedy texts. Checks on that difference:
+
+- At the first verify step after prefill, a dump of every attention and short-conv layer's inputs and outputs (row 0)
+  was bitwise identical between the two pools on 3 prompts (96 / 96 calls), and the teacher-forced extend of the same
+  position was identical across pools (240 / 240 calls).
+- 24 prompts (18 synthetic of 32 to 12.6K tokens spread over prompt length mod 128, plus 6 speedbench prompts):
+  chosen-token logprob error against a teacher-forced prefill at the first verify positions ~0 on both pools (mean
+  0.0000 / 0.0010 default, 0.0000 / 0.0007 unified), noise floor at positions 8-40 0.034 / 0.026.
+- Teacher-forced re-scoring of whole texts: 0.051 (default) vs 0.049 (unified) nat/token.
+
+The texts diverge later through floating-point order; neither pool is closer to an exact prefill.
+
+Sampled throughput. The first packed build lost 22 % of thinking throughput at c24 on the unified pool. Each token's
+sliding-window band entry held all 40 layer visits, so one layer's 1,024-key window touched ~80 GPU pages per request
+and missed the TLB after the MoE weight reads; a probe measured 1,170 vs 468 us per call. Laying the band out
+page-major (each visit's rows of a 128-token page together) with a Triton store kernel keeps the same bytes and
+greedy hashes (32 / 32) and removed the loss. What remains at c24 (436.9 vs 451.9 tok/s in the v2.6 full runs) is the
+draft commit running outside the CUDA graph.
+
+Memory. Fixed buffers are charged to the KV budget before the pool is sized: the prefill scratch (2,112 pages or
+`ceil(CTX/128) + 65`, whichever is larger), the overflow arena (2,048 heads per visit) and the fallback pool (64 pages
+per visit). An earlier build grew the scratch per prefill chunk, and the allocator kept every old copy; that pushed
+MemAvailable through the guard at `MEM_FRACTION=0.91`. `SWA_RATIO=0.035` leaves 79,232 sliding-window tokens; thinking
+c48 and the worst case ran clean with it.
+
+Side-slot exhaustion. Forced on purpose (4 overflow heads, 1 fallback page, every page-head sent through overflow): a
+~40K-token prompt was refused with HTTP 503, the server kept serving, short greedy prompts before and after matched
+the normal boot exactly, and 8 concurrent requests all completed. In all normal runs the high water was 0 overflow
+heads and 0 fallback pages.
+
+Retraction. 48 concurrent greedy requests with 63K-token prompts sharing a 16K radix prefix completed 48 / 48 under
+forced retraction; re-scored against prefill, the texts averaged 0.0057 nat/token.
+
+Logprobs. The certified heads step aside for any batch that asks for logprobs, so clients get the full head's values.
+Runner-up logprobs from a verify step differ from a teacher-forced prefill by ~0.1-0.2 nat above -3 and 1-2 nats
+around -15 to -20, on both pools: the verify and prefill forwards round BF16 differently.

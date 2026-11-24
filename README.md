@@ -4,32 +4,30 @@ Serving [thinkingmachines/Inkling-2-Mini](https://huggingface.co/thinkingmachine
 (GB10, sm_121, 121.6 GiB unified memory) with the model's own NVFP4 / MXFP8 weights and its bundled DSpark draft,
 on SGLang, plus a set of import-time speed overlays that leave the model's outputs as they are.
 
-**Status (2026-11-23, v2.7):** one profile. SGLang `lmsysorg/sglang:inkling-2-mini` with the cookbook's DGX Spark DSpark
-settings, and fourteen overlay packages (`overlay/`) that cut the bytes read per decode step (weights, draft and the
-global-layer KV at long context), the kernel time of the concurrent verify batches and of the sampled accept, and the
-work per prefill chunk. Against the stock cookbook cell, speedbench is +59 % at c1, concurrent prose decode is
-+28 to +43 % at c4-c16, thinking load is +21 to +37 %, cold prefill is +34 to +61 %, and decode at 128K is +25 %.
-The default KV pools hold about 1.59M global-layer tokens; the experimental packed KV store (`KV12S=1`, see "Packed
-global KV store"; not for real work yet) holds 2.17M. The target distribution is unchanged. v2.7 adds the certified head for 17-192-row verify
-batches, a long-prefix prefill fix (1.4-1.5x per global layer at 512K-1M prefixes) and a measured 512K / 1M-context
-option. The speed tables below are the v2.6 full runs; a v2.7 quick check of the default build matches them (greedy
-texts identical to v2.6 on 32/32 speedbench quick prompts), and full v2.7 runs follow.
+**Status (2026-11-24, v2.7.1):** one profile. SGLang `lmsysorg/sglang:inkling-2-mini` with the cookbook's DGX Spark
+DSpark settings, and fourteen overlay packages (`overlay/`) that cut the bytes read per decode step (weights, draft
+and the global-layer KV), the kernel time of the concurrent verify batches and of the sampled accept, and the work per
+prefill chunk. Against the stock cookbook cell, speedbench is +57 % at c1, concurrent prose decode is +24 to +46 % at
+c4-c16, thinking load is +17 to +37 %, cold prefill is +34 to +59 %, and decode at 128K is +20 %. v2.7.1 makes the
+packed global KV store the default: the global-layer KV is stored only in an exactly coded 12-bit form, which holds
+2.26M global-layer tokens (v2.7: 1.59M, +42 %). The target distribution is unchanged. `KV12S=0` restores the v2.7
+store (about 3 % faster thinking at c24, 1.59M tokens).
 
 | | stock SGLang cookbook cell (mem 0.62) | this recipe |
 |---|---:|---:|
-| speedbench full, all 73 prompts, c1 | 40.6 | **64.4** |
-| decode, prose, aggregate tok/s at c4 / c8 / c16 | 75.2 / 117.0 / 186.2 | **107.5 / 161.8 / 239.1** |
-| thinking load c1 / c8 / c24 (effort high, T=0.8) | 52.3 / 193.6 / 374.9 | **71.5 / 236.4 / 451.9** |
-| cold prefill, 8K / 128K tokens, tok/s | 3,399 / 2,422 | **5,478 / 3,805** |
-| decode at 128K context, c1, tok/s | 37.1 | **46.4** |
-| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **1.59M / 6.3 GiB** |
+| speedbench full, all 73 prompts, c1 | 40.6 | **63.8** |
+| decode, prose, aggregate tok/s at c4 / c8 / c16 | 75.2 / 117.0 / 186.2 | **109.9 / 160.5 / 230.9** |
+| thinking load c1 / c8 / c24 (effort high, T=0.8) | 52.3 / 193.6 / 374.9 | **71.8 / 237.6 / 436.9** |
+| cold prefill, 8K / 128K tokens, tok/s | 3,399 / 2,422 | **5,419 / 3,717** |
+| decode at 128K context, c1, tok/s | 37.1 | **44.5** |
+| KV pool (global-layer tokens) / MemAvailable after start | 843K / ~40 GiB | **2.26M / 7.3-7.4 GiB** |
 
 ## Speed
 
 Measured 2026-11-23 on one Spark per run, GPU clock capped at 2200 MHz by the host's own timer, fresh start of the
-container, MemAvailable logged every 5 s. The full benchmarks used `MEM_FRACTION=0.94` (`results/V26-s05/`,
-`results/V26-s06/`). Speed tables show the median of the two boxes. Throughput was flat across the memory sweep.
-The memory figures for the release defaults use `MEM_FRACTION=0.93`. The stock engine was measured on both boxes
+container, MemAvailable logged every 5 s. The full benchmarks ran the v2.7.1 release defaults (`results/Q271R-s05/`,
+`results/Q271R-s06/`, packed KV store, `MEM_FRACTION=0.91`). Speed tables show the median of the two boxes. The
+stock engine was measured on both boxes
 with the same harness (`results/F1-sglang-base-s05/`, `results/F2-sglang-base-s06/`).
 
 ### speedbench
@@ -40,12 +38,12 @@ decode tokens). Decode tok/s, geometric mean per category:
 
 | prose | code | structured | agentic | multilingual | long context | all 73 prompts |
 |---:|---:|---:|---:|---:|---:|---:|
-| **54.1** | 72.8 | 68.6 | 77.5 | 44.1 | 75.9 | **64.4** |
+| **54.0** | 72.5 | 66.8 | 76.8 | 43.9 | 74.3 | **63.8** |
 
 Stock engine on the same boxes: prose 32.6, code 48.0, structured 44.3, agentic 49.3, multilingual 25.3, long
-context 51.0, all 40.6. Spark_05 / Spark_06 scored 64.46 / 64.35 (stock 41.09 / 40.16). All 73 prompts were valid
-in both runs. Median time to first token was 158.8-159.4 ms (stock 184 ms), with 2.383 tokens per verify step
-(stock 2.45) at 37.2 ms per step (stock 60.9 ms).
+context 51.0, all 40.6. Spark_05 / Spark_06 scored 63.91 / 63.59 (stock 41.09 / 40.16; v2.6 64.46 / 64.35). All 73
+prompts were valid in both runs. Median time to first token was 151.8-152.6 ms (stock 184 ms), with 2.383 tokens per
+verify step (stock 2.45) at 37.4 ms per step (stock 60.9 ms).
 
 ### Decode by prompt type and concurrency
 
@@ -55,10 +53,10 @@ of three requests); above c1 the aggregate over the level's wall time, per-strea
 
 | prompt type | c1 | c2 | c4 | c8 | c16 |
 |---|---:|---:|---:|---:|---:|
-| prose | **53.0** | 72.7 (37.5) | 107.5 (28.6) | 161.8 (21.2) | 239.1 (16.1) |
-| code | 62.8 | 87.3 (45.3) | 122.3 (34.0) | 177.3 (25.0) | 264.8 (18.2) |
-| structured | 70.5 | 93.8 (49.0) | 128.2 (33.7) | 177.1 (24.6) | 264.3 (18.0) |
-| json | 62.5 | 88.3 (46.7) | 132.1 (35.9) | 183.6 (23.9) | 280.5 (19.7) |
+| prose | **53.0** | 72.3 (37.3) | 109.9 (29.0) | 160.5 (21.1) | 230.9 (15.6) |
+| code | 62.5 | 85.2 (44.3) | 123.0 (33.0) | 179.1 (24.7) | 263.2 (19.0) |
+| structured | 70.0 | 92.8 (48.5) | 125.6 (34.1) | 179.5 (24.1) | 268.4 (18.2) |
+| json | 62.1 | 87.8 (46.4) | 132.3 (36.0) | 186.9 (25.2) | 274.7 (19.0) |
 
 Stock engine, same protocol: prose 33.2 / 51.0 / 75.2 / 117.0 / 186.2, code 43.6 / 66.8 / 87.2 / 134.8 / 221.3,
 structured 49.7 / 66.4 / 89.9 / 141.8 / 225.1, json 46.5 / 58.8 / 89.3 / 141.9 / 232.2. At one or two streams the
@@ -75,9 +73,12 @@ workload: long reasoning, many requests at once.
 
 | c1 | c8 | c24 |
 |---:|---:|---:|
-| **71.5** (72.0) | 236.4 (34.0) | 451.9 (21.7) |
+| **71.8** (70.7) | 237.6 (34.8) | 436.9 (21.1) |
 
 Stock engine: c1 52.3, c8 193.6, c24 374.9. One run per box per cell (sampled); c8 and c24 vary ~5 % from run to run.
+The v2.6 full runs (BF16 global store, as `KV12S=0`) gave 71.5 / 236.4 / 451.9: the packed store's draft commit runs
+outside the CUDA graph, which costs about 3 % at c24 in exchange for 42 % more KV tokens. Thinking at c48 (48 x 2,048
+tokens): 596.5-596.6 tok/s.
 Sampled requests accept their drafts by block verification under the verify cap, with the accept computed straight
 from the logits from three requests up.
 
@@ -88,32 +89,34 @@ then the same document with another question (served from the prefix cache); dec
 
 | | 1K | 8K | 32K | 128K |
 |---|---:|---:|---:|---:|
-| prompt tokens | 1,008 | 8,151.5 | 32,703.5 | 130,922 |
-| TTFT cold | 0.35 s | 1.49 s | 6.37 s | 34.4 s |
-| **prefill, cold, tok/s** | **2,909** | **5,478** | **5,136** | **3,805** |
-| TTFT, document cached | 0.22 s | 0.22 s | 0.22 s | 17.3 s |
-| decode tok/s at that context | - | - | 71.0 | 46.4 |
+| prompt tokens | 1,013.5 | 8,158.5 | 32,701.5 | 130,922.5 |
+| TTFT cold | 0.35 s | 1.51 s | 6.50 s | 35.2 s |
+| **prefill, cold, tok/s** | **2,908** | **5,419** | **5,035** | **3,717** |
+| TTFT, document cached | 0.22 s | 0.24 s | 0.28 s | 17.9 s |
+| decode tok/s at that context | - | - | 69.6 | 44.5 |
 
 Stock engine: 2,163 / 3,399 / 3,232 / 2,422 tok/s cold (TTFT 0.47 / 2.40 / 10.1 / 54.0 s), decode 55.1 at 32K and
 37.1 at 128K. The 128K cached TTFT is the median of one cache hit (~0.3 s) and one miss (the second 128K document
 evicts sliding-window state of the first), the same as the stock engine. Decode at long context is dominated by the
 global layers reading the whole context (4.3 GB of BF16 KV per step at 128K, at the memory-bandwidth floor): here the
-committed pages are read in an exactly coded 12-bit form (1.33x fewer bytes). The draft's global layer reads the
+committed pages are stored and read in an exactly coded 12-bit form (1.33x fewer bytes). The draft's global layer reads the
 whole context. Decode in the two-document samples varies with the tokens per step of each generated text.
 
-At 200K / 250K tokens (`results/V26-s05/K/`, `results/V26-s06/K/`), cold prefill was 3,141-3,159 / 2,688-2,721
-tok/s (TTFT 65.1-65.4 / 93.8-94.9 s), and c1 decode was 40.6-43.3 / 34.9-35.2 tok/s.
+At 200K / 250K tokens (`results/Q271RS-s05/`), cold prefill was 3,025 / 2,676 tok/s (TTFT 67.9 / 95.4 s), and c1
+decode was 42.2 / 34.4 tok/s (v2.6: 3,141-3,159 / 2,688-2,721 tok/s, decode 40.6-43.3 / 34.9-35.2).
 
 ### Memory and start-up
 
-| `MEM_FRACTION=0.93`, `SWA_RATIO=0.05` | Spark_05 / Spark_06 |
+| release defaults (`KV12S=1`, `MEM_FRACTION=0.91`, `SWA_RATIO=0.035`) | Spark_05 / Spark_06 |
 |---|---|
-| MemAvailable after start | 5.8 / 6.1 GiB |
-| lowest MemAvailable with thinking c24 (48 x 2,048 tokens) alongside a cold 240,104-token needle prefill | 5.2 / 5.4 GiB, thinking 299.9 / 298.6 tok/s, needle PASS on both |
-| global-layer KV pool | 1,551,104 / 1,557,120 tokens |
-| warm start-up to the first answer | 131 / 137 s (137 / 121 s in the full benchmarks at 0.94) |
+| MemAvailable after start | 7.4 / 7.3 GiB |
+| lowest MemAvailable with thinking c24 (48 x 2,048 tokens) alongside a cold 240,104-token needle prefill | 4.5 GiB (Spark_05), thinking 295.7 tok/s, needle PASS in 95.9 s; repeated with the needle cached: 394.6-395.1 tok/s |
+| lowest MemAvailable in the full benchmark | 4.5 / 4.3 GiB |
+| global-layer KV pool | 2,264,704 / 2,267,392 tokens |
+| warm start-up to the first answer | 86 / 91 s |
 
-Details in "Memory budget" below.
+`results/Q271RS-s05/`. The v2.7 store (`KV12S=0`, `MEM_FRACTION=0.93`) gave 5.8-6.3 GiB after start and 5.2-5.4 GiB
+in the same worst case.
 
 ### Quality checks
 
@@ -133,7 +136,8 @@ Same runs, same checks as for the stock engine (`bench/full.sh`):
   accepted by block verification, whose output law is the target's (Sun et al.; under the cap the dead drafts enter
   as a stopped draft, Monte Carlo tested), with the accept probabilities computed from the logits to FP32 rounding;
   the draft levers only change proposals; the packed 12-bit KV decodes to the same BF16 bits and gives attention
-  partials bit-identical to stock; the certified LM head returns the exact argmax of the full head (proved per step, 0
+  partials bit-identical to stock (the packed store serves bit-identically to stock SGLang on its unified memory pool,
+  whose greedy texts differ from the default pool's on 5 of 32 prompts through floating-point order); the certified LM head returns the exact argmax of the full head (proved per step, 0
   mismatches in a 45,584-row serving check); the kernel levers compute the same math, bit-identical where stated,
   otherwise with a different floating-point summation order (packed GEMVs/GEMMs whose weights decode to the same
   BF16 bits, the fused prefill kernels; each checked against an FP32/FP64 reference to be no less accurate than stock). Any
@@ -186,6 +190,7 @@ tables above. Raw files: `results/screen/`, `results/screen-r2/`; details and re
 | Packed 12-bit GEMM for 17-256-row verify batches: reads pico's coded weights once per call, mma.sync over all rows (qkvr <= 96 rows per source, wo_ud <= 32, LM head <= 256; verify/decode forwards only) | `WIDE=dense,lmhead` | qkvr 1.24-1.34x and LM head 1.34-1.67x faster than cuBLAS at 17-64 rows; thinking c8 +8 %, greedy decode c4 / c8 / c16 +4 / +5 / +3 % | weights decode to the same BF16 bits; FP32 summation order differs from cuBLAS (error vs FP64 equal or lower) | ours; pico's `bf16x` reader (Andy Shu, MIT) |
 | Verify attention on the split-KV relative-bias kernel at every batch size (cap 32 -> 384 rows) and the bias computed in-kernel above 32 rows, instead of padded FA4 with a sheared [t, 32, 1280] bias | `VATTN=1` | verify-attention visit 1.4-1.7x faster at 8-48 requests; thinking c24 +7 %, greedy decode c8 / c16 +5 / +6 % | same math; bias bit-identical, output within 1 BF16 ulp of the stock compact path | ours; SGLang's Inkling2 verify kernel |
 | Packed 12-bit global-layer KV: full, committed KV pages of the 8 global-layer visits are also kept as sign + 7-bit mantissa bytes and a 4-bit exponent code against a fixed 15-exponent table (escape stream for the ~0.03 % of values outside it), 193 instead of 256 bytes per key and head; decode / verify attention decodes packed tiles in registers; 2,048 side slots per layer follow the pages being decoded (LRU) | `KV12=1`, `KV12_SLOTS=2048` | global verify visit 1.15-1.28x at 128K-256K (microbench); c1 step at 128K 62.2 -> 56.8 ms, at 250K 80.1 -> 75.2 ms; 92.6-99.9 % of tiles read packed; +6.1 GiB | bit-identical: decoded tiles equal the BF16 cache, attention partials equal stock's | ours, on SGLang's split-KV decode kernel; inspired by lossless exponent coding of floats (ZipNN, SplitZip) and by pico's exactly coded 12-bit `bf16x` weight format (Andy Shu); no code taken from either |
+| Packed global KV store: the target's global-layer KV lives only in the 12-bit form above (no BF16 global pool, no side copy); open pages stay BF16 until committed, the draft's global layer stays raw BF16, prefill reads packed prefixes through a fixed BF16 scratch, and the sliding-window band of SGLang's unified pool is laid out page-major | `KV12S=1` (default since v2.7.1; turns `KV12` off) | global-layer KV 1.59M -> 2.26M tokens (+42 %); c1 and decode c1-c16 within noise, thinking c24 -3 % | bit-identical to stock SGLang on its unified memory pool (every packed store and read bitwise in the GPU checks) | ours, on SGLang's unified memory pool |
 | Prefill attention with the relative-position bias computed inside the kernel (FA2-style, mma.sync, paged KV, sliding window and global layers), instead of a materialised [t, 24, 1024] bias read by FA4 | `ATTN=prefill_swa,prefill_global` | SWA attention 3.3x vs the round-1 bias_layout path; cold prefill 8K / 32K / 128K +15 / +18 / +26 % | same math; error vs FP32 reference equal to stock's | ours (FlashAttention-2 algorithm, Tri Dao) |
 | Prefill glue fusion: the loop-message mixes, attention-residual mix + RMSNorm and the MLP short conv + residual update in fused kernels that skip the FP32 [T, 2304] round trips | `PFUSE=all` | -187 ms per 8K chunk (microbench); with the fused attention: cold prefill 1K / 8K / 32K / 128K +14 / +29 / +30 / +36 % | same per-element math; only FP32 row-sum order differs (error vs FP64 equal or lower), short conv bit-identical | ours |
 | Prefill: relative-position bias written directly in FA4's sheared layout | `PREFILL=bias_layout` | with quant_once: 8K prefill 3,781 -> 4,253 tok/s | bit-identical (attention output and LSE) | ours |
@@ -239,7 +244,7 @@ the image (56 GB) and the weights (20 GB), and nothing else large running on the
 git clone https://github.com/knapcio/Inkling-2-Mini-1x-DGX-Spark && cd Inkling-2-Mini-1x-DGX-Spark
 scripts/download.sh                       # weights at the pinned revision -> ~/models/Inkling-2-Mini, sha256-checked
 docker pull lmsysorg/sglang@sha256:efac853b46811ccb760545b7b29e7119bdf907537ccf6e863fac3011fe8b98de
-scripts/launch.sh up                      # SGLang + DSpark + overlays on 127.0.0.1:8000, mem 0.93, SWA ratio 0.05
+scripts/launch.sh up                      # SGLang + DSpark + overlays on 127.0.0.1:8000, packed KV store, mem 0.91
 #   or: OVERLAY=0 LOAD_NOMMAP=0 MEM_FRACTION=0.62 SWA_RATIO=0.1 scripts/launch.sh up  # stock benchmark cell
 scripts/launch.sh status                  # container, API, MemAvailable
 python3 bench/sanity.py all               # chat, effort ladder, tool call, JSON schema, 120K needle
@@ -295,9 +300,9 @@ docker run -d --name inkling-2-mini --gpus all --ipc=host --network host --shm-s
   -e INKLING_PREFILL=qkvr_split,bias_layout,quant_once,partial_bf16 -e INKLING_PREFILL_QKVR_OUT=strided \
   -e INKLING_CERT_HEAD=1 -e INKLING_WIDE=dense,lmhead -e INKLING_WIDE_SCOPE=verify -e INKLING_VATTN=1 \
   -e INKLING_ATTN=prefill_swa,prefill_global -e INKLING_PFUSE=all -e INKLING_MOE2=tiles -e INKLING_SCODES=1 \
-  -e INKLING_VERIFY_CAP_FASTPROBS=1 -e INKLING_VERIFY_CAP_FUSED_ACCEPT=1 -e INKLING_KV12=1 -e INKLING_KV12_MAX_PAGES=2048 \
-  -e INKLING_CERT_WIDE=1 -e INKLING_KV12S=0 -e INKLING_KV12S_OVERFLOW_HEADS=512 -e INKLING_KV12S_DRAFT_OVERFLOW_HEADS=2048 \
-  -e MAX_JOBS=4 \
+  -e INKLING_VERIFY_CAP_FASTPROBS=1 -e INKLING_VERIFY_CAP_FUSED_ACCEPT=1 -e INKLING_KV12=0 -e INKLING_KV12_MAX_PAGES=2048 \
+  -e INKLING_CERT_WIDE=1 -e INKLING_KV12S=1 -e INKLING_KV12S_OVERFLOW_HEADS=2048 -e INKLING_KV12S_FALLBACK_PAGES=64 \
+  -e SGLANG_RAGGED_VERIFY_MODE=static -e MAX_JOBS=4 \
   -e SGLANG_OPT_INKLING2_VERIFY_REL_BIAS_KERNEL=1 -e SGLANG_OPT_DSV41_DSPARK_MID_FOLD=1 \
   -e SGLANG_OPT_DSV41_DSPARK_PREPARE_INPUTS_ONCE=1 -e SGLANG_OPT_DSV41_DSPARK_SKIP_PREFILLED_INPUTS=1 \
   -e MALLOC_MMAP_THRESHOLD_=1048576 \
@@ -305,9 +310,10 @@ docker run -d --name inkling-2-mini --gpus all --ipc=host --network host --shm-s
   -m sglang.launch_server --model-path /model --served-model-name inkling-2-mini \
   --tp 1 --ep 1 --attention-backend fa4 --dtype bfloat16 --page-size 128 \
   --speculative-algorithm DSPARK --speculative-num-draft-tokens 8 --speculative-use-block-verification \
-  --mem-fraction-static 0.93 --context-length 262144 \
+  --enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48 --cuda-graph-max-bs-decode=48 \
+  --mem-fraction-static 0.91 --context-length 262144 \
   --grammar-backend xgrammar --reasoning-parser inkling --tool-call-parser inkling2 \
-  --enable-metrics --host 127.0.0.1 --port 8000 --weight-loader-disable-mmap --swa-full-tokens-ratio 0.05 \
+  --enable-metrics --host 127.0.0.1 --port 8000 --weight-loader-disable-mmap --swa-full-tokens-ratio 0.035 \
   --max-mamba-cache-size 512 --max-prefill-tokens 8192
 ```
 
@@ -330,8 +336,8 @@ Engine flags (the SGLang cookbook's DGX Spark DSpark cell, text only):
 | `--page-size 128` | KV page size (cookbook) |
 | `--speculative-algorithm DSPARK --speculative-num-draft-tokens 8` | the bundled 3-layer DSpark draft; the block size is fixed at 8 by the trained head |
 | `--speculative-use-block-verification` | block verification for sampled requests (set by `VCAP_BV=1` with the overlays on; not part of the cookbook cell) |
-| `MEM_FRACTION=0.93` (`--mem-fraction-static 0.93`) | static pool for weights, KV and CUDA graphs. Gives 1.55M global-layer KV tokens (see Memory budget) |
-| `SWA_RATIO=0.05` (`--swa-full-tokens-ratio 0.05`) | sliding-window pool as a fraction of the global-layer pool. The image defaults to 0.1 |
+| `MEM_FRACTION=0.91` (`--mem-fraction-static 0.91`) | static pool for weights, KV and CUDA graphs. Gives 2.26M global-layer KV tokens with the packed store (0.93 and 1.59M with `KV12S=0`; see Memory budget) |
+| `SWA_RATIO=0.035` (`--swa-full-tokens-ratio 0.035`) | sliding-window pool as a fraction of the global-layer pool: 79K tokens, enough for 48 requests' windows plus one prefill chunk (0.05 with `KV12S=0`; the image defaults to 0.1) |
 | `MIN_AVAIL_GIB=3.5` | host MemAvailable floor for the memory guard. Accepts decimal GiB |
 | `--max-mamba-cache-size 512`, `--max-prefill-tokens 8192` | conv-state slots (the image's default sized 1,232; peak use measured 76) and one 8,192-token prefill chunk in flight instead of two: +2.2 % KV tokens, prefill and decode unchanged |
 | `LOAD_NOMMAP=1` (`--weight-loader-disable-mmap`, `MALLOC_MMAP_THRESHOLD_=1048576`) | one-pass safetensors read; large frees return to the OS before SGLang sizes the KV pool; `0` uses the stock mmap loader |
@@ -356,36 +362,39 @@ Overlay switches (`OVERLAY=0` turns all of them off; each is described in `overl
 | `CERT_HEAD` (`INKLING_CERT_HEAD`) | `1` | certified greedy LM-head argmax (6-bit screen + pico's exact GEMV on the candidate tiles; +358 MB); `check` serves the full head and counts mismatches; `0` = off. Needs `PICO12` with `lmhead` |
 | `WIDE` (`INKLING_WIDE`), `WIDE_SCOPE` | `dense,lmhead`, `verify` | packed 12-bit GEMM for 17-256-row calls (verify batches of 3-32 requests) on decode / verify forwards; per-kind row caps `INKLING_WIDE_MAX_M_KIND` (default `qkvr=96,wo=32,head=256`) |
 | `VATTN` (`INKLING_VATTN`) | `1` | verify attention on the split-KV relative-bias kernel for up to 48 requests, bias in-kernel above 32 rows (`cap` = only the row cap) |
-| `KV12` (`INKLING_KV12`), `KV12_SLOTS` (`INKLING_KV12_MAX_PAGES`) | `1`, `2048` | packed 12-bit copy of full, committed global-layer KV pages, read by decode / verify attention; 2,048 slots per global layer = 6.1 GiB, enough for one 256K-token request (`0` = one slot per page of the pool) |
+| `KV12` (`INKLING_KV12`), `KV12_SLOTS` (`INKLING_KV12_MAX_PAGES`) | `1` with `KV12S=0`, `2048` | packed 12-bit copy of full, committed global-layer KV pages, read by decode / verify attention; 2,048 slots per global layer = 6.1 GiB, enough for one 256K-token request (`0` = one slot per page of the pool) |
 | `ATTN` (`INKLING_ATTN`) | `prefill_swa,prefill_global` | fused relative-bias attention for prefill / extend (CUDA extension, builds in ~30 s on the first start) |
 | `SCODES` (`INKLING_SCODES`) | `1` | NVFP4 expert scale codes (+0.81 GB: the stock scales stay resident for escapes and fallback; first start builds the modified FlashInfer kernels, ~4.5 min, then cached) |
 | `MOE2` (`INKLING_MOE2`) | `tiles` | tile tables for the routed-expert GEMMs at verify batch sizes (over `moe_tiles`); `INKLING_MOE2_NVFP4` / `INKLING_MOE2_MXFP8` override the tables |
 | `PFUSE` (`INKLING_PFUSE`) | `all` | prefill glue fusion (`loopmix,resnorm,sconvres`), extend batches of >= 512 rows only |
 | `CERT_WIDE` (`INKLING_CERT_WIDE`) | `1` | certified greedy head for 17-192-row verify batches (needs `CERT_HEAD`, `PICO12` and `WIDE` with `lmhead`) |
 | `INKLING_ATTN_W8_FROM` | `131072` | prefix length (keys) from which global-layer prefill uses the 8-warp fused kernel; `0` = one 4-warp launch |
-| `KV12S` (`INKLING_KV12S`) | `0` | opt-in packed global KV store (see "Packed global KV store"); `1` turns `KV12` off, adds `--enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48 --cuda-graph-backend-decode=full --cuda-graph-max-bs-decode=48` and uses `MEM_FRACTION=0.91` unless set |
+| `KV12S` (`INKLING_KV12S`) | `1` | packed global KV store (see "Packed global KV store"); turns `KV12` off and adds `--enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48 --cuda-graph-max-bs-decode=48`; `MEM_FRACTION=0.91` and `SWA_RATIO=0.035` unless set. `0` = the v2.7 store; vLLM and `OVERLAY=0` always use `0`. `KV12S_OVERFLOW_HEADS` (2,048) and `KV12S_FALLBACK_PAGES` (64) size the exact overflow arena and fallback pool per layer visit |
 
 Left at SGLang's defaults (measured, see docs/experiments.md): chunked prefill 8,192 tokens (16,384: +2-3 % at
 32K-128K, more memory), up to 48 running requests (CUDA graphs captured to 48), radix prefix cache on, overlap
-scheduler on, prefill CUDA graphs on.
+scheduler on. Prefill CUDA graphs are on with `KV12S=0` and off with the packed store (its prefill reads go
+through the eager scratch path).
 
 ### Memory budget
 
-GB10 has one 121.6 GiB pool for the GPU and the operating system. `MEM_FRACTION=0.93` budgets for the weights,
+GB10 has one 121.6 GiB pool for the GPU and the operating system. `MEM_FRACTION=0.91` budgets for the weights,
 KV and CUDA graphs. With `LOAD_NOMMAP=1`, large frees from checkpoint loading return to the OS before SGLang
-sizes the static pool. The packed KV overlay then allocates its side pool.
+sizes the static pool. The packed store's fixed buffers (prefill scratch, overflow arena, fallback pool) are charged
+to that budget before the pool is sized.
 
 | | |
 |---|---|
-| KV cache, global layers (and the draft's global layer) | 1,593,088 tokens (Spark_05, with the two memory flags above; 1,551,104 / 1,557,120 without), BF16 |
-| packed 12-bit KV side pool (global layers) | 8 x 2,048 slots of 128 tokens, 6.1 GiB: covers the pages being decoded, up to one 256K-token request |
-| KV cache, sliding-window layers | ~77.5K tokens at `SWA_RATIO=0.05`. With radix caching on, 48 requests at one 1,024-token window plus a 128-token page each and two 8,192-token prefill chunks need ~72K tokens |
-| MemAvailable after start / lowest under stress | 6.3 GiB / 5.2 GiB (Spark_05; v2.6 build without the flags 5.8-6.1 / 5.2-5.4) |
+| KV cache, global layers (packed 12-bit target visits, raw BF16 draft lane) | 2,264,704 / 2,267,392 tokens (Spark_05 / Spark_06) |
+| prefill scratch, overflow arena, fallback pool | 1.03 GiB at `CTX=262144` (4.03 GiB at 1M), 8 x 2,048 x 32 KiB, 8 x 64 x 512 KiB |
+| KV cache, sliding-window layers | 79,232 tokens at `SWA_RATIO=0.035`. With radix caching on, 48 requests at one 1,024-token window plus a 128-token page each and one 8,192-token prefill chunk need ~63K tokens |
+| MemAvailable after start / lowest in the full benchmark / worst case | 7.3-7.4 GiB / 4.3-4.5 GiB / 4.5 GiB (Spark_05) |
 
-That capacity is equivalent to 5.9 requests at the full 262,144-token context, or ~47 agents with 32K each.
-The sweep targeted at least 3.5 GiB MemAvailable under stress, a level that held up in memory-cliff measurements
-on other GB10 recipes. MemAvailable after start varied by up to ~1 GiB between boots. At 0.94, Spark_06 came
-within 0.2 GiB of the floor. The 0.93 default leaves more room for that variation. [Full memory sweep](docs/experiments.md#v26-kv-pool-sizing)
+That capacity is equivalent to 8.6 requests at the full 262,144-token context, or ~69 agents with 32K each.
+The defaults target at least 3.5 GiB MemAvailable under stress, a level that held up in memory-cliff measurements
+on other GB10 recipes; MemAvailable after start varies by up to ~1 GiB between boots. With `KV12S=0`, 0.93 and
+`SWA_RATIO=0.05` give 1,593,088 tokens with a 6.1 GiB packed side copy, 6.3 GiB after start and 5.2 GiB at worst.
+[Full memory sweep](docs/experiments.md#v26-kv-pool-sizing)
 
 To leave more RAM for other work, lower `MEM_FRACTION`. Each 0.01 frees ~1.06 GiB at a cost of ~20-25K
 global-layer KV tokens.
@@ -395,7 +404,7 @@ global-layer KV tokens.
 | | SGLang cookbook (DGX Spark, DSpark) | vLLM recipe (DGX Spark) | here |
 |---|---|---|---|
 | engine | SGLang | vLLM | **SGLang**: the stock engines decode at the same speed on one Spark (c1 within 3 %, c16 / c24 within run noise); SGLang prefills 1.3-3.4x faster, keeps long prompts in its prefix cache more reliably and leaves twice the host memory ([docs/experiments.md](docs/experiments.md)) |
-| memory | `--mem-fraction-static 0.45` (518K KV tokens) | `--gpu-memory-utilization` unset (vLLM's own suggestion would leave the host 0-2 GiB) | `MEM_FRACTION=0.93` and `SWA_RATIO=0.05` give 1.55M global-layer KV tokens with a 6.1 GiB packed side pool, 5.2-5.4 GiB MemAvailable under stress and a 3.5 GiB guard floor |
+| memory | `--mem-fraction-static 0.45` (518K KV tokens) | `--gpu-memory-utilization` unset (vLLM's own suggestion would leave the host 0-2 GiB) | `MEM_FRACTION=0.91`, `SWA_RATIO=0.035` and the packed global KV store give 2.26M global-layer KV tokens, 4.3-4.5 GiB MemAvailable under stress and a 3.5 GiB guard floor |
 | context | not set (model default) | 262,144 | 262,144 (the model supports 1M; see "Longer context") |
 | multimodal | `--enable-multimodal` | on | off (text only; add `--enable-multimodal` for images) |
 | images, weights | pulled by tag, weights from the Hub at start | same | pinned image digest, weights at a pinned revision, sha256-checked, offline at start |
@@ -405,45 +414,69 @@ global-layer KV tokens.
 ### Longer context: 512K and 1M
 
 The model supports 1,048,576 tokens; `CTX` sets the per-request limit (default 262,144). The KV pool is shared, not
-reserved per request. Measured with the default store (`KV12S=0`, v2.6 build on Spark_05; the v2.7 long-prefix fix makes
-the cold prefills below faster):
+reserved per request. With the packed store, `CTX=1048576` sizes the prefill scratch for 1M tokens (4.03 GiB instead
+of 1.03 GiB), so the pool holds 2,154,112 tokens.
+
+`CTX=1048576 scripts/launch.sh up`, release defaults, Spark_05 (`results/Q271RM-s05/`): needle PASS at 999,296 tokens
+(prefill and answer in 996 s); a cold 1,024,203-token document prefilled in 1,040 s (985 tok/s, TTFT cached 1.8 s),
+then decoded at 16.0 tok/s (215 ms step, 3.5 tokens per step); lowest MemAvailable 5.1 GiB.
+
+Earlier measurements with the v2.6 build and the BF16 store (`KV12S=0`), each needle also with thinking c24 running
+alongside:
 
 | `CTX` | needle | cold prefill | decode at that context | lowest MemAvailable |
 |---|---|---:|---:|---:|
 | 524288 | PASS at 499,995 tokens (also with thinking c24 alongside) | 499,995 tokens in 332-351 s | 24.5 tok/s at 491K (112 ms step) | 5.5 GiB |
 | 1048576 | PASS at 999,296 tokens (thinking c24 alongside) | 1,024,204 tokens in 1,285 s | 14.0 tok/s at 1.02M (200 ms step) | 4.9 GiB |
 
-A single 1M prompt takes two thirds of the default pool and, while it prefills, concurrent requests slow down (thinking
-c24 fell to 62 tok/s aggregate). With the packed store (`KV12S=1`) the 1M option is not verified yet.
+A single 1M prompt takes about half of the packed pool (two thirds of the BF16 one) and, while it prefills,
+concurrent requests slow down (thinking c24 fell to 62 tok/s aggregate in the v2.6 run). 512K and the 1M needle with
+concurrent thinking were not re-measured with the packed store.
 
-### Packed global KV store (experimental, `KV12S=1`)
+### Packed global KV store (default since v2.7.1, `KV12S=1`)
 
-`KV12S=1` stores the global-layer KV only in the exactly coded 12-bit form that `KV12` reads (sign and mantissa
-bytes, a 4-bit exponent code with 64 escape entries per page and head, a raw slot for the rare overflowing head) and
-drops both the BF16 global pool and the 6.1 GiB side copy. The open page of each request stays BF16 until it is full
-and committed; the draft's global layer is kept raw BF16 inside the same page envelope.
+`KV12S=1` stores the target's global-layer KV only in the exactly coded 12-bit form that `KV12` reads (sign and
+mantissa bytes, a 4-bit exponent code with 64 escape entries per page and head) and drops both the BF16 global pool
+and the 6.1 GiB side copy. The open page of each request stays BF16 until it is full and committed. The draft's
+global layer stays raw BF16. It runs on SGLang's unified memory pool (`--enable-unified-memory`); the sliding-window
+band is laid out page-major (each layer visit's rows of a 128-token page together), which keeps window reads on few
+GPU pages. `KV12S=0` brings back the v2.7 store.
 
-| | default (`KV12S=0`) | `KV12S=1` |
+| | v2.7 store (`KV12S=0`) | `KV12S=1` (default) |
 |---|---:|---:|
-| global-layer KV tokens | 1.59M | **2,168,320** |
-| MemAvailable after start / lowest in the run | 6.3 / 5.2 GiB | 6.9 / 4.2 GiB |
-| speedbench quick c1 | 63.49 | 63.16 (same tokens per step) |
-| sanity, needles 120K / 240K | 11/11, PASS | 11/11, PASS |
+| global-layer KV tokens | 1,593,088 | **2,264,704 / 2,267,392** (+42 %) |
+| `MEM_FRACTION` / `SWA_RATIO` defaults | 0.93 / 0.05 | 0.91 / 0.035 |
+| MemAvailable after start / lowest in the full run | 6.3 / 5.4 GiB | 7.3-7.4 / 4.3-4.5 GiB |
+| lowest MemAvailable, worst case (thinking c24 + cold 240K needle) | 5.2 GiB | 4.5 GiB |
+| speedbench quick / full c1 | 63.44 / 64.27 | 62.84-63.16 / 63.59-63.91 (same tokens per step) |
+| thinking c48 (effort high, T=0.8) | ~600 | 596.5-596.6 |
 
-What is verified: every store and read of the packed pages is bit-identical to SGLang's BF16 path in the GPU checks
-(decode and verify partials incl. CUDA-graph replay, speculative accept / reject across pages, staging and overflow,
-both prefill loaders), and the packed decode reads are 1.16-1.23x faster than the BF16 ones at 32K-128K. In serving,
-15.5M page-heads were packed with no escape overflow on the target layers.
+Spark_05 / Spark_06, `results/Q271R-s05/`, `results/Q271R-s06/` against `results/V27D-s05/`. Decode at c1-c16 and
+prefill at 1K-128K were within run noise of v2.7 on both boxes.
 
-Known issues, to be fixed in v2.7.1, which is why it is not the default:
+Exactness: every packed store and read is bit-identical to SGLang's BF16 path in the GPU checks
+(`overlay/tools/gpu_check_kv12s.py`), and a server with `KV12S=1` gives bit-identical outputs to stock SGLang on its
+unified memory pool. Stock SGLang's two pool implementations (the unified pool and the default hybrid pool) do not
+give bit-identical outputs to each other: greedy speedbench quick texts differ on 5 of 32 prompts. At the first
+verify step after prefill both pools hand every attention and short-conv layer bitwise identical inputs, and
+teacher-forced scoring shows both stay equally close to an exact prefill of the same text (chosen-token logprob
+error ~0 at the first verify positions; 0.049 vs 0.051 nat/token over whole texts), so the differences are
+floating-point order in later steps, not a defect in either pool.
 
-- **Do not use `KV12S=1` for real work yet.** Greedy traces show that in live serving it computes different target
-  logits in decode / verify steps than the default store (beyond floating-point-order noise; prefill output is
-  identical), although every packed store and read is bit-identical in the isolated GPU checks. Greedy speedbench
-  quick texts match v2.6 on 27 of 32 prompts. The cause is being isolated; the default store is not affected.
-- Cold prefill above ~120K tokens was about 2x slower in the first build (120K needle 72 s vs 33 s); the shipped
-  build reads the packed prefix through a bounded BF16 scratch, which is bit-identical but not yet measured end to end.
-- The 512K / 1M option is not verified with it yet.
+Limits and refusals:
+
+- A page-head with more than 64 exponents outside its window uses an exact raw overflow arena (2,048 heads per
+  layer visit); if that is full, the page stays raw in a 64-page fallback pool, then in its staging slot, all exact.
+  Only if all three are exhausted does the server abort the requests that hold rows (HTTP 503) and keep running.
+  A host-side guard evicts cached prefixes, defers prefill and retracts decode before that point. Measured use in
+  all qualification runs: 0 overflow heads, 0 fallback pages.
+- Prefill reads the packed prefix through a fixed BF16 scratch charged to the KV budget, sized for `CTX`:
+  1.03 GiB at 256K, 2.03 GiB at 512K, 4.03 GiB at 1M.
+- Startup refuses combinations it does not support: streaming sessions, multimodal input, tensor / pipeline /
+  data / expert parallelism above 1, non-DSpark speculation, prefill CUDA graphs, captured verify shapes above
+  the compact attention cutoff (48 requests x 8 rows), and disaggregation / hierarchical caches.
+- Prompt-logprob requests over thousands of tokens make SGLang hold FP32 logits for every scored row (2.5 GB for
+  3,073 rows in one request, on either store); request them in windows of a few hundred rows on this box.
 
 ### FP8 KV
 
@@ -455,7 +488,7 @@ not part of this recipe's measured profile; Tech2Wild's vLLM recipe measured an 
 
 ```bash
 git clone https://github.com/knapcio/speedbench speedbench && git -C speedbench checkout 6733653
-MEM_FRACTION=0.94 scripts/launch.sh up     # full speed benchmark settings
+scripts/launch.sh up                      # release defaults, as in the full benchmarks
 #   or: OVERLAY=0 LOAD_NOMMAP=0 MEM_FRACTION=0.62 SWA_RATIO=0.1 scripts/launch.sh up  # stock benchmark cell
 bench/full.sh MYRUN                       # ~40 min, writes results/MYRUN/
 python3 bench/report.py results/MYRUN      # README-style tables
