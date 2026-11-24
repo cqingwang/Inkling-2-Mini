@@ -20,21 +20,20 @@
 
 ## TP4 口径
 
-- `nnodes=4`、`tensor_parallel_size=4`；配置字段 `ep_size=1`，SGLang 的
-  Inkling NVFP4 override 会在运行时提升为 `ep_size=4`，以
-  `/get_server_info` 为准。
+- `nnodes=4`、`tensor_parallel_size=4`、`ep_size=4`；容器实际参数为
+  `--tp 4 --ep 4`，`/get_server_info` 也返回 `tp_size=4`、`ep_size=4`。
 - 4 x 256K：`context_length=262144`、`max_request=4`，总 KV 逻辑容量
   约 1M。
-- `mem_fraction_static=0.72`、`swa-full-tokens-ratio=0.04`、
+- `mem_fraction_static=0.73`、`swa-full-tokens-ratio=0.04`、
   `max_prefill_tokens=4096`、`chunked_prefill_size=4096`，容器内存上限
   `20g`。
-- 当前实测 KV pool：`1,077,760` tokens，覆盖 4 个 256K 请求并保留
-  29,184 tokens 余量；`available_gpu_mem=5.91 GB`。启动后主机
-  `MemAvailable` 约 4.67-6.30 GiB。
+- 当前实测 KV pool：`1,073,024` tokens，覆盖 4 个 256K 请求并保留
+  24,448 tokens 余量；`available_gpu_mem=5.03 GB`。启动后主机
+  `MemAvailable` 约 3.65-5.26 GiB。
 - `max_mamba_cache_size=20`：Inkling2 每个请求需要 5 个 mamba state
   slot；4 并发至少需要 20。
-- 当前挂载 `overlay/` 的 prefill/attention/pfuse 性能栈；DSpark 和
-  decode CUDA graph 开启，prefill CUDA graph 关闭。
+- 当前挂载 `overlay/` 的 prefill/attention/pfuse 性能栈；DSpark、
+  decode CUDA graph 和 prefill CUDA graph 均开启。
 
 ## 当前性能基线
 
@@ -43,13 +42,13 @@ speedbench 0.3 的 18 条 prose prompt，256 output tokens，T=0：
 
 | prose | c1 | c2 aggregate | c4 aggregate |
 |---|---:|---:|---:|
-| tok/s | 65.2-67.0 | 101.2-102.5 | 141.1-146.9 |
+| tok/s | 67.1 | 101.6 | 149.7 |
 
 cold prefill，speedbench longctx，3 reps：
 
 | context | 8K | 16K | 32K | 64K | 128K |
 |---|---:|---:|---:|---:|---:|
-| prefill tok/s | 4,927 | 4,710 | 5,303 | 4,719 | 4,696 |
+| prefill tok/s | 4,615 | 5,082 | 5,424 | 5,217 | 4,745 |
 
 ## 并行启动
 

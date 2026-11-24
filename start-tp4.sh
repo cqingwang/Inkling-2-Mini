@@ -46,7 +46,8 @@ for key in TARGET_ENGINE_ID TARGET_CONTAINER_PREFIX RUNTIME_ASSETS CACHE_DIR \
   NCCL_PIP_SO NCCL_CONTAINER_DIR NCCL_SO_NAME SERVED_MODEL_NAME \
   MAX_MAMBA_CACHE_SIZE SPECULATIVE_ENABLED DISABLE_CUDA_GRAPH \
   DISABLE_PREFILL_CUDA_GRAPH DISABLE_DECODE_CUDA_GRAPH \
-  SWA_FULL_TOKENS_RATIO CONTAINER_ENV_JSON; do
+  ENABLE_SINGLE_BATCH_OVERLAP ENABLE_ATTN_TP_INPUT_SCATTERED \
+  ENABLE_FUSED_MOE_SUM_ALL_REDUCE SWA_FULL_TOKENS_RATIO CONTAINER_ENV_JSON; do
   require "$key"
 done
 
@@ -192,6 +193,15 @@ docker_command_for_rank() {
   fi
   if [ "$DISABLE_CUDA_GRAPH" = "true" ] || [ "$DISABLE_PREFILL_CUDA_GRAPH" = "true" ]; then
     command+=(--disable-prefill-cuda-graph)
+  fi
+  if [ "$ENABLE_SINGLE_BATCH_OVERLAP" = "true" ]; then
+    command+=(--enable-single-batch-overlap)
+  fi
+  if [ "$ENABLE_ATTN_TP_INPUT_SCATTERED" = "true" ]; then
+    command+=(--enable-attn-tp-input-scattered)
+  fi
+  if [ "$ENABLE_FUSED_MOE_SUM_ALL_REDUCE" = "true" ]; then
+    command+=(--enable-fused-moe-sum-all-reduce)
   fi
   if [ -n "$API_KEY" ]; then
     command+=(--api-key "$API_KEY")
