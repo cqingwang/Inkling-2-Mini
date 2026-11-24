@@ -49,9 +49,9 @@ def load_types(path):
     return by
 
 
-def post_stream(url, body, timeout):
+def post_stream(url, body, timeout, headers):
     req = urllib.request.Request(url + "/v1/chat/completions", data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json"})
+                                 headers=headers)
     t0 = time.monotonic()
     first = last = None
     usage, finish, err = {}, None, None
@@ -97,7 +97,7 @@ def body_for(p, tag, a):
     return b
 
 
-def level(url, prompts, c, rounds, a):
+def level(url, prompts, c, rounds, a, headers):
     jobs = []
     n = len(prompts)
     for s in range(c):
@@ -110,7 +110,7 @@ def level(url, prompts, c, rounds, a):
         for (ws, p, tag) in jobs:
             if ws != s:
                 continue
-            rec = post_stream(url, body_for(p, tag, a), a.timeout)
+            rec = post_stream(url, body_for(p, tag, a), a.timeout, headers)
             rec.update({"id": p["id"], "tag": tag, "stream": s})
             with lock:
                 recs.append(rec)
@@ -150,9 +150,16 @@ def main():
     ap.add_argument("--effort-field", choices=["template", "top", "both"], default="template")
     ap.add_argument("--warmup", type=int, default=2)
     ap.add_argument("--timeout", type=float, default=600)
+    ap.add_argument("--api-key-env", default="", help="environment variable holding the Bearer API key")
     ap.add_argument("--label", default="")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
+    headers = {"Content-Type": "application/json"}
+    if a.api_key_env:
+        api_key = os.environ.get(a.api_key_env, "")
+        if not api_key:
+            raise SystemExit(f"API key env var is empty: {a.api_key_env}")
+        headers["Authorization"] = f"Bearer {api_key}"
     types = load_types(a.prompts)
     rounds = {}
     for kv in a.rounds.split(","):
@@ -164,9 +171,9 @@ def main():
     for t in a.types.split(","):
         ps = types[t]
         for i in range(a.warmup):
-            post_stream(a.url, body_for(ps[i % len(ps)], 1000 + i, a), a.timeout)
+            post_stream(a.url, body_for(ps[i % len(ps)], 1000 + i, a), a.timeout, headers)
         for c in concs:
-            cell, recs = level(a.url, ps, c, rounds.get(str(c), rounds.get("*", 2)), a)
+            cell, recs = level(a.url, ps, c, rounds.get(str(c), rounds.get("*", 2)), a, headers)
             table.setdefault(t, {})[str(c)] = cell
             for r in recs:
                 r.update({"type": t, "conc": c})
