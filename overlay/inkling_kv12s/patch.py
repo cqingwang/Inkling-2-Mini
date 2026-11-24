@@ -47,6 +47,9 @@ _SCRATCH_MIN_TOKENS = int(os.environ.get("INKLING_KV12S_PREFILL_SCRATCH_MIN_TOKE
 # Eager-only BF16 gather for FA4 calls the packed readers don't cover. The full
 # extent costs ~10 GiB; without it such a call gathers into temporaries.
 _FA4_WORKSPACE = os.environ.get("INKLING_KV12S_FA4_WORKSPACE", "0").strip().lower() not in ("", "0", "off", "false", "no")
+# Which SGLang pools carry the packed store: "static" (non-unified SWAKVPool, static.py)
+# or "unified" (the --enable-unified-memory arena, v2.7.1).
+_POOL = os.environ.get("INKLING_KV12S_POOL", "static").strip().lower()
 
 
 def _wrap(owner, name, params, factory):
@@ -148,10 +151,23 @@ def _register_config(module):
             from sglang.srt.model_executor.cuda_graph_config import Backend, Phase, check_cuda_graph_backend
 
             memory, parallel = module.get_memory(), module.get_parallel()
-            if not memory.enable_unified_memory:
-                raise IncompatibleImage("inkling_kv12s requires unified memory")
-            if not check_cuda_graph_backend(Phase.PREFILL, Backend.DISABLED):
-                raise IncompatibleImage("inkling_kv12s requires --cuda-graph-backend-prefill=disabled")
+            if _POOL == "static":
+                if memory.enable_unified_memory:
+                    raise IncompatibleImage("inkling_kv12s: INKLING_KV12S_POOL=static runs without "
+                                            "--enable-unified-memory (set INKLING_KV12S_POOL=unified for it)")
+                if not self.is_hybrid_swa or self.use_mla_backend:
+                    raise IncompatibleImage("inkling_kv12s expects the hybrid sliding-window MHA pools")
+                if not (check_cuda_graph_backend(Phase.PREFILL, Backend.FULL)
+                        or check_cuda_graph_backend(Phase.PREFILL, Backend.DISABLED)):
+                    # Breakable prefill graphs replay attention eagerly without the fused
+                    # projection marker, which would send global prefill to the FA4 gather.
+                    raise IncompatibleImage("inkling_kv12s: static pools need --cuda-graph-backend-prefill=full "
+                                            "(or disabled)")
+            else:
+                if not memory.enable_unified_memory:
+                    raise IncompatibleImage("inkling_kv12s requires unified memory")
+                if not check_cuda_graph_backend(Phase.PREFILL, Backend.DISABLED):
+                    raise IncompatibleImage("inkling_kv12s requires --cuda-graph-backend-prefill=disabled")
             if (parallel.attn_dcp_size != 1 or parallel.enable_prefill_cp or parallel.pp_size != 1
                     or self.attn_dp_size != 1 or module.get_exec().features.enable_memory_saver):
                 raise IncompatibleImage("inkling_kv12s requires unsharded, resident request ownership")
@@ -188,7 +204,8 @@ def _register_config(module):
         return configure
 
     _wrap(cls, "config_from_budget", "self budget_bytes cap_tokens", check_config)
-    _wrap(cls, "_unified_config_from_budget", "self budget_bytes cap_tokens", plan_scope)
+    if _POOL != "static":
+        _wrap(cls, "_unified_config_from_budget", "self budget_bytes cap_tokens", plan_scope)
 
 
 def _register_plan(module, overflow_heads, draft_overflow_heads):
@@ -757,6 +774,32 @@ class Forward:
     qmax: int
 
 
+def _packed_prefill_in_capture(q, layer, page_table, cu_seqlens_q, seqused_k, softmax_scale, *, r, proj, out,
+                               warps=None):
+    """inkling_attn.ops.packed_prefill_attention without its host-side length check
+    (which reads seqused_k): geometry is validated on shapes only, so the call can be
+    captured; the kernel bounds every page and length on the device."""
+    import torch
+    from inkling_attn import build, ops
+
+    from .storage import validate_paged_geometry
+
+    validate_paged_geometry(q, layer, page_table, seqused_k, cu_seqlens_q)
+    if cu_seqlens_q is None or out is None:
+        raise RuntimeError("inkling_kv12s: a captured packed prefill needs query offsets and an output buffer")
+    t, heads, _ = q.shape
+    lse = torch.empty((heads, t), dtype=torch.float32, device=q.device)
+    if r.stride(-1) != 1:
+        r = r.contiguous()
+    projp = (torch.empty(((proj.shape[1] + 1) * ops.D_REL,), dtype=torch.bfloat16, device=q.device)
+             if ops.PACKED_PROJ else None)
+    planes = [*layer.planes, layer.stage, layer.overflow]
+    build.load().fwd(q, layer.raw, layer.raw, page_table, cu_seqlens_q, seqused_k, r, proj, out, lse,
+                     float(softmax_scale), -1, projp, ops.WARPS if warps is None else int(warps), planes,
+                     ops.W8_FROM)
+    return out, lse
+
+
 def dispatch_packed_fa4(stock, layer, kwargs, *, warps=None):
     """Only a supported projection marker selects fused prefill; otherwise call stock FA4."""
     import torch
@@ -785,6 +828,41 @@ def dispatch_packed_fa4(stock, layer, kwargs, *, warps=None):
             and kwargs.get("num_splits", 1) in (0, 1) and not kwargs.get("pack_gqa")
             and not kwargs.get("rel_bias_presheared")
             and all(kwargs.get(name) is None for name in unsupported)):
+        from .static import CAPTURING
+
+        if CAPTURING or (torch.cuda.is_available() and torch.cuda.is_current_stream_capturing()):
+            # Prefill graph warmup and capture (static pools): the eager scratch gather reads the
+            # page table on the host. A captured prefill gathers the prefix into the bounded BF16
+            # scratch with device-side metadata and runs the BF16 kernel on it, or, when the batch
+            # does not fit (a device flag), the in-kernel packed loader; buckets below the scratch
+            # threshold use the in-kernel loader only. Both are bitwise equal to the BF16 kernel
+            # on BF16 KV.
+            scratch = _PREFIX_SCRATCH[0] if _PREFIX_SCRATCH else None
+            if scratch is None or scratch.max_pages < 2 or q.shape[0] < _SCRATCH_MIN_TOKENS:
+                # Small buckets: the eager rule (per-visit decode of the prefix outweighs).
+                result = _packed_prefill_in_capture(
+                    q, layer, table, cu_q, seq_k, kwargs["softmax_scale"], r=bias, proj=proj,
+                    out=kwargs["out"], warps=warps,
+                )
+            else:
+                # The prefix in the BF16 scratch when it fits (device decision), else the
+                # packed loader: two launches into one output, the inactive one with no
+                # query rows (a zero-row request has no work item; it writes nothing).
+                from inkling_attn.ops import prefill_attention
+
+                k, v, local, fits = scratch.gather_captured(layer, table, seq_k)
+                none = torch.zeros_like(cu_q)
+                _, lse_bf16 = prefill_attention(
+                    q, k, v, local, torch.where(fits, cu_q, none), seq_k, bias, proj, kwargs["softmax_scale"],
+                    None, out=kwargs["out"], warps=warps,
+                )
+                _, lse_packed = _packed_prefill_in_capture(
+                    q, layer, table, torch.where(fits, none, cu_q), seq_k, kwargs["softmax_scale"], r=bias,
+                    proj=proj, out=kwargs["out"], warps=warps,
+                )
+                result = (kwargs["out"], torch.where(fits, lse_bf16, lse_packed))
+            STATS["kernel"] += 1
+            return result if kwargs.get("return_softmax_lse") else result[0]
         scratch = _PREFIX_SCRATCH[0] if _PREFIX_SCRATCH else None
         copy = (scratch.gather(layer, q, table, seq_k, cu_q)
                 if scratch is not None and q.shape[0] >= _SCRATCH_MIN_TOKENS else None)
@@ -812,6 +890,9 @@ def dispatch_packed_fa4(stock, layer, kwargs, *, warps=None):
                  STATS["gather"], kwargs.get("causal"), bias is not None, kwargs.get("max_seqlen_q"),
                  kwargs.get("return_softmax_lse"))
     workspace = getattr(layer, "gather_workspace", None)
+    if workspace is None and torch.cuda.is_available() and torch.cuda.is_current_stream_capturing():
+        raise RuntimeError("inkling_kv12s: an FA4 call outside the packed readers inside CUDA graph capture "
+                           f"(causal={kwargs.get('causal')}, bias={bias is not None}, qmax={kwargs.get('max_seqlen_q')})")
     if workspace is None:
         # Eager only. Use the pool-charged prefix scratch; an unbounded per-call
         # BF16 gather could exceed the memory headroom.
@@ -852,8 +933,9 @@ def _register_backend(module):
     def make_init(original):
         def init(self, model_runner, *args, **kwargs):
             original(self, model_runner, *args, **kwargs)
-            arena = getattr(model_runner.token_to_kv_pool, "_arena", None)
-            view = getattr(arena, "_inkling_kv12s", None)
+            from .static import view_of
+
+            view = view_of(model_runner.token_to_kv_pool)
             if view is not None:
                 if (self.fa_impl_ver != 4 or self.use_mla or self.topk > 1 or self.fa_skip_kv_cache
                         or self._kv_shard_pool is not None or self.page_size != PAGE):
@@ -981,7 +1063,7 @@ def _register_model(module):
           "self q k v r sources positions forward_batch padded verify shear", keep_stock_projection)
 
 
-def _register_dspark(module):
+def _register_dspark(module, eager=True):
     def save_window(original):
         def allocate(*args, **kwargs):
             window = original(*args, **kwargs)
@@ -993,9 +1075,10 @@ def _register_dspark(module):
 
     def finish_verify(original):
         def decode(self, batch, on_publish, grammar_barrier=None, coordination_plan=None):
+            from .static import view_of
+
             target = self.target_worker.model_runner
-            arena = getattr(target.token_to_kv_pool, "_arena", None)
-            view = getattr(arena, "_inkling_kv12s", None)
+            view = view_of(target.token_to_kv_pool)
             if view is None:
                 return original(self, batch, on_publish, grammar_barrier, coordination_plan)
             windows = []
@@ -1007,7 +1090,11 @@ def _register_dspark(module):
             if windows:
                 window, = windows
                 commit = result.accept_lens
-                ids = window.iteration_ids.write_ids(target.runner_ids).view_as(window.verify_cache_loc_2d)
+                iteration = getattr(window, "iteration_ids", None)
+                if iteration is None:  # static pools: the verify ids are physical rows
+                    ids = window.verify_cache_loc_2d
+                else:
+                    ids = iteration.write_ids(target.runner_ids).view_as(window.verify_cache_loc_2d)
                 for lane in view.owned_layers:
                     lane.settle(ids, commit)
             return result
@@ -1028,8 +1115,9 @@ def _register_dspark(module):
     _wrap(module, "alloc_verify_window",
           "batch bs device verify_num_draft_tokens block_pos_offsets model_runner seq_lens_cpu bonus anchor_ids",
           save_window)
-    _wrap(module.DSparkWorkerV2, "alloc_memory_pool",
-          "self memory_pool_config req_to_token_pool token_to_kv_pool_allocator", eager_commit)
+    if eager:  # unified pools only: the static pools keep the captured draft fold
+        _wrap(module.DSparkWorkerV2, "alloc_memory_pool",
+              "self memory_pool_config req_to_token_pool token_to_kv_pool_allocator", eager_commit)
     _wrap(module.DSparkWorkerV2, "_forward_decode",
           "self batch on_publish grammar_barrier coordination_plan", finish_verify)
 
@@ -1150,7 +1238,11 @@ def _register_runner(module):
             from torch.nn import ModuleList
             from sglang.srt.layers.attention.flashattention_backend import FlashAttentionBackend
 
-            view = getattr(getattr(self.token_to_kv_pool, "_arena", None), "_inkling_kv12s", None)
+            from .static import view_of
+
+            if _POOL == "static" and self.is_draft_worker:
+                return result  # the draft keeps its private BF16 pools
+            view = view_of(self.token_to_kv_pool)
             if view is None:
                 raise IncompatibleImage("inkling_kv12s: no authoritative packed pool was installed")
             backend = self.attn_backend
@@ -1198,11 +1290,285 @@ def _overflow_count(name, default):
     return side_count(name, default, 1)
 
 
+_STATIC_SIZES = ContextVar("inkling_kv12s_static_sizes", default=None)
+
+
+def _static_running():
+    """The request bound the static sizing charges staging for (the server's --max-running-requests)."""
+    from sglang.srt.runtime_context import get_server_args
+
+    running = getattr(get_server_args(), "max_running_requests", None)
+    if not running:
+        raise IncompatibleImage("inkling_kv12s: the static pools need an explicit --max-running-requests")
+    return int(running)
+
+
+def _register_static_pools(module):
+    """kv_cache_configurator: build the target's full sub-pool packed; tag its allocator."""
+    from . import static
+
+    cls = module.KVCacheConfigurator
+
+    def sizes_scope(original):
+        def build(self, *, sizes, is_dsa_model, is_compressed_kv_model, req_to_token_pool, state=None):
+            token = _STATIC_SIZES.set(sizes)
+            try:
+                return original(self, sizes=sizes, is_dsa_model=is_dsa_model,
+                                is_compressed_kv_model=is_compressed_kv_model,
+                                req_to_token_pool=req_to_token_pool, state=state)
+            finally:
+                _STATIC_SIZES.reset(token)
+        return build
+
+    def packed_swa(original):
+        def build(self, *, full_max_total_num_tokens, swa_max_total_num_tokens, mha_pool_class):
+            if self.is_draft_worker:
+                return original(self, full_max_total_num_tokens=full_max_total_num_tokens,
+                                swa_max_total_num_tokens=swa_max_total_num_tokens, mha_pool_class=mha_pool_class)
+            from sglang.srt.runtime_context import get_server_args
+
+            sizes = _STATIC_SIZES.get()
+            checks = {
+                "mxfp8": self.kv_cache_dtype_str == "mxfp8",
+                "pool_class": mha_pool_class is not module.MHATokenToKVPool,
+                "no_sizes": sizes is None,
+                "dtype": self.kv_cache_dtype != torch_bf16(),
+                "post_capture": bool(self.post_capture_kv_active),
+            }
+            if any(checks.values()):
+                raise IncompatibleImage(
+                    "inkling_kv12s expects stock BF16 hybrid sliding-window pools: "
+                    + ", ".join(name for name, bad in checks.items() if bad)
+                    + f" (pool class {getattr(mha_pool_class, '__name__', mha_pool_class)}, dtype {self.kv_cache_dtype})")
+            running = int(sizes.max_running_requests)
+            if running > _static_running():
+                raise IncompatibleImage(f"inkling_kv12s: {running} running requests exceed the "
+                                        f"{_static_running()} the static sizing charged")
+            args = get_server_args()
+            parallel = module.get_parallel()
+            head_num = self.model_config.get_num_kv_heads(parallel.attn_tp_size, parallel.attn_dcp_size)
+            inkling = {
+                "running": running,
+                "verify_rows": max(1, module.max_speculative_num_draft_tokens() or 1),
+                "overlap": not args.disable_overlap_schedule,
+                "prefill_tokens": max(int(args.max_prefill_tokens or 0), int(args.chunked_prefill_size or 0)),
+            }
+            # Inkling's window layers declare their own head geometry ("compress"):
+            # the stock builder hands it to the SWA sub-pool, as here.
+            swa_kwargs = {}
+            if self.is_hybrid_swa_compress:
+                text = self.model_config.hf_text_config
+                swa_kwargs = {
+                    "swa_head_num": max(1, text.swa_num_key_value_heads // parallel.attn_tp_size),
+                    "swa_head_dim": self.model_config.swa_head_dim,
+                    "swa_v_head_dim": self.model_config.swa_v_head_dim,
+                    "v_head_dim": self.model_config.v_head_dim,
+                }
+            return module.SWAKVPool(
+                size=full_max_total_num_tokens,
+                size_swa=swa_max_total_num_tokens,
+                page_size=self.pool_page_size,
+                dtype=self.kv_cache_dtype,
+                head_num=head_num,
+                head_dim=self.model_config.head_dim,
+                swa_attention_layer_ids=self.layer_info.swa_attention_layer_ids,
+                full_attention_layer_ids=self.layer_info.full_attention_layer_ids,
+                device=self.device,
+                enable_kv_cache_copy=(module.get_spec().speculative_algorithm is not None),
+                token_to_kv_pool_class=mha_pool_class,
+                full_kv_pool_class=static.pool_class(),
+                full_kv_pool_kwargs={
+                    "page_size": self.pool_page_size, "enable_memory_saver": False, "device": self.device,
+                    "head_num": head_num, "head_dim": self.model_config.head_dim,
+                    "v_head_dim": self.model_config.v_head_dim,
+                    "allocation_label": "Full (packed)", "inkling": inkling,
+                },
+                enable_memory_saver=module.get_exec().features.enable_memory_saver,
+                **swa_kwargs,
+            )
+        return build
+
+    def tag_allocator(original):
+        def build(self, *, sizes, token_to_kv_pool, is_compressed_kv_model, req_to_token_pool,
+                  token_to_kv_pool_allocator):
+            allocator = original(self, sizes=sizes, token_to_kv_pool=token_to_kv_pool,
+                                 is_compressed_kv_model=is_compressed_kv_model,
+                                 req_to_token_pool=req_to_token_pool,
+                                 token_to_kv_pool_allocator=token_to_kv_pool_allocator)
+            view = None if self.is_draft_worker else static.view_of(token_to_kv_pool)
+            if view is not None:
+                from sglang.srt.mem_cache.allocator.paged import PagedTokenToKVPoolAllocator
+
+                full = getattr(allocator, "full_attn_allocator", None)
+                if (not isinstance(full, PagedTokenToKVPoolAllocator) or full.page_size != view.page_size
+                        or getattr(allocator, "hands_out_virtual_ids", False)):
+                    raise IncompatibleImage("inkling_kv12s expects a paged hybrid SWA allocator of physical pages")
+                full._inkling_kv12s_view = view
+            return allocator
+        return build
+
+    _wrap(cls, "_build_token_to_kv_pool", "self sizes is_dsa_model is_compressed_kv_model req_to_token_pool state",
+          sizes_scope)
+    _wrap(cls, "_build_hybrid_swa_kv_pool",
+          "self full_max_total_num_tokens swa_max_total_num_tokens mha_pool_class", packed_swa)
+    _wrap(cls, "_build_token_to_kv_pool_allocator",
+          "self sizes token_to_kv_pool is_compressed_kv_model req_to_token_pool token_to_kv_pool_allocator",
+          tag_allocator)
+
+
+def torch_bf16():
+    import torch
+
+    return torch.bfloat16
+
+
+def _register_static_sizing(module):
+    """pool_configurator: a full-side target token costs the packed envelope; the
+    fixed packed bytes come off the budget before it is divided."""
+    from . import static
+
+    cls = module.HybridSWAPoolConfigurator
+
+    def init(original):
+        def configure(self, kvc):
+            original(self, kvc)
+            self._inkling_kv12s = not kvc.is_draft_worker
+            if self._inkling_kv12s:
+                from sglang.srt.mem_cache.kv_cache_configurator import max_speculative_num_draft_tokens
+                from sglang.srt.runtime_context import get_server_args
+
+                if self._full_layers_num != static.VISITS or self._fused_full_entry is not None:
+                    raise IncompatibleImage("inkling_kv12s expects eight global visits in a private full pool")
+                self._inkling_fixed = static.fixed_bytes(
+                    _static_running(), max(1, max_speculative_num_draft_tokens() or 1),
+                    overlap=not get_server_args().disable_overlap_schedule)
+                lanes = static.DRAFT_WINDOW_LANES
+                lane = self._full_per_token  # one draft lane: the target's visit geometry (8 x 256 x 2 B)
+                if lanes and not self._draft_follows_swa and self._draft_cell_size:
+                    draft_cfg = getattr(getattr(kvc, "spec_aux_config", None), "draft_model_config", None)
+                    local = layers = None
+                    for hf in (getattr(draft_cfg, "hf_text_config", None), getattr(draft_cfg, "hf_config", None)):
+                        mtp = getattr(hf, "mtp_config", None)
+                        mtp = mtp if isinstance(mtp, dict) else {}
+                        local = getattr(hf, "local_layer_ids", mtp.get("local_layer_ids"))
+                        layers = getattr(hf, "num_hidden_layers", None) if "local_layer_ids" not in mtp else \
+                            mtp.get("num_hidden_layers")
+                        if local is not None and layers is not None:
+                            break
+                    if local is None or layers is None or len(set(local)) != lanes or layers != 1 + lanes:
+                        raise IncompatibleImage(
+                            f"inkling_kv12s: the DSpark draft has local layers {local} of {layers}, not "
+                            f"{lanes} window layers plus one global (set INKLING_KV12S_DRAFT_WINDOW_LANES=0 "
+                            "for stock pricing)")
+                    # Stock prices the separate DSpark draft pool per FULL token
+                    # (draft_num_layers lanes); its window lanes are allocated at the
+                    # window pool's size (startup log: "SWA KV Cache ... #tokens: <swa
+                    # tokens>"): price those per window token, as the target's.
+                    if self._draft_cell_size != (1 + lanes) * lane:
+                        raise IncompatibleImage(
+                            f"inkling_kv12s: draft pool of {self._draft_cell_size} B/token is not one global "
+                            f"lane plus {lanes} window lanes of {lane} B (set INKLING_KV12S_DRAFT_WINDOW_LANES=0 "
+                            "for stock pricing)")
+                    self._draft_cell_size -= lanes * lane
+                    self._draft_swa_cell_size += lanes * lane
+                self._recompute_cell_size()
+        return configure
+
+    def cell(original):
+        def full_cell_bytes(self):
+            if not getattr(self, "_inkling_kv12s", False):
+                return original(self)
+            return static.cell_bytes() + self._full_per_token * self._draft_full_layers_num
+        return full_cell_bytes
+
+    def budget(original):
+        def calculate(self, available_bytes, page_size):
+            if getattr(self, "_inkling_kv12s", False):
+                available_bytes = available_bytes - self._inkling_fixed
+                LOG.info("inkling_kv12s: static sizing: %.2f GiB fixed packed bytes, %d B per full token",
+                         self._inkling_fixed / 2**30, self._cell_size)
+            return original(self, available_bytes, page_size)
+        return calculate
+
+    _wrap(cls, "__init__", "self kvc", init)
+    _wrap(cls, "_full_cell_bytes", "self", cell)
+    _wrap(cls, "calculate_pool_sizes", "self available_bytes page_size", budget)
+    # The request-capped subclass overrides calculate_pool_sizes without calling it.
+    capped = getattr(module, "SWARequestCapPoolConfigurator", None)
+    if capped is not None and capped.calculate_pool_sizes is not cls.calculate_pool_sizes:
+        _wrap(capped, "calculate_pool_sizes", "self available_bytes page_size", budget)
+
+
+def _register_static_release(module):
+    """allocator.paged: every freed full page releases its descriptors and side slots."""
+    cls = module.PagedTokenToKVPoolAllocator
+
+    def release(original):
+        def release_page_ids(self, *page_ids):
+            view = getattr(self, "_inkling_kv12s_view", None)
+            if view is not None and page_ids:
+                import torch
+
+                view.release_pages(torch.cat([ids.reshape(-1) for ids in page_ids]))
+            return original(self, *page_ids)
+        return release_page_ids
+
+    def clear(original):
+        def reset(self):
+            result = original(self)
+            view = getattr(self, "_inkling_kv12s_view", None)
+            if view is not None:
+                view.release_all()
+            return result
+        return reset
+
+    _wrap(cls, "_release_page_ids", "self page_ids", release)
+    _wrap(cls, "clear", "self", clear)
+
+
+def _register_static_capture(module):
+    """model_runner.capture_cuda_graphs: mark warmup and capture of the target runner."""
+    from . import static
+
+    original = getattr(module, "capture_cuda_graphs", None)
+    if original is None or "model_runner" not in inspect.signature(original).parameters:
+        raise IncompatibleImage("inkling_kv12s: unexpected model_runner.capture_cuda_graphs")
+    if getattr(original, "_inkling_kv12s", False):
+        return
+
+    @wraps(original)
+    def capture_cuda_graphs(*args, **kwargs):
+        static.CAPTURING.append(True)
+        try:
+            return original(*args, **kwargs)
+        finally:
+            static.CAPTURING.pop()
+
+    capture_cuda_graphs._inkling_kv12s = True
+    module.capture_cuda_graphs = capture_cuda_graphs
+
+
+def _register_static_swa_pool(module):
+    def head_dim(original):
+        def get_v_head_dim(self):
+            if getattr(self.full_kv_pool, "is_inkling_kv12s", False) and self.full_layer_nums > 0:
+                return self.full_kv_pool.get_v_head_dim()
+            return original(self)
+        return get_v_head_dim
+
+    _wrap(module.SWAKVPool, "get_v_head_dim", "self", head_dim)
+
+
 def register():
     from . import side_count
 
     side_count("INKLING_KV12S_FALLBACK_PAGES", "64", 0)  # refuse a bad count before any sizing
     overflow = _overflow_count("INKLING_KV12S_OVERFLOW_HEADS", "2048")
+    if _POOL == "static":
+        register_static()
+        return
+    if _POOL != "unified":
+        raise IncompatibleImage(f"inkling_kv12s: INKLING_KV12S_POOL={_POOL!r} must be static or unified")
     draft_overflow = _overflow_count("INKLING_KV12S_DRAFT_OVERFLOW_HEADS", "2048")
     patches = (
         ("sglang.srt.mem_cache.kv.plan", lambda m: _register_plan(m, overflow, draft_overflow)),
@@ -1224,6 +1590,30 @@ def register():
         ("sglang.srt.managers.scheduler", _register_scheduler),
         ("sglang.srt.managers.schedule_batch", _register_decode_capacity),
         ("sglang.srt.speculative.dspark_components.dspark_verify", _register_verify),
+        ("sglang.srt.session.session_controller", _register_sessions),
+    )
+    for target, patch in patches:
+        when_imported(target, patch)
+
+
+def register_static():
+    """The packed store on the static (non-unified) pools: see static.py."""
+    patches = (
+        ("sglang.srt.mem_cache.kv_cache_configurator", _register_config),
+        ("sglang.srt.mem_cache.kv_cache_configurator", _register_static_pools),
+        ("sglang.srt.model_executor.pool_configurator", _register_static_sizing),
+        ("sglang.srt.mem_cache.allocator.paged", _register_static_release),
+        ("sglang.srt.mem_cache.swa_memory_pool", _register_static_swa_pool),
+        ("sglang.srt.model_executor.model_runner", _register_runner),
+        ("sglang.srt.model_executor.model_runner", _register_static_capture),
+        ("sglang.srt.layers.attention.flashattention_backend", _register_backend),
+        ("sglang.kernels.ops.attention.inkling2_attn", _register_partials),
+        ("sglang.srt.models.inkling_common.inkling2_attn", _register_model),
+        ("sglang.srt.speculative.dspark_components.dspark_worker_v2", lambda m: _register_dspark(m, eager=False)),
+        ("sglang.srt.speculative.dspark_components.dspark_worker_v2", _register_probe_dspark),
+        ("sglang.srt.managers.tp_worker", _register_probe_worker),
+        ("sglang.srt.managers.scheduler", _register_scheduler),
+        ("sglang.srt.managers.schedule_batch", _register_decode_capacity),
         ("sglang.srt.session.session_controller", _register_sessions),
     )
     for target, patch in patches:

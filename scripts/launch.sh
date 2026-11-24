@@ -51,6 +51,7 @@ MOE2=${MOE2:-tiles}                                          # GB10 tile tables 
 VCAP_BV=${VCAP_BV:-1}                                       # block verification under the verify cap (exact; INKLING_VERIFY_CAP_BV=mask)
 VCAP_FASTPROBS=${VCAP_FASTPROBS:-1}                         # draft statistics / sampled accept q from one BF16 read (exact)
 VCAP_FUSED=${VCAP_FUSED:-1}                                 # sampled accept straight from the logits, >= 3 requests (exact)
+NOEXP=${NOEXP:-1}                                           # dead verify rows get no experts under the verify cap (exact for live rows; inactive when the cap or its remap is off)
 KV12=${KV12:-1}                                             # global-layer KV also kept as packed 12-bit pages (exact; side pool)
 CERT_WIDE=${CERT_WIDE:-1}                                   # certified greedy LM head for 17-192-row verify batches (exact)
 KV12S_DEFAULT=${KV12S_DEFAULT:-1}                           # packed global KV store default for the SGLang overlay profile
@@ -62,6 +63,16 @@ case $(printf %s "$KV12S" | tr '[:upper:]' '[:lower:]') in   # one spelling for 
   0|false|no|off|'') KV12S=0 ;;
   *) echo "KV12S must be 0 or 1 (got '$KV12S')" >&2; exit 2 ;;
 esac
+case " ${SGLANG_ENV:-} ${SGLANG_ARGS:-} $* " in                # the store is chosen here, so engine flags and overlay agree
+  *INKLING_KV12*)                                            # any INKLING_KV12* name, with or without a value
+    echo "set KV12S / KV12S_POOL / KV12 / KV12_SLOTS instead of passing the KV store's variables in SGLANG_ENV" >&2; exit 2 ;;
+esac
+[[ $KV12S == 1 ]] && case " ${SGLANG_ENV:-} ${SGLANG_ARGS:-} $* " in
+  *enable-unified-memory*|*cuda-graph-backend-prefill*)
+    echo "with KV12S=1, choose the pool with KV12S_POOL instead of passing its engine flags" >&2; exit 2 ;;
+esac
+KV12S_POOL=${KV12S_POOL:-static}                           # static: stock (non-unified) pools; unified: --enable-unified-memory (v2.7.1)
+case $KV12S_POOL in static|unified) ;; *) echo "KV12S_POOL must be static or unified (got '$KV12S_POOL')" >&2; exit 2 ;; esac
 KV12S_OVERFLOW_HEADS=${KV12S_OVERFLOW_HEADS:-2048}          # exact page-head overflow slots per target visit (32 KiB each)
 KV12S_FALLBACK_PAGES=${KV12S_FALLBACK_PAGES:-64}            # raw fallback pages per visit if that arena is exhausted (512 KiB each)
 KV12_SLOTS=${KV12_SLOTS:-2048}                              # packed side-pool pages per global layer (2048 = 6.1 GiB, one 256K request)
@@ -98,14 +109,24 @@ if [[ $KV12S == 1 ]]; then
   [[ $ENGINE == sglang && $OVERLAY == 1 ]] || {
     echo "KV12S=1 requires ENGINE=sglang and OVERLAY=1" >&2; exit 2; }
   KV12=0
-  # The unified pool leaves less post-capture headroom than the stock pool at the same
-  # fraction; 0.91 keeps MemAvailable above the guard during 8K prefill chunks.
-  [[ -n $MEM_FRACTION_USER ]] || MEM_FRACTION=0.91
-  # 3.5 % of 2.26M FULL tokens still covers 48 requests' windows (think48 + kvstress measured at 0.035).
-  [[ -n $SWA_RATIO_USER ]] || SWA_RATIO=0.035
-  kv12s_args=(--enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48
-              --cuda-graph-max-bs-decode=48)
-  kv12s_env=(-e SGLANG_RAGGED_VERIFY_MODE=static)
+  if [[ $KV12S_POOL == static ]]; then
+    # The packed store replaces the global BF16 pool and the KV12 side copy; with the draft's
+    # window lanes priced per window token (static.DRAFT_WINDOW_LANES), 0.89 sizes ~2.19M
+    # tokens and keeps the kvstress worst case above the 3.5 GiB guard (prefill graphs kept).
+    [[ -n $MEM_FRACTION_USER ]] || MEM_FRACTION=0.89
+    # ~79K window tokens, as v2.7 and v2.7.1 (48 requests' windows plus an 8K chunk).
+    [[ -n $SWA_RATIO_USER ]] || SWA_RATIO=0.037
+    kv12s_args=(--max-running-requests 48 --cuda-graph-max-bs-decode=48)
+  else
+    # The unified pool leaves less post-capture headroom than the stock pool at the same
+    # fraction; 0.91 keeps MemAvailable above the guard during 8K prefill chunks.
+    [[ -n $MEM_FRACTION_USER ]] || MEM_FRACTION=0.91
+    # 3.5 % of 2.26M FULL tokens still covers 48 requests' windows (think48 + kvstress measured at 0.035).
+    [[ -n $SWA_RATIO_USER ]] || SWA_RATIO=0.035
+    kv12s_args=(--enable-unified-memory --cuda-graph-backend-prefill=disabled --max-running-requests 48
+                --cuda-graph-max-bs-decode=48)
+  fi
+  kv12s_env=(-e SGLANG_RAGGED_VERIFY_MODE=static -e INKLING_KV12S_POOL="$KV12S_POOL")
 fi
 
 [[ -f $MODEL_DIR/config.json && -f $MODEL_DIR/mtp.safetensors ]] || {
@@ -142,7 +163,7 @@ if [[ $ENGINE == sglang ]]; then
         -e INKLING_PICO12="$PICO12" -e INKLING_PREFILL="$PREFILL" -e INKLING_PREFILL_QKVR_OUT=strided
         -e INKLING_CERT_HEAD="$CERT_HEAD" -e INKLING_WIDE="$WIDE" -e INKLING_WIDE_SCOPE="$WIDE_SCOPE"
         -e INKLING_VATTN="$VATTN" -e INKLING_ATTN="$ATTN" -e INKLING_PFUSE="$PFUSE" -e INKLING_MOE2="$MOE2" -e INKLING_SCODES="$SCODES"
-        -e INKLING_VERIFY_CAP_FASTPROBS="$VCAP_FASTPROBS" -e INKLING_VERIFY_CAP_FUSED_ACCEPT="$VCAP_FUSED"
+        -e INKLING_VERIFY_CAP_FASTPROBS="$VCAP_FASTPROBS" -e INKLING_VERIFY_CAP_FUSED_ACCEPT="$VCAP_FUSED" -e INKLING_NOEXP="$NOEXP"
         -e INKLING_KV12="$KV12" -e INKLING_KV12_MAX_PAGES="$KV12_SLOTS"
         -e INKLING_CERT_WIDE="$CERT_WIDE" -e INKLING_KV12S="$KV12S" -e INKLING_KV12S_OVERFLOW_HEADS="$KV12S_OVERFLOW_HEADS"
         -e INKLING_KV12S_FALLBACK_PAGES="$KV12S_FALLBACK_PAGES" ${kv12s_env[@]+"${kv12s_env[@]}"})

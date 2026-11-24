@@ -836,7 +836,7 @@ greedy texts. Checks on that difference:
   0.0000 / 0.0010 default, 0.0000 / 0.0007 unified), noise floor at positions 8-40 0.034 / 0.026.
 - Teacher-forced re-scoring of whole texts: 0.051 (default) vs 0.049 (unified) nat/token.
 
-The texts diverge later through floating-point order; neither pool is closer to an exact prefill.
+Neither pool is closer to an exact prefill. v2.7.2 traced the difference to prefill CUDA graphs (below).
 
 Sampled throughput. The first packed build lost 22 % of thinking throughput at c24 on the unified pool. Each token's
 sliding-window band entry held all 40 layer visits, so one layer's 1,024-key window touched ~80 GPU pages per request
@@ -862,3 +862,41 @@ forced retraction; re-scored against prefill, the texts averaged 0.0057 nat/toke
 Logprobs. The certified heads step aside for any batch that asks for logprobs, so clients get the full head's values.
 Runner-up logprobs from a verify step differ from a teacher-forced prefill by ~0.1-0.2 nat above -3 and 1-2 nats
 around -15 to -20, on both pools: the verify and prefill forwards round BF16 differently.
+
+## v2.7.2: packed store on the stock pools, dead-row expert skip
+
+Results: `results/Q272R-s05/`, `results/Q272R-s06/` (full runs), `results/Q272S-s05/` (worst case, 200K / 250K).
+
+Where v2.7.1's 5 / 32 came from. The packed store on SGLang's static pools with prefill CUDA graphs gives greedy
+speedbench quick texts identical to the BF16 store on 32 / 32 prompts (two runs). The same tree with
+`--cuda-graph-backend-prefill=disabled` gives 27 / 32, and the 5 prompts are exactly v2.7.1's (agentic-07, longctx-02,
+longctx-07 in both the measured and sentinel slots, structured-02). The captured prefill graphs run each chunk padded
+to its bucket size; eager prefill runs it unpadded, which changes the floating-point order. The unified storage and
+the eager draft commit play no part.
+
+Captured prefill over a packed prefix. The first static build captured prefill graphs up to 8,192 rows, so every 8K
+chunk of a long prompt read its prefix with the kernel's packed loader instead of the BF16 scratch: a cold 240K needle
+alongside thinking c24 took 189.9 s (thinking 224.7 tok/s) against 86.5 s (309.0) on the BF16 store. The release
+gathers the prefix into the fixed scratch on the device inside the graph (fixed-shape inputs and a fits flag; two
+launches into one output, each gated to zero query rows when it does not apply). Both readers replay bitwise against
+the BF16 kernel, including a single graph replayed across fits -> overflow -> fits. After the fix: needle 92.5 s,
+thinking 304.6 tok/s; cold prefill at parity with v2.7.1.
+
+Sizing. Stock SGLang charges the DSpark draft at three full lanes per global token, but allocates its two
+sliding-window lanes at window size. Charging those lanes per window token (startup refuses if the draft is not one
+global plus two window layers) and `MEM_FRACTION=0.89` gives 2.13-2.17M global-layer tokens with 5.4 GiB at worst.
+
+Dead-row expert skip (`inkling_noexp`). Paired screens on the release tree, two boxes (ABBA, then a component split
+on Spark_06):
+
+| arm | prose c4 / c8 / c16 | code c16 | thinking c24 |
+|---|---|---:|---:|
+| control (2 runs) | 110.2 / 160.1 / 234.2 | 262.7 | 438.1 (3 runs) |
+| NOEXP | 113.3 / 168.1 / 246.6 | 276.2 | 438.1 |
+| quant-once + controller-mix launch | 112.4 / 159.7 / 234.3 | 268.0 | 438.6 |
+| all four candidate overlays (2 runs) | 112.4 / 164.8 / 247.8 | 272.6 | - |
+
+Spark_05 confirmed the bundle against its own controls: prose c4 / c8 / c16 +3.5 / +2.3 / +5.8 %. Thinking at c4
+looked 3 % lower in aggregate but its per-request decode was 1.8 % higher (8 requests in two waves; the wall time
+follows the slowest request). NOEXP shipped; the quant-once and controller-mix launch configs (bit-identical) and the
+pfuse mix launch config (+0.7 % prefill, different FP32 order on long prompts) did not.

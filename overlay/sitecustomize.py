@@ -60,6 +60,9 @@ try:
     elif _on("INKLING_DSPARK_EAGER_COMMIT"):  # diagnostic: KV12S's eager draft commit on stock pools
         from inkling_kv12s.patch import register_eager_commit_only
         register_eager_commit_only()
+    if _on("INKLING_NOEXP"):  # dead verify rows get no experts (exact for live rows; needs INKLING_VERIFY_CAP)
+        import inkling_noexp
+        inkling_noexp.install()
 except BaseException as exc:  # noqa: BLE001
     sys.stderr.write("[inkling-overlay pid=%d] FATAL at startup: %r\n" % (os.getpid(), exc))
     sys.stderr.flush()

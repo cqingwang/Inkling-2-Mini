@@ -414,6 +414,92 @@ def check_prefill(prefix, chunk, device, generator, flush, reps, warps):
             begin = end
 
 
+def check_prefill_capture(device, generator, warps):
+    """Static pools keep prefill CUDA graphs. A captured packed prefill must replay bitwise
+    against the BF16 kernel on BF16 KV for batches it was not captured with. One graph per
+    bucket: a bucket below the scratch threshold (in-kernel loader only), and a 640-row
+    bucket replayed across fits -> overflow -> fits of the bounded scratch, with two
+    requests, a zero-length padding slot, padded query rows (poisoned, must stay unwritten)
+    and prefixes on both sides of the W8 split."""
+    from inkling_attn import ops as attn_ops
+    from inkling_attn.ops import prefill_attention
+    from inkling_attn.patch import use_visit
+    from inkling_kv12s.patch import dispatch_packed_fa4
+
+    pages = 24
+    k, v = raw_cache(pages * PAGE, device, generator)
+    kc, vc = (t.view(-1, PAGE, HEADS_K, DIM) for t in (k, v))
+    proj = normal((16, EXTENT), device, generator) * 0.1
+    layer = Layer.standalone(pages + 1, HEADS_K, device=device)
+    append(layer, k, v, 0, 23 * PAGE + 50)  # a staged tail on page 24
+
+    def unexpected_fallback(**call):
+        raise AssertionError("captured packed prefill fell back to the FA4 gather")
+
+    saved_w8 = attn_ops.W8_FROM
+    attn_ops.W8_FROM = 1024  # requests with >= 1024 prefix keys take the 8-warp launch
+    try:
+        for label, qlen, real, cap, batches in (
+            ("short bucket", 96, (40, 50), 12, ((3 * PAGE + 5, 6 * PAGE), (9 * PAGE + 77, 11 * PAGE + 3))),
+            # 9 -> 22 -> 16 scratch pages against a 20-page scratch; the last batch fits with
+            # request 1 over the W8 threshold and reading the staged tail on page 24.
+            ("scratch bucket", 640, (300, 300), 20,
+             ((3 * PAGE + 5, 4 * PAGE), (9 * PAGE, 11 * PAGE + 7), (320, 11 * PAGE + 40))),
+        ):
+            table = torch.zeros((3, 12), dtype=torch.int32, device=device)
+            table[0] = torch.arange(1, 13, dtype=torch.int32, device=device)
+            table[1] = torch.arange(13, 25, dtype=torch.int32, device=device)
+            q = torch.zeros((qlen, HEADS_Q, DIM), dtype=torch.bfloat16, device=device)
+            r = torch.zeros((qlen, HEADS_Q, 16), dtype=torch.bfloat16, device=device)
+            seq = lengths(device, [qlen, qlen, 0])
+            rows = real[0] + real[1]
+            cu_q = lengths(device, [0, real[0], rows, rows])
+            kwargs = fa4_kwargs(q, layer, table, cu_q, seq, qlen, r, mode="extend")
+            graph = None
+            with bounded_scratch(cap, device, min_rows=512) as scratch:
+                for s0, s1 in batches:
+                    q.copy_(normal((qlen, HEADS_Q, DIM), device, generator))
+                    r.copy_(normal((qlen, HEADS_Q, 16), device, generator))
+                    seq.copy_(lengths(device, [s0, s1, 0]))
+                    if graph is None:
+                        kv12s_patch_static_capturing(True)
+                        try:
+                            stream = torch.cuda.Stream()
+                            stream.wait_stream(torch.cuda.current_stream())
+                            with torch.cuda.stream(stream), use_visit(r, proj):
+                                dispatch_packed_fa4(unexpected_fallback, layer, kwargs, warps=warps)
+                            torch.cuda.current_stream().wait_stream(stream)
+                            graph = torch.cuda.CUDAGraph()
+                            with torch.cuda.graph(graph), use_visit(r, proj):
+                                captured = dispatch_packed_fa4(unexpected_fallback, layer, kwargs, warps=warps)
+                        finally:
+                            kv12s_patch_static_capturing(False)
+                    captured[0].fill_(float("nan"))
+                    graph.replay()
+                    torch.cuda.synchronize()
+                    expected = prefill_attention(q, kc, vc, table, cu_q, seq, r, proj, SCALE, None, warps=warps)
+                    tag = f"captured packed prefill ({label}) prefixes {s0 - real[0]}/{s1 - real[1]}"
+                    equal_bits(f"{tag} output", captured[0][:rows], expected[0][:rows])
+                    equal_bits(f"{tag} LSE", captured[1][:, :rows], expected[1][:, :rows])
+                    if not torch.isnan(captured[0][rows:]).all():
+                        raise AssertionError(f"{tag}: a padded query row was written")
+                if scratch.served:
+                    raise AssertionError("a captured prefill used the host-side scratch gather")
+            print(f"captured packed prefill          bitwise on replay ({label}: {len(batches)} batches, "
+                  "padding slot and rows, W8 split)", flush=True)
+    finally:
+        attn_ops.W8_FROM = saved_w8
+
+
+def kv12s_patch_static_capturing(on):
+    from inkling_kv12s import static
+
+    if on:
+        static.CAPTURING.append(True)
+    elif static.CAPTURING:
+        static.CAPTURING.pop()
+
+
 def check_reader_guards(device, generator, warps, spilling):
     from inkling_attn.ops import packed_prefill_attention, prefill_attention
     from inkling_kv12s.attention import load_test_pages, partials
@@ -1116,6 +1202,7 @@ def run_checks(args):
                 check_fa4(device, generator)
             with phase("fused prefill", device, peaks):
                 check_prefill(4 * PAGE, 64, device, generator, flush, args.prefill_reps, args.warps)
+                check_prefill_capture(device, generator, args.warps)
             if args.large:
                 for rows in (32 * 1024, 128 * 1024):
                     with phase(f"compact {rows // 1024}K", device, peaks, min_free=3 * GIB):

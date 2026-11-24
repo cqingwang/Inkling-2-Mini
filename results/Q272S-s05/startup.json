@@ -1,0 +1,2 @@
+{"label":"Q272S-s05","ready_utc":"2026-11-24T02:34:24Z","startup_s":126,"memavail_ready_gib":6.3,"kv":"[2026-11-24 02:34:22 PID103] max_total_num_tokens=2171392, chunked_prefill_size=8192, max_prefill_tokens=8192, max_running_requests=48, context_len=262144, available_gpu_mem=6.66 GB"}
+{"memavail_end_gib":5.4}

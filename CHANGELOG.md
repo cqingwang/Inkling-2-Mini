@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.7.2 (2026-11-24)
+
+The packed global KV store moves from SGLang's unified memory pool to its stock pools, with prefill CUDA graphs back:
+greedy outputs are now bit-identical to the BF16 store (v2.7.1 differed on 5 of 32 prompts). Verify rows the verify
+cap has cut get no experts (+3 to +6 % concurrent decode). Full runs on both boxes (`results/Q272R-s05/`,
+`results/Q272R-s06/`).
+
+- `inkling_kv12s` on the static pools (`KV12S_POOL=static`, default): the packed target envelopes replace the global
+  BF16 buffers inside SGLang's hybrid sliding-window pools, pages are released on the forward stream, and the draft
+  keeps its own BF16 pool and captured fold. 2,171,392 / 2,126,720 global-layer KV tokens (v2.7 store 1,593,088,
+  v2.7.1 2,264,704); `MEM_FRACTION=0.89`, `SWA_RATIO=0.037`; the draft's two window lanes are charged per window token.
+  Lowest MemAvailable 5.6-6.9 GiB in the full runs and 5.4 GiB in the worst case (thinking c24 alongside a cold 240K
+  needle: needle 92.5 s, thinking 304.6 tok/s).
+- Captured prefill reads the packed prefix through the fixed BF16 scratch, gathered on the device inside the graph
+  (the packed loader when a prefix does not fit); a first build that read every captured 8K chunk with the packed
+  loader was 2.2x slower on a cold 240K prompt. Cold prefill 1K-128K 2,905 / 5,439 / 5,085 / 3,737 tok/s.
+- Exactness: greedy speedbench quick texts identical to the BF16 store on 32 of 32 prompts (two runs, with and without
+  `NOEXP`). v2.7.1's 5 differing prompts came from eager prefill (no padded prefill-graph buckets); the same tree with
+  prefill graphs disabled reproduces exactly those 5.
+- `inkling_noexp` (new, `NOEXP=1`): cut verify rows route to a phantom expert that every MoE kernel skips. Greedy
+  decode prose c4 / c8 / c16 +2.9 / +5.0 / +5.3 %, code c16 +5.1 % in paired screens on both boxes; c1 and thinking
+  above 16 requests unchanged. Inactive when the verify cap or its remap is off.
+- Two-box medians against v2.7.1: speedbench full 63.8 (63.8), prose decode c4 / c8 / c16 113.3 / 164.6 / 244.1
+  (109.9 / 160.5 / 230.9), thinking c1 / c8 / c24 72.2 / 233.6 / 437.1 (71.8 / 237.6 / 436.9), c48 596.4. Warm
+  start-up 122-192 s (prefill graphs are captured again; v2.7.1 86-91 s).
+- `scripts/launch.sh`: `KV12S_POOL=static|unified`; `KV12S_POOL=unified NOEXP=0` reproduces v2.7.1. The launcher
+  refuses packed-store variables or pool flags passed through `SGLANG_ENV` / `SGLANG_ARGS`, so the engine flags and
+  the overlay agree.
+- Screened, not adopted: quant-once routed NVFP4 quantisation and a GB10 launch config for the loop-controller mix
+  (bit-identical, flat in serving at c4-c24); a pfuse attention-side mix launch config (+0.7 % prefill, different
+  FP32 order on prompts of 512 tokens or more).
+- 1M (`CTX=1048576`, Spark_06, `results/Q272M-s06/`): needle PASS at 999,296 tokens in 931 s; a cold 1,024,202-token
+  prefill in 971 s (v2.7.1 1,040 s), decode 13.8 tok/s at a 194 ms step (v2.7.1 16.0 at 215 ms; tokens per step differ
+  with the generated text); pool 2,057,856 tokens; lowest MemAvailable 6.5 GiB.
+
 ## v2.7.1 (2026-11-24)
 
 The packed global KV store is the default (`KV12S=1`): 2.26M global-layer KV tokens instead of 1.59M (+42 %), with

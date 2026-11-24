@@ -123,10 +123,15 @@ def _load_tile(SM, EX, ESC, OFF, Refs, Flags, Staging, Overflow, page, head, slo
 def _load_rows(SM, EX, ESC, OFF, Refs, Flags, Staging, Overflow, Pages, Ends, Out,
                STRIDE: tl.constexpr, NPAGES: tl.constexpr, HEADS: tl.constexpr,
                PAGE: tl.constexpr, D: tl.constexpr, BLOCK: tl.constexpr,
-               NSTAGE: tl.constexpr, NOVERFLOW: tl.constexpr):
+               NSTAGE: tl.constexpr, NOVERFLOW: tl.constexpr, SKIP_EMPTY: tl.constexpr = False):
     dst_page, head, chunk = tl.program_id(0), tl.program_id(1), tl.program_id(2)
     page = tl.load(Pages + dst_page)
     end = tl.load(Ends + dst_page)
+    if SKIP_EMPTY:
+        # Captured gathers launch a fixed grid: slots no request uses (end 0) are
+        # neither read nor written, and the readers never reference them.
+        if end == 0:
+            return
     rows, dims = tl.arange(0, BLOCK), tl.arange(0, D)
     slot = chunk * BLOCK
     for kind in tl.static_range(2):
@@ -348,6 +353,41 @@ class PrefixScratch:
         )
         kv = out.view(torch.bfloat16)
         return kv[0], kv[1], table
+
+    def gather_captured(self, layer, page_table, seq_k):
+        """The same BF16 copy with device-side metadata only (fixed shapes, no host
+        reads), for prefill CUDA graphs. Pages are not deduplicated: request b's
+        page column c goes to slot 1 + (pages of requests < b) + c, slot 0 being
+        the sink. Returns (k, v, table, fits); `fits` is a device bool that is false
+        when the batch needs more slots than the scratch holds, and the caller then
+        reads the packed store directly (nothing was gathered)."""
+        cap = self.max_pages
+        if cap < 2:
+            raise ValueError("inkling_kv12s: a captured prefix scratch needs at least two pages")
+        batch, width = seq_k.numel(), page_table.shape[1]
+        device = layer.device
+        seq = seq_k.to(torch.int64).clamp(0, width * PAGE)
+        pages = (seq + PAGE - 1) // PAGE
+        first = torch.cumsum(pages, 0) - pages + 1
+        fits = pages.sum() + 1 <= cap
+        col = torch.arange(width, device=device)
+        use = (col[None, :] < pages[:, None]) & fits
+        slot = first[:, None] + col[None, :]
+        table = torch.zeros_like(page_table)
+        table[:batch, :width] = torch.where(use, slot, 0).to(page_table.dtype)
+        dest = torch.where(use, slot, cap).reshape(-1)
+        ids = torch.zeros(cap + 1, dtype=torch.int32, device=device)
+        ids.scatter_(0, dest, page_table[:batch, :width].reshape(-1).to(torch.int32))
+        rows = (seq[:, None] - col[None, :] * PAGE).clamp(0, PAGE)
+        ends = torch.zeros(cap + 1, dtype=torch.int32, device=device)
+        ends.scatter_(0, dest, torch.where(use, rows, 0).reshape(-1).to(torch.int32))
+        out = self.buffer[:2 * cap * PAGE * layer.heads * DIM].view(2, cap, PAGE, layer.heads, DIM)
+        _load_rows[(cap, layer.heads, PAGE // CHUNK)](
+            *_planes(layer), ids, ends, out, layer.page_stride, layer.pages, layer.heads,
+            PAGE, DIM, CHUNK, layer.stage.shape[0], layer.overflow.shape[0], True,
+        )
+        kv = out.view(torch.bfloat16)
+        return kv[0], kv[1], table, fits
 
 
 @triton.jit(do_not_specialize=["stride", "width"])

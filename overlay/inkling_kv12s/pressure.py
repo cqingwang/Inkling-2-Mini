@@ -263,6 +263,10 @@ def record_after(result, batch=None):
 
 
 def outermost(call, batch=None):
+    if not _RECORDING.get():
+        from .static import note_forward_stream
+
+        note_forward_stream()  # a serving forward: its stream orders static-pool releases
     token = _RECORDING.set(_RECORDING.get() + 1)
     try:
         result = call()
